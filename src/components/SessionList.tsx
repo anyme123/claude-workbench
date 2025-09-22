@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FileText, ArrowLeft, Calendar, Clock, MessageSquare } from "lucide-react";
+import { FileText, ArrowLeft, Calendar, Clock, MessageSquare, Plus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
@@ -8,6 +8,7 @@ import { ClaudeMemoriesDropdown } from "@/components/ClaudeMemoriesDropdown";
 import { cn } from "@/lib/utils";
 import { formatUnixTimestamp, formatISOTimestamp, truncateText, getFirstLine } from "@/lib/date-utils";
 import type { Session, ClaudeMdFile } from "@/lib/api";
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface SessionListProps {
   /**
@@ -30,6 +31,10 @@ interface SessionListProps {
    * Callback when a CLAUDE.md file should be edited
    */
   onEditClaudeFile?: (file: ClaudeMdFile) => void;
+  /**
+   * Callback when new session button is clicked
+   */
+  onNewSession?: (projectPath: string) => void;
   /**
    * Optional className for styling
    */
@@ -55,8 +60,10 @@ export const SessionList: React.FC<SessionListProps> = ({
   onBack,
   onSessionClick,
   onEditClaudeFile,
+  onNewSession,
   className,
 }) => {
+  const { t } = useTranslation();
   const [currentPage, setCurrentPage] = useState(1);
   
   // Calculate pagination
@@ -106,6 +113,25 @@ export const SessionList: React.FC<SessionListProps> = ({
             projectPath={projectPath}
             onEditFile={onEditClaudeFile}
           />
+        </motion.div>
+      )}
+
+      {/* New Session Button */}
+      {onNewSession && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
+          className="mb-4"
+        >
+          <Button
+            onClick={() => onNewSession(projectPath)}
+            size="default"
+            className="w-full max-w-md"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            {t('claude.newSession')}
+          </Button>
         </motion.div>
       )}
 

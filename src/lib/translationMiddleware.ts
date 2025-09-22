@@ -70,12 +70,43 @@ export class TranslationMiddleware {
   }
 
   /**
-   * 翻译用户输入（中文->英文）
+   * 检测是否为斜杠命令
    * 
+   * @param text 输入文本
+   * @returns 是否为斜杠命令
+   */
+  private isSlashCommand(text: string): boolean {
+    const trimmedText = text.trim();
+    
+    // 检查是否以斜杠开头
+    if (!trimmedText.startsWith('/')) {
+      return false;
+    }
+    
+    // 排除双斜杠注释（如 // 注释）
+    if (trimmedText.startsWith('//')) {
+      return false;
+    }
+    
+    // 排除直接的URL（整个字符串是URL）
+    if (trimmedText.match(/^https?:\/\/|^ftp:\/\/|^file:\/\/|^\/\//)) {
+      return false;
+    }
+    
+    return true;
+  }
+
+  /**
+   * 翻译用户输入（中文->英文）
+   *
    * 在发送给Claude API之前调用此方法
    * 如果输入是中文，则翻译为英文
    * 如果输入已经是英文或翻译功能未启用，则直接返回原文
-   * 
+   *
+   * 特殊处理：
+   * - 跳过斜杠命令（以 / 开头的命令）的翻译，保持原样传递
+   * - 增强了斜杠命令检测的鲁棒性，避免误判URL等情况
+   *
    * @param userInput 用户输入的原始文本
    * @returns 处理后的文本（翻译后的英文或原始文本）
    */
@@ -86,6 +117,26 @@ export class TranslationMiddleware {
     detectedLanguage: string;
   }> {
     await this.ensureInitialized();
+
+    // 检查是否为斜杠命令 - 如果是，直接返回原文不翻译
+    if (this.isSlashCommand(userInput)) {
+      const trimmedInput = userInput.trim();
+      const commandPreview = trimmedInput.split('\n')[0];
+      console.log('[TranslationMiddleware] ✅ Detected slash command, skipping translation:', {
+        command: commandPreview,
+        originalLength: userInput.length,
+        trimmedLength: trimmedInput.length
+      });
+      
+      // 对于斜杠命令，我们仍然检测语言，但不进行翻译
+      const detectedLang = await this.detectLanguage(userInput);
+      return {
+        translatedText: userInput,
+        originalText: userInput,
+        wasTranslated: false,
+        detectedLanguage: detectedLang,
+      };
+    }
 
     // 检查翻译功能是否启用
     if (!this.config?.enabled) {
@@ -308,6 +359,34 @@ export class TranslationMiddleware {
 
 // 导出单例实例
 export const translationMiddleware = new TranslationMiddleware();
+
+/**
+ * 工具函数：检测是否为斜杠命令
+ * 可以在其他组件中使用，确保检测逻辑的一致性
+ * 
+ * @param text 输入文本
+ * @returns 是否为斜杠命令
+ */
+export function isSlashCommand(text: string): boolean {
+  const trimmedText = text.trim();
+  
+  // 检查是否以斜杠开头
+  if (!trimmedText.startsWith('/')) {
+    return false;
+  }
+  
+  // 排除双斜杠注释（如 // 注释）
+  if (trimmedText.startsWith('//')) {
+    return false;
+  }
+  
+  // 排除直接的URL（整个字符串是URL）
+  if (trimmedText.match(/^https?:\/\/|^ftp:\/\/|^file:\/\/|^\/\//)) {
+    return false;
+  }
+  
+  return true;
+}
 
 /**
  * 翻译结果接口

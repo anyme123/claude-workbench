@@ -32,7 +32,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { SplitPane } from "@/components/ui/split-pane";
 import { WebviewPreview } from "./WebviewPreview";
 import type { ClaudeStreamMessage } from "./AgentExecution";
-import { translationMiddleware, type TranslationResult } from '@/lib/translationMiddleware';
+import { translationMiddleware, isSlashCommand, type TranslationResult } from '@/lib/translationMiddleware';
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 interface ClaudeCodeSessionProps {
@@ -501,11 +501,16 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
     }
 
     // Check if this is a slash command and handle it appropriately
+    const isSlashCommandInput = isSlashCommand(prompt);
     const trimmedPrompt = prompt.trim();
-    const isSlashCommand = trimmedPrompt.startsWith('/');
     
-    if (isSlashCommand) {
-      console.log('[ClaudeCodeSession] Detected slash command:', trimmedPrompt);
+    if (isSlashCommandInput) {
+      const commandPreview = trimmedPrompt.split('\n')[0];
+      console.log('[ClaudeCodeSession] ✅ Detected slash command, bypassing translation:', {
+        command: commandPreview,
+        model: model,
+        projectPath: projectPath
+      });
       
       // For slash commands, we need to send them as-is to Claude CLI
       // Claude CLI should handle the slash command parsing and execution
@@ -884,25 +889,35 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = ({
         // 🌐 Translation: Process user input before sending to Claude
         let processedPrompt = prompt;
         let userInputTranslation: TranslationResult | null = null;
-        
-        try {
-          const isEnabled = await translationMiddleware.isEnabled();
-          if (isEnabled) {
-            console.log('[ClaudeCodeSession] Translation enabled, processing user input...');
-            userInputTranslation = await translationMiddleware.translateUserInput(prompt);
-            processedPrompt = userInputTranslation.translatedText;
-            
-            if (userInputTranslation.wasTranslated) {
-              console.log('[ClaudeCodeSession] User input translated:', {
-                original: userInputTranslation.originalText,
-                translated: userInputTranslation.translatedText,
-                language: userInputTranslation.detectedLanguage
-              });
+
+        // Skip translation entirely for slash commands
+        if (!isSlashCommandInput) {
+          try {
+            const isEnabled = await translationMiddleware.isEnabled();
+            if (isEnabled) {
+              console.log('[ClaudeCodeSession] Translation enabled, processing user input...');
+              // 确保传递给翻译中间件的参数与本地检测使用的参数一致
+              userInputTranslation = await translationMiddleware.translateUserInput(prompt);
+              processedPrompt = userInputTranslation.translatedText;
+
+              if (userInputTranslation.wasTranslated) {
+                console.log('[ClaudeCodeSession] User input translated:', {
+                  original: userInputTranslation.originalText,
+                  translated: userInputTranslation.translatedText,
+                  language: userInputTranslation.detectedLanguage
+                });
+              }
             }
+          } catch (translationError) {
+            console.error('[ClaudeCodeSession] Translation failed, using original prompt:', translationError);
+            // Continue with original prompt if translation fails
           }
-        } catch (translationError) {
-          console.error('[ClaudeCodeSession] Translation failed, using original prompt:', translationError);
-          // Continue with original prompt if translation fails
+        } else {
+          const commandPreview = trimmedPrompt.split('\n')[0];
+          console.log('[ClaudeCodeSession] ✅ Slash command detected, skipping translation:', {
+            command: commandPreview,
+            translationEnabled: await translationMiddleware.isEnabled()
+          });
         }
         
         // Store the translation result AFTER all processing for response translation

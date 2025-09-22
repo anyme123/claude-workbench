@@ -60,6 +60,7 @@ function App() {
   const [previousView, setPreviousView] = useState<View>("welcome");
   const [showNavigationConfirm, setShowNavigationConfirm] = useState(false);
   const [pendingView, setPendingView] = useState<View | null>(null);
+  const [newSessionProjectPath, setNewSessionProjectPath] = useState<string>("");
 
   // 在项目视图中挂载时加载项目
   // Load projects on mount when in projects view
@@ -382,6 +383,11 @@ function App() {
                         projectPath={selectedProject.path}
                         onBack={handleBack}
                         onEditClaudeFile={handleEditClaudeFile}
+                        onNewSession={(projectPath) => {
+                          setSelectedSession(null); // Clear any existing session
+                          setNewSessionProjectPath(projectPath); // Store the project path for new session
+                          handleViewChange("claude-code-session");
+                        }}
                       />
                     </motion.div>
                   ) : (
@@ -450,8 +456,10 @@ function App() {
         return (
           <ClaudeCodeSession
             session={selectedSession || undefined}
+            initialProjectPath={newSessionProjectPath}
             onBack={() => {
               setSelectedSession(null);
+              setNewSessionProjectPath(""); // Clear the project path
               handleViewChange("projects");
             }}
             onStreamingChange={(isStreaming, sessionId) => {
