@@ -228,9 +228,9 @@ export const TabManager: React.FC<TabManagerProps> = ({
                   >
                     {/* 会话状态指示器 */}
                     <div className="flex-shrink-0">
-                      {tab.streamingStatus?.isStreaming ? (
+                      {tab.state === 'streaming' ? (
                         <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
-                      ) : tab.hasChanges ? (
+                      ) : tab.hasUnsavedChanges ? (
                         <div className="h-2 w-2 bg-orange-500 rounded-full" />
                       ) : (
                         <MessageSquare className="h-3.5 w-3.5" />

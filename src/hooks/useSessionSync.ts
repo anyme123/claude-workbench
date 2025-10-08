@@ -32,7 +32,7 @@ export const useSessionSync = () => {
         tabs.forEach(tab => {
           if (tab.session?.id) {
             const isActuallyRunning = runningSessionIds.has(tab.session.id);
-            const tabThinkRunning = tab.streamingStatus?.isStreaming;
+            const tabThinkRunning = tab.state === 'streaming';
 
             // 状态不一致，修正
             if (isActuallyRunning && !tabThinkRunning) {
