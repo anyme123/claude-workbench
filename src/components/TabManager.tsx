@@ -71,14 +71,8 @@ export const TabManager: React.FC<TabManagerProps> = ({
   const [tabToClose, setTabToClose] = useState<string | null>(null); // 🔧 NEW: 待关闭的标签页ID（需要确认）
   const tabsContainerRef = useRef<HTMLDivElement>(null);
 
-  // 🔧 IMPROVED: 使用单一状态机管理初始化，替换双重ref跟踪
-  type InitState =
-    | { type: 'uninitialized' }
-    | { type: 'initialized'; source: 'session'; sessionId: string }
-    | { type: 'initialized'; source: 'path'; path: string }
-    | { type: 'initialized'; source: 'empty' };
-
-  const [initState, setInitState] = useState<InitState>({ type: 'uninitialized' });
+  // ✨ Phase 3: Simple initialization flag (no complex state machine)
+  const initializedRef = useRef(false);
 
   // 拖拽处理
   const handleTabDragStart = useCallback((tabId: string) => {
@@ -134,50 +128,35 @@ export const TabManager: React.FC<TabManagerProps> = ({
     }
   }, [tabToClose, closeTab]);
 
-  // 🔧 IMPROVED: 使用状态机简化初始化逻辑（从63行减少到45行）
+  // ✨ Phase 3: Simplified initialization (single responsibility, no race conditions)
   useEffect(() => {
-    // 状态机：只在uninitialized状态时执行初始化
-    if (initState.type !== 'uninitialized') {
-      return;
-    }
+    // Only run once
+    if (initializedRef.current) return;
+    initializedRef.current = true;
 
-    // 如果已经有标签页（localStorage恢复），标记为已初始化
+    // Priority 1: Tabs restored from localStorage
     if (tabs.length > 0) {
-      console.log('[TabManager] Tabs restored from localStorage, marking as initialized');
-      setInitState({ type: 'initialized', source: 'empty' });
+      console.log('[TabManager] Tabs restored from localStorage');
       return;
     }
 
-    // 初始化逻辑：按优先级处理
+    // Priority 2: Initial session provided
     if (initialSession) {
-      const sessionId = initialSession.id;
-      // 检查是否已存在该会话的标签页
-      const existingTab = tabs.find(tab => tab.session?.id === sessionId);
-      if (!existingTab) {
-        console.log('[TabManager] Creating tab for initial session:', sessionId);
-        createNewTab(initialSession);
-        setInitState({ type: 'initialized', source: 'session', sessionId });
-      } else {
-        console.log('[TabManager] Tab for session already exists, skipping');
-        setInitState({ type: 'initialized', source: 'session', sessionId });
-      }
-    } else if (initialProjectPath) {
-      // 检查是否已存在该路径的标签页
-      const existingTab = tabs.find(tab => tab.projectPath === initialProjectPath);
-      if (!existingTab) {
-        console.log('[TabManager] Creating tab for initial project:', initialProjectPath);
-        createNewTab(undefined, initialProjectPath);
-        setInitState({ type: 'initialized', source: 'path', path: initialProjectPath });
-      } else {
-        console.log('[TabManager] Tab for path already exists, skipping');
-        setInitState({ type: 'initialized', source: 'path', path: initialProjectPath });
-      }
-    } else {
-      // 无初始数据，显示空状态
-      console.log('[TabManager] No initial data - showing empty state');
-      setInitState({ type: 'initialized', source: 'empty' });
+      console.log('[TabManager] Creating tab for initial session:', initialSession.id);
+      createNewTab(initialSession);
+      return;
     }
-  }, [initState, tabs, initialSession, initialProjectPath, createNewTab]);
+
+    // Priority 3: Initial project path provided
+    if (initialProjectPath) {
+      console.log('[TabManager] Creating tab for initial project:', initialProjectPath);
+      createNewTab(undefined, initialProjectPath);
+      return;
+    }
+
+    // Priority 4: No initial data - show empty state
+    console.log('[TabManager] No initial data, showing empty state');
+  }, []); // Empty deps - only run once on mount
 
   return (
     <TooltipProvider>
