@@ -1919,9 +1919,21 @@ async fn spawn_claude_process(app: AppHandle, mut cmd: Command, prompt: String, 
                                     let mut run_id_guard = run_id_holder_clone.lock().unwrap();
                                     *run_id_guard = Some(run_id);
 
-                                    // Claude CLI already creates the project folder and session files automatically
-                                    // We don't need to create them manually, which was causing duplicate projects
-                                    // The Claude CLI handles all project management internally
+                                    // ✨ Phase 2: Emit event for real-time session tracking
+                                    let event_payload = serde_json::json!({
+                                        "session_id": claude_session_id,
+                                        "project_path": project_path_clone,
+                                        "model": model_clone,
+                                        "status": "started",
+                                        "pid": pid,
+                                        "run_id": run_id,
+                                    });
+                                    if let Err(e) = app_handle.emit("claude-session-state", &event_payload) {
+                                        log::warn!("Failed to emit claude-session-state event: {}", e);
+                                    } else {
+                                        log::info!("Emitted claude-session-started event for session: {}", claude_session_id);
+                                    }
+
                                     log::info!("Claude CLI will handle project creation for session: {}", claude_session_id);
                                 }
                                 Err(e) => {
@@ -2047,6 +2059,14 @@ async fn spawn_claude_process(app: AppHandle, mut cmd: Command, prompt: String, 
                     // Add a small delay to ensure all messages are processed
                     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
                     if let Some(ref session_id) = *session_id_holder_clone3.lock().unwrap() {
+                        // ✨ Phase 2: Emit state change event
+                        let event_payload = serde_json::json!({
+                            "session_id": session_id,
+                            "status": "stopped",
+                            "success": status.success(),
+                        });
+                        let _ = app_handle_wait.emit("claude-session-state", &event_payload);
+                        
                         let _ = app_handle_wait.emit(
                             &format!("claude-complete:{}", session_id),
                             status.success(),
@@ -2060,6 +2080,15 @@ async fn spawn_claude_process(app: AppHandle, mut cmd: Command, prompt: String, 
                     // Add a small delay to ensure all messages are processed
                     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
                     if let Some(ref session_id) = *session_id_holder_clone3.lock().unwrap() {
+                        // ✨ Phase 2: Emit state change event for error case
+                        let event_payload = serde_json::json!({
+                            "session_id": session_id,
+                            "status": "stopped",
+                            "success": false,
+                            "error": e.to_string(),
+                        });
+                        let _ = app_handle_wait.emit("claude-session-state", &event_payload);
+                        
                         let _ = app_handle_wait
                             .emit(&format!("claude-complete:{}", session_id), false);
                     }
