@@ -57,6 +57,7 @@
     "remark-gfm": "^4.0.0",
     "tailwind-merge": "^2.6.0",
     "tailwindcss": "^4.1.8",
+    "use-debounce": "^10.0.6",
     "zod": "^3.24.1"
   },
   "devDependencies": {
