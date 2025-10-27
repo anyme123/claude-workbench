@@ -1,11 +1,11 @@
 import React, { useState, useRef, forwardRef, useImperativeHandle, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Maximize2, Minimize2, X, Wand2, ChevronDown, DollarSign, Info } from "lucide-react";
+import { Maximize2, Minimize2, X, Wand2, ChevronDown, DollarSign, Info, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { FilePicker } from "../FilePicker";
 import { SlashCommandPicker } from "../SlashCommandPicker";
 import { ImagePreview } from "../ImagePreview";
@@ -21,6 +21,7 @@ import { useFileSelection } from "./hooks/useFileSelection";
 import { useSlashCommands } from "./hooks/useSlashCommands";
 import { usePromptEnhancement } from "./hooks/usePromptEnhancement";
 import { api } from "@/lib/api";
+import { getEnabledProviders } from "@/lib/promptEnhancementService";
 
 // Re-export types for external use
 export type { FloatingPromptInputRef, FloatingPromptInputProps, ThinkingMode, ModelType } from "./types";
@@ -133,6 +134,7 @@ const FloatingPromptInputInner = (
     isEnhancing,
     handleEnhancePrompt,
     handleEnhancePromptWithGemini,
+    handleEnhancePromptWithAPI,
   } = usePromptEnhancement({
     prompt,
     selectedModel,
@@ -408,12 +410,39 @@ const FloatingPromptInputInner = (
                         <ChevronDown className="h-3 w-3" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+                    <DropdownMenuContent align="end" className="w-56">
                       <DropdownMenuItem onClick={handleEnhancePrompt}>
-                        使用 Claude
+                        使用 Claude (本地CLI)
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={handleEnhancePromptWithGemini}>
-                        使用 Gemini
+                        使用 Gemini (本地CLI)
+                      </DropdownMenuItem>
+                      
+                      {/* 第三方API提供商 */}
+                      {(() => {
+                        const enabledProviders = getEnabledProviders();
+                        if (enabledProviders.length > 0) {
+                          return (
+                            <>
+                              <DropdownMenuSeparator />
+                              {enabledProviders.map((provider) => (
+                                <DropdownMenuItem
+                                  key={provider.id}
+                                  onClick={() => handleEnhancePromptWithAPI(provider.id)}
+                                >
+                                  {provider.name}
+                                </DropdownMenuItem>
+                              ))}
+                            </>
+                          );
+                        }
+                        return null;
+                      })()}
+                      
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => window.dispatchEvent(new CustomEvent('open-prompt-api-settings'))}>
+                        <Settings className="h-3 w-3 mr-2" />
+                        管理API配置
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -669,12 +698,39 @@ const FloatingPromptInputInner = (
                   <ChevronDown className="h-3 w-3" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuItem onClick={handleEnhancePrompt}>
-                  使用 Claude
+                  使用 Claude (本地CLI)
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleEnhancePromptWithGemini}>
-                  使用 Gemini
+                  使用 Gemini (本地CLI)
+                </DropdownMenuItem>
+                
+                {/* 第三方API提供商 */}
+                {(() => {
+                  const enabledProviders = getEnabledProviders();
+                  if (enabledProviders.length > 0) {
+                    return (
+                      <>
+                        <DropdownMenuSeparator />
+                        {enabledProviders.map((provider) => (
+                          <DropdownMenuItem
+                            key={provider.id}
+                            onClick={() => handleEnhancePromptWithAPI(provider.id)}
+                          >
+                            {provider.name}
+                          </DropdownMenuItem>
+                        ))}
+                      </>
+                    );
+                  }
+                  return null;
+                })()}
+                
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => window.dispatchEvent(new CustomEvent('open-prompt-api-settings'))}>
+                  <Settings className="h-3 w-3 mr-2" />
+                  管理API配置
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

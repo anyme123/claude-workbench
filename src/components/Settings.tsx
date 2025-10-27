@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { Toast, ToastContainer } from "@/components/ui/toast";
 import { ClaudeVersionSelector } from "./ClaudeVersionSelector";
 import { StorageTab } from "./StorageTab";
+import { PromptEnhancementSettings } from "./PromptEnhancementSettings";
 import { HooksEditor } from "./HooksEditor";
 import { SlashCommandsManager } from "./SlashCommandsManager";
 import { LanguageSelector } from "./LanguageSelector";
@@ -443,13 +444,14 @@ export const Settings: React.FC<SettingsProps> = ({
       ) : (
         <div className="flex-1 overflow-y-auto p-4">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid grid-cols-8 w-full">
+            <TabsList className="grid grid-cols-9 w-full">
               <TabsTrigger value="general">{t('settings.general')}</TabsTrigger>
               <TabsTrigger value="permissions">权限</TabsTrigger>
               <TabsTrigger value="environment">环境</TabsTrigger>
               <TabsTrigger value="hooks">钩子</TabsTrigger>
               <TabsTrigger value="commands">命令</TabsTrigger>
               <TabsTrigger value="translation">翻译</TabsTrigger>
+              <TabsTrigger value="prompt-api">提示词API</TabsTrigger>
               <TabsTrigger value="provider">代理商</TabsTrigger>
               <TabsTrigger value="storage">{t('settings.storage')}</TabsTrigger>
             </TabsList>
@@ -924,6 +926,11 @@ export const Settings: React.FC<SettingsProps> = ({
             {/* Translation Tab */}
             <TabsContent value="translation">
               <TranslationSettings />
+            </TabsContent>
+            
+            {/* Prompt Enhancement API Tab */}
+            <TabsContent value="prompt-api">
+              <PromptEnhancementSettings />
             </TabsContent>
             
             {/* Provider Tab */}
