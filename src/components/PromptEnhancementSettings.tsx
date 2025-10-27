@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   loadConfig,
   addProvider,
@@ -157,6 +158,10 @@ export const PromptEnhancementSettings: React.FC<PromptEnhancementSettingsProps>
             <Sparkles className="h-3 w-3 mr-1" />
             SiliconFlow
           </Button>
+          <Button variant="outline" size="sm" onClick={() => handleUsePreset('gemini')}>
+            <Sparkles className="h-3 w-3 mr-1" />
+            Google Gemini
+          </Button>
         </div>
       </Card>
 
@@ -188,7 +193,7 @@ export const PromptEnhancementSettings: React.FC<PromptEnhancementSettingsProps>
                   <div className="text-sm text-muted-foreground space-y-1">
                     <div>模型: {provider.model}</div>
                     <div className="truncate">API: {provider.apiUrl}</div>
-                    <div>温度: {provider.temperature} | 最大Token: {provider.maxTokens}</div>
+                    <div>格式: {provider.apiFormat === 'gemini' ? 'Gemini' : 'OpenAI'} | 温度: {provider.temperature} | 最大Token: {provider.maxTokens}</div>
                   </div>
                 </div>
                 
@@ -294,6 +299,22 @@ export const PromptEnhancementSettings: React.FC<PromptEnhancementSettingsProps>
                   onChange={(e) => setEditingProvider({ ...editingProvider, model: e.target.value })}
                   placeholder="gpt-4o"
                 />
+              </div>
+
+              <div>
+                <Label>API 格式</Label>
+                <Select
+                  value={editingProvider.apiFormat || 'openai'}
+                  onValueChange={(value) => setEditingProvider({ ...editingProvider, apiFormat: value as 'openai' | 'gemini' })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="openai">OpenAI 格式</SelectItem>
+                    <SelectItem value="gemini">Google Gemini 格式</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

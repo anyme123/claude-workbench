@@ -12,6 +12,7 @@ export interface PromptEnhancementProvider {
   temperature?: number;
   maxTokens?: number;
   enabled: boolean;
+  apiFormat?: 'openai' | 'gemini';  // ⚡ 新增：API 格式类型
 }
 
 export interface PromptEnhancementConfig {
@@ -31,24 +32,35 @@ export const PRESET_PROVIDERS = {
     apiUrl: 'https://api.openai.com/v1',
     model: 'gpt-4o',
     temperature: 0.7,
+    apiFormat: 'openai' as const,
   },
   deepseek: {
     name: 'Deepseek Chat',
     apiUrl: 'https://api.deepseek.com/v1',
     model: 'deepseek-chat',
     temperature: 0.7,
+    apiFormat: 'openai' as const,
   },
   qwen: {
     name: '通义千问 Max',
     apiUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     model: 'qwen-max',
     temperature: 0.7,
+    apiFormat: 'openai' as const,
   },
   siliconflow: {
     name: 'SiliconFlow Qwen',
     apiUrl: 'https://api.siliconflow.cn/v1',
     model: 'Qwen/Qwen2.5-72B-Instruct',
     temperature: 0.7,
+    apiFormat: 'openai' as const,
+  },
+  gemini: {
+    name: 'Google Gemini 2.0',
+    apiUrl: 'https://generativelanguage.googleapis.com',
+    model: 'gemini-2.0-flash-exp',
+    temperature: 0.7,
+    apiFormat: 'gemini' as const,
   },
 };
 
@@ -137,7 +149,95 @@ export function saveConfig(config: PromptEnhancementConfig): void {
 }
 
 /**
- * 调用提示词优化API
+ * 调用 OpenAI 格式的API
+ */
+async function callOpenAIFormat(
+  provider: PromptEnhancementProvider,
+  systemPrompt: string,
+  userPrompt: string
+): Promise<string> {
+  const requestBody = {
+    model: provider.model,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ],
+    temperature: provider.temperature || 0.7,
+    max_tokens: provider.maxTokens || 2000,
+  };
+
+  const response = await fetch(`${provider.apiUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${provider.apiKey}`,
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`API request failed: ${response.status} ${response.statusText}\n${errorText}`);
+  }
+
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) {
+    throw new Error('API returned empty response');
+  }
+
+  return content.trim();
+}
+
+/**
+ * 调用 Gemini 格式的API
+ */
+async function callGeminiFormat(
+  provider: PromptEnhancementProvider,
+  systemPrompt: string,
+  userPrompt: string
+): Promise<string> {
+  const requestBody = {
+    contents: [
+      {
+        parts: [
+          { text: systemPrompt + '\n\n' + userPrompt }
+        ]
+      }
+    ],
+    generationConfig: {
+      temperature: provider.temperature || 0.7,
+      maxOutputTokens: provider.maxTokens || 2000,
+    }
+  };
+
+  // Gemini API 格式：/v1beta/models/{model}:generateContent
+  const endpoint = `${provider.apiUrl}/v1beta/models/${provider.model}:generateContent?key=${provider.apiKey}`;
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gemini API request failed: ${response.status} ${response.statusText}\n${errorText}`);
+  }
+
+  const data = await response.json();
+  const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!content) {
+    throw new Error('Gemini API returned empty response');
+  }
+
+  return content.trim();
+}
+
+/**
+ * 调用提示词优化API（支持多种格式）
  */
 export async function callEnhancementAPI(
   provider: PromptEnhancementProvider,
@@ -154,43 +254,18 @@ ${context && context.length > 0 ? `\n当前对话上下文：\n${context.join('\
 
 请直接返回优化后的提示词，不要添加解释。`;
 
-  const requestBody = {
-    model: provider.model,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: `请优化以下提示词：\n\n${prompt}` }
-    ],
-    temperature: provider.temperature || 0.7,
-    max_tokens: provider.maxTokens || 2000,
-  };
+  const userPrompt = `请优化以下提示词：\n\n${prompt}`;
 
-  console.log('[PromptEnhancement] Calling API:', provider.name, provider.apiUrl);
+  console.log('[PromptEnhancement] Calling API:', provider.name, provider.apiFormat || 'openai');
 
   try {
-    const response = await fetch(`${provider.apiUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${provider.apiKey}`,
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`API request failed: ${response.status} ${response.statusText}\n${errorText}`);
+    // 根据API格式调用不同的函数
+    if (provider.apiFormat === 'gemini') {
+      return await callGeminiFormat(provider, systemPrompt, userPrompt);
+    } else {
+      // 默认使用 OpenAI 格式
+      return await callOpenAIFormat(provider, systemPrompt, userPrompt);
     }
-
-    const data = await response.json();
-    
-    // 提取响应内容
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new Error('API returned empty response');
-    }
-
-    console.log('[PromptEnhancement] API call successful');
-    return content.trim();
   } catch (error) {
     console.error('[PromptEnhancement] API call failed:', error);
     throw error;
