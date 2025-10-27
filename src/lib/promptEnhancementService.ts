@@ -31,35 +31,31 @@ export const PRESET_PROVIDERS = {
     name: 'OpenAI GPT-4',
     apiUrl: 'https://api.openai.com/v1',
     model: 'gpt-4o',
-    temperature: 0.7,
     apiFormat: 'openai' as const,
+    // ⚡ 不设置 temperature 和 maxTokens，让API使用默认值
   },
   deepseek: {
     name: 'Deepseek Chat',
     apiUrl: 'https://api.deepseek.com/v1',
     model: 'deepseek-chat',
-    temperature: 0.7,
     apiFormat: 'openai' as const,
   },
   qwen: {
     name: '通义千问 Max',
     apiUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     model: 'qwen-max',
-    temperature: 0.7,
     apiFormat: 'openai' as const,
   },
   siliconflow: {
     name: 'SiliconFlow Qwen',
     apiUrl: 'https://api.siliconflow.cn/v1',
     model: 'Qwen/Qwen2.5-72B-Instruct',
-    temperature: 0.7,
     apiFormat: 'openai' as const,
   },
   gemini: {
     name: 'Google Gemini 2.0',
     apiUrl: 'https://generativelanguage.googleapis.com',
     model: 'gemini-2.0-flash-exp',
-    temperature: 0.7,
     apiFormat: 'gemini' as const,
   },
 };
@@ -156,15 +152,22 @@ async function callOpenAIFormat(
   systemPrompt: string,
   userPrompt: string
 ): Promise<string> {
-  const requestBody = {
+  // ⚡ 只包含必需字段，可选参数由用户决定是否添加
+  const requestBody: any = {
     model: provider.model,
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
     ],
-    temperature: provider.temperature || 0.7,
-    max_tokens: provider.maxTokens || 2000,
   };
+  
+  // 只在用户设置时才添加可选参数
+  if (provider.temperature !== undefined && provider.temperature !== null) {
+    requestBody.temperature = provider.temperature;
+  }
+  if (provider.maxTokens !== undefined && provider.maxTokens !== null) {
+    requestBody.max_tokens = provider.maxTokens;
+  }
 
   const response = await fetch(`${provider.apiUrl}/chat/completions`, {
     method: 'POST',
@@ -197,7 +200,7 @@ async function callGeminiFormat(
   systemPrompt: string,
   userPrompt: string
 ): Promise<string> {
-  const requestBody = {
+  const requestBody: any = {
     contents: [
       {
         parts: [
@@ -205,11 +208,21 @@ async function callGeminiFormat(
         ]
       }
     ],
-    generationConfig: {
-      temperature: provider.temperature || 0.7,
-      maxOutputTokens: provider.maxTokens || 2000,
-    }
   };
+  
+  // ⚡ 只在用户设置时才添加可选参数
+  const generationConfig: any = {};
+  if (provider.temperature !== undefined && provider.temperature !== null) {
+    generationConfig.temperature = provider.temperature;
+  }
+  if (provider.maxTokens !== undefined && provider.maxTokens !== null) {
+    generationConfig.maxOutputTokens = provider.maxTokens;
+  }
+  
+  // 只在有配置时才添加 generationConfig
+  if (Object.keys(generationConfig).length > 0) {
+    requestBody.generationConfig = generationConfig;
+  }
 
   // Gemini API 格式：/v1beta/models/{model}:generateContent
   const endpoint = `${provider.apiUrl}/v1beta/models/${provider.model}:generateContent?key=${provider.apiKey}`;

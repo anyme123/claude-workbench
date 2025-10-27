@@ -56,8 +56,7 @@ export const PromptEnhancementSettings: React.FC<PromptEnhancementSettingsProps>
       apiUrl: '',
       apiKey: '',
       model: '',
-      temperature: 0.7,
-      maxTokens: 2000,
+      // ⚡ 不设置默认值，让用户决定是否需要
       enabled: true,
     });
     setShowDialog(true);
@@ -116,9 +115,9 @@ export const PromptEnhancementSettings: React.FC<PromptEnhancementSettingsProps>
       apiUrl: preset.apiUrl,
       apiKey: '',
       model: preset.model,
-      temperature: preset.temperature,
-      maxTokens: 2000,
       enabled: true,
+      apiFormat: preset.apiFormat,
+      // ⚡ 不设置 temperature 和 maxTokens，让用户自己决定
     });
     setShowDialog(true);
   };
@@ -193,7 +192,11 @@ export const PromptEnhancementSettings: React.FC<PromptEnhancementSettingsProps>
                   <div className="text-sm text-muted-foreground space-y-1">
                     <div>模型: {provider.model}</div>
                     <div className="truncate">API: {provider.apiUrl}</div>
-                    <div>格式: {provider.apiFormat === 'gemini' ? 'Gemini' : 'OpenAI'} | 温度: {provider.temperature} | 最大Token: {provider.maxTokens}</div>
+                    <div className="flex items-center gap-2">
+                      <span>格式: {provider.apiFormat === 'gemini' ? 'Gemini' : 'OpenAI'}</span>
+                      {provider.temperature !== undefined && <span>| 温度: {provider.temperature}</span>}
+                      {provider.maxTokens !== undefined && <span>| Token: {provider.maxTokens}</span>}
+                    </div>
                   </div>
                 </div>
                 
@@ -319,22 +322,30 @@ export const PromptEnhancementSettings: React.FC<PromptEnhancementSettingsProps>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>温度 (0-2)</Label>
+                  <Label>温度 (可选，0-2)</Label>
                   <Input
                     type="number"
                     min="0"
                     max="2"
                     step="0.1"
-                    value={editingProvider.temperature || 0.7}
-                    onChange={(e) => setEditingProvider({ ...editingProvider, temperature: parseFloat(e.target.value) })}
+                    value={editingProvider.temperature || ''}
+                    onChange={(e) => setEditingProvider({ 
+                      ...editingProvider, 
+                      temperature: e.target.value ? parseFloat(e.target.value) : undefined 
+                    })}
+                    placeholder="留空使用API默认值"
                   />
                 </div>
                 <div>
-                  <Label>最大 Tokens</Label>
+                  <Label>最大 Tokens (可选)</Label>
                   <Input
                     type="number"
-                    value={editingProvider.maxTokens || 2000}
-                    onChange={(e) => setEditingProvider({ ...editingProvider, maxTokens: parseInt(e.target.value) })}
+                    value={editingProvider.maxTokens || ''}
+                    onChange={(e) => setEditingProvider({ 
+                      ...editingProvider, 
+                      maxTokens: e.target.value ? parseInt(e.target.value) : undefined 
+                    })}
+                    placeholder="留空使用API默认值"
                   />
                 </div>
               </div>
