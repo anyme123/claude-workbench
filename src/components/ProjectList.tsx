@@ -145,10 +145,10 @@ export const ProjectList: React.FC<ProjectListProps> = ({
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         {currentProjects.map((project) => (
-          <button
+          <div
             key={project.id}
             onClick={() => onProjectClick(project)}
-            className="w-full text-left px-4 py-3 rounded-lg bg-card border border-transparent hover:border-border hover:bg-muted/30 transition-colors group"
+            className="w-full text-left px-4 py-3 rounded-lg bg-card border border-transparent hover:border-border hover:bg-muted/30 transition-colors group cursor-pointer"
           >
             <div className="flex items-center justify-between gap-3 mb-2">
               <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -220,7 +220,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                 )}
               </div>
             </div>
-          </button>
+          </div>
         ))}
       </div>
       
