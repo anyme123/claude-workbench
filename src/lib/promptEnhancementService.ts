@@ -227,6 +227,9 @@ async function callGeminiFormat(
   // Gemini API 格式：/v1beta/models/{model}:generateContent
   const endpoint = `${provider.apiUrl}/v1beta/models/${provider.model}:generateContent?key=${provider.apiKey}`;
 
+  console.log('[Gemini] Request endpoint:', endpoint);
+  console.log('[Gemini] Request body:', JSON.stringify(requestBody, null, 2));
+
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
@@ -235,15 +238,41 @@ async function callGeminiFormat(
     body: JSON.stringify(requestBody),
   });
 
+  console.log('[Gemini] Response status:', response.status, response.statusText);
+
   if (!response.ok) {
     const errorText = await response.text();
+    console.error('[Gemini] Error response:', errorText);
+    
+    // 如果返回 HTML，可能是端点错误
+    if (errorText.startsWith('<!')) {
+      throw new Error(`Gemini格式端点不支持。\n\n提示：如果你使用的是聚合网关（如ikuncode、siliconflow），请选择"OpenAI格式"而不是"Gemini格式"。\n\n只有Google官方API才支持Gemini格式。`);
+    }
+    
     throw new Error(`Gemini API request failed: ${response.status} ${response.statusText}\n${errorText}`);
   }
 
-  const data = await response.json();
+  const responseText = await response.text();
+  console.log('[Gemini] Response text:', responseText);
+  
+  let data;
+  try {
+    data = JSON.parse(responseText);
+  } catch (e) {
+    console.error('[Gemini] Failed to parse response as JSON:', responseText);
+    
+    // 检查是否是 HTML 响应（网关返回的管理页面）
+    if (responseText.trim().startsWith('<!')) {
+      throw new Error(`API返回HTML页面，不是JSON。\n\n你可能在使用聚合网关（如ikuncode.cc）。\n聚合网关请选择"OpenAI格式"，只有Google官方API才用"Gemini格式"。`);
+    }
+    
+    throw new Error(`Gemini API returned invalid JSON. Response: ${responseText.substring(0, 200)}`);
+  }
+  
   const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!content) {
-    throw new Error('Gemini API returned empty response');
+    console.error('[Gemini] No content in response:', data);
+    throw new Error('Gemini API returned empty content');
   }
 
   return content.trim();
