@@ -1,9 +1,9 @@
-# Claude Workbench v4.0.5 发布说明
+# Claude Workbench v4.0.6 发布说明
 
-## 🎉 v4.0.5 - macOS 完全适配
+## 🎉 v4.0.6 - 第三方API提示词优化
 
 **发布日期**: 2025-10-27  
-**重要性**: macOS 平台完全适配，MCP 支持，UI 优化
+**重要性**: 重大功能更新 - 第三方API提示词优化支持
 
 ---
 
@@ -111,6 +111,40 @@
 - ✅ **Windows 10/11**: 完全支持（主要开发平台）
 - ✅ **macOS**: 完全支持（已验证适配）
 - ✅ **Linux**: 理论支持（Tauri 天然支持）
+
+---
+
+## 🚀 v4.0.6 重大功能更新
+
+### 第三方API提示词优化 ⭐⭐⭐⭐⭐
+
+**新增功能**：
+- ✅ 支持 OpenAI、Deepseek、通义千问、SiliconFlow 等 API
+- ✅ Google Gemini API 格式支持
+- ✅ 完整的提供商配置管理界面
+- ✅ API Key 加密存储
+- ✅ 连接测试功能
+- ✅ 预设模板快速配置
+
+**使用方式**：
+1. 设置 → 提示词API → 添加提供商
+2. 输入框 → 优化按钮 → 选择提供商
+3. 自动优化提示词
+
+**支持的API格式**：
+- OpenAI 格式（GPT-4、Deepseek、Qwen 等）
+- Gemini 格式（Google Gemini 2.0）
+
+### 关键BUG修复 ⭐⭐⭐⭐⭐
+
+**项目路径重复问题**：
+- ✅ 修复双反斜杠路径识别（CC CLI 格式）
+- ✅ 同一项目不再重复显示
+- ✅ 路径规范化统一处理
+
+**Button 嵌套警告**：
+- ✅ 修复项目卡片的 HTML 结构错误
+- ✅ 移除 React 警告
 
 ---
 
@@ -290,7 +324,7 @@
 
 ### 预构建版本
 
-从 [GitHub Releases](https://github.com/anyme123/claude-workbench/releases/tag/v4.0.5) 下载：
+从 [GitHub Releases](https://github.com/anyme123/claude-workbench/releases/tag/v4.0.6) 下载：
 
 **Windows**:
 - MSI 安装包
@@ -305,7 +339,7 @@
 ```bash
 git clone https://github.com/anyme123/claude-workbench.git
 cd claude-workbench
-git checkout v4.0.5
+git checkout v4.0.6
 
 # 安装依赖
 npm install
@@ -359,6 +393,20 @@ npm run tauri build
 ---
 
 ## 📋 完整更新日志
+
+### v4.0.6 (2025-10-27)
+
+**重大功能**：
+- 第三方API提示词优化支持
+- OpenAI、Gemini 格式支持
+- 完整的提供商配置管理
+- API Key 加密存储
+
+**BUG修复**：
+- 项目路径重复问题（双反斜杠处理）
+- Button 嵌套警告
+- 删除确认对话框
+- 无限循环修复
 
 ### v4.0.5 (2025-10-27)
 

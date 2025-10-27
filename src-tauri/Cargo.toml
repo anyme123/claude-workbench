@@ -1,6 +1,6 @@
 [package]
 name = "claude-workbench"
-version = "4.0.5"
+version = "4.0.6"
 description = "Claude Workbench - Professional desktop application and toolkit for Claude CLI"
 authors = ["mufeedvh", "123vviekr"]
 license = "AGPL-3.0"
