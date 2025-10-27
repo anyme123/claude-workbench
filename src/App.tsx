@@ -82,16 +82,20 @@ function AppContent() {
   // ⚡ 监听打开提示词API设置的事件，切换到设置页面
   useEffect(() => {
     const handleOpenPromptAPISettings = () => {
-      handleViewChange("settings");
-      // 延迟触发事件，确保设置页面已加载
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('open-prompt-api-settings'));
-      }, 100);
+      // ⚡ 修复：只在非设置页面时才切换，避免无限循环
+      if (view !== "settings") {
+        console.log('[App] Switching to settings view for prompt API settings');
+        handleViewChange("settings");
+        // 延迟触发内部事件，让Settings组件切换标签
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('switch-to-prompt-api-tab'));
+        }, 100);
+      }
     };
 
     window.addEventListener('open-prompt-api-settings', handleOpenPromptAPISettings as EventListener);
     return () => window.removeEventListener('open-prompt-api-settings', handleOpenPromptAPISettings as EventListener);
-  }, []);
+  }, [view]);  // ⚡ 添加 view 依赖
 
   useEffect(() => {
     console.log('[App] useEffect triggered, view:', view, 'hasLoaded:', hasLoadedProjectsRef.current);

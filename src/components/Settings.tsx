@@ -73,14 +73,15 @@ export const Settings: React.FC<SettingsProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("general");
 
-  // ⚡ 监听打开提示词API设置的事件
+  // ⚡ 监听切换到提示词API标签的事件（内部事件）
   useEffect(() => {
-    const handleOpenPromptAPISettings = () => {
+    const handleSwitchTab = () => {
+      console.log('[Settings] Switching to prompt-api tab');
       setActiveTab("prompt-api");
     };
 
-    window.addEventListener('open-prompt-api-settings', handleOpenPromptAPISettings);
-    return () => window.removeEventListener('open-prompt-api-settings', handleOpenPromptAPISettings);
+    window.addEventListener('switch-to-prompt-api-tab', handleSwitchTab);
+    return () => window.removeEventListener('switch-to-prompt-api-tab', handleSwitchTab);
   }, []);
   const [currentBinaryPath, setCurrentBinaryPath] = useState<string | null>(null);
   const [selectedInstallation, setSelectedInstallation] = useState<ClaudeInstallation | null>(null);
