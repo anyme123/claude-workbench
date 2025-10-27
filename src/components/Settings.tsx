@@ -72,6 +72,16 @@ export const Settings: React.FC<SettingsProps> = ({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("general");
+
+  // ⚡ 监听打开提示词API设置的事件
+  useEffect(() => {
+    const handleOpenPromptAPISettings = () => {
+      setActiveTab("prompt-api");
+    };
+
+    window.addEventListener('open-prompt-api-settings', handleOpenPromptAPISettings);
+    return () => window.removeEventListener('open-prompt-api-settings', handleOpenPromptAPISettings);
+  }, []);
   const [currentBinaryPath, setCurrentBinaryPath] = useState<string | null>(null);
   const [selectedInstallation, setSelectedInstallation] = useState<ClaudeInstallation | null>(null);
   const [binaryPathChanged, setBinaryPathChanged] = useState(false);

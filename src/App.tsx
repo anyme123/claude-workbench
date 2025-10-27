@@ -79,6 +79,20 @@ function AppContent() {
   // Load projects on mount when in projects view (only load once on initial mount)
   const hasLoadedProjectsRef = useRef(false);
 
+  // ⚡ 监听打开提示词API设置的事件，切换到设置页面
+  useEffect(() => {
+    const handleOpenPromptAPISettings = () => {
+      handleViewChange("settings");
+      // 延迟触发事件，确保设置页面已加载
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('open-prompt-api-settings'));
+      }, 100);
+    };
+
+    window.addEventListener('open-prompt-api-settings', handleOpenPromptAPISettings as EventListener);
+    return () => window.removeEventListener('open-prompt-api-settings', handleOpenPromptAPISettings as EventListener);
+  }, []);
+
   useEffect(() => {
     console.log('[App] useEffect triggered, view:', view, 'hasLoaded:', hasLoadedProjectsRef.current);
     if (view === "projects" && !hasLoadedProjectsRef.current) {
