@@ -39,6 +39,7 @@ export const PromptEnhancementSettings: React.FC<PromptEnhancementSettingsProps>
   const [showDialog, setShowDialog] = useState(false);
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; provider: PromptEnhancementProvider | null }>({ show: false, provider: null });
 
   useEffect(() => {
     loadProviders();
@@ -84,11 +85,21 @@ export const PromptEnhancementSettings: React.FC<PromptEnhancementSettingsProps>
     setEditingProvider(null);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('确定要删除此提供商配置吗？')) {
-      deleteProvider(id);
+  const handleDelete = (provider: PromptEnhancementProvider) => {
+    // ⚡ 显示自定义确认对话框，而不是浏览器 confirm
+    setDeleteConfirm({ show: true, provider });
+  };
+
+  const confirmDelete = () => {
+    if (deleteConfirm.provider) {
+      deleteProvider(deleteConfirm.provider.id);
       loadProviders();
     }
+    setDeleteConfirm({ show: false, provider: null });
+  };
+
+  const cancelDelete = () => {
+    setDeleteConfirm({ show: false, provider: null });
   };
 
   const handleTest = async (provider: PromptEnhancementProvider) => {
@@ -230,7 +241,7 @@ export const PromptEnhancementSettings: React.FC<PromptEnhancementSettingsProps>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleDelete(provider.id)}
+                    onClick={() => handleDelete(provider)}
                   >
                     <Trash2 className="h-3 w-3" />
                   </Button>
@@ -362,6 +373,34 @@ export const PromptEnhancementSettings: React.FC<PromptEnhancementSettingsProps>
             <Button onClick={handleSave}>
               <Save className="h-4 w-4 mr-2" />
               保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 删除确认对话框 */}
+      <Dialog open={deleteConfirm.show} onOpenChange={(open) => !open && cancelDelete()}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>确认删除</DialogTitle>
+          </DialogHeader>
+
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              确定要删除提供商 <span className="font-medium text-foreground">{deleteConfirm.provider?.name}</span> 吗？
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              此操作无法撤销。
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={cancelDelete}>
+              取消
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              确认删除
             </Button>
           </DialogFooter>
         </DialogContent>
