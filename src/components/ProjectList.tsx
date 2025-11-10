@@ -167,7 +167,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
               aria-label={`项目 ${projectName}，包含 ${sessionCount} 个会话，创建于 ${formatAbsoluteDateTime(project.created_at)}`}
             >
               {/* 主要信息区：项目图标 + 项目名称 */}
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-3 mb-2">
                 <div className="p-2 rounded-md bg-primary/10 text-primary shrink-0">
                   <FolderOpen className="h-5 w-5" aria-hidden="true" />
                 </div>
@@ -178,16 +178,17 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {formatAbsoluteDateTime(project.created_at)}
                   </p>
-                  {/* 路径信息移到名称下方 */}
-                  <p
-                    className="text-xs text-muted-foreground truncate font-mono mt-2"
-                    aria-label={`路径: ${project.path}`}
-                    title={project.path}
-                  >
-                    {project.path}
-                  </p>
                 </div>
               </div>
+
+              {/* 路径信息：左对齐显示完整路径 */}
+              <p
+                className="text-xs text-muted-foreground truncate font-mono pr-20"
+                aria-label={`路径: ${project.path}`}
+                title={project.path}
+              >
+                {project.path}
+              </p>
 
               {/* 右上角：会话数徽章 + 操作菜单 */}
               <div className="absolute top-4 right-4 flex items-center gap-2">
