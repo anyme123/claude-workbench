@@ -181,9 +181,9 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                 </div>
               </div>
 
-              {/* 路径信息：左对齐显示完整路径 */}
+              {/* 路径信息：左右对齐到卡片边缘，显示最完整路径 */}
               <p
-                className="text-xs text-muted-foreground truncate font-mono pr-20"
+                className="text-xs text-muted-foreground truncate font-mono"
                 aria-label={`路径: ${project.path}`}
                 title={project.path}
               >
