@@ -874,6 +874,56 @@ fn select_best_installation(installations: Vec<ClaudeInstallation>) -> Option<Cl
     })
 }
 
+/// Windows-specific: Resolve .cmd wrapper to actual Node.js script path
+/// Returns (node_path, script_path) if successful
+#[cfg(target_os = "windows")]
+fn resolve_cmd_wrapper(cmd_path: &str) -> Option<(String, String)> {
+    use std::fs;
+
+    debug!("Attempting to resolve .cmd wrapper: {}", cmd_path);
+
+    // Read the .cmd file content
+    let content = fs::read_to_string(cmd_path).ok()?;
+
+    // Parse the .cmd file to find the actual Node.js script
+    // Typical npm .cmd format:
+    // @IF EXIST "%~dp0\node.exe" (
+    //   "%~dp0\node.exe"  "%~dp0\node_modules\@anthropic\claude\bin\claude.js" %*
+    // ) ELSE (
+    //   node  "%~dp0\node_modules\@anthropic\claude\bin\claude.js" %*
+    // )
+
+    for line in content.lines() {
+        if line.contains(".js") && (line.contains("node.exe") || line.contains("\"node\"")) {
+            // Extract the script path - look for pattern like "%~dp0\path\to\script.js"
+            if let Some(start) = line.find("\"%~dp0") {
+                if let Some(end) = line[start..].find(".js\"") {
+                    let script_relative = &line[start + 7..start + end + 3];
+
+                    // Convert %~dp0 to absolute path
+                    if let Some(parent) = std::path::Path::new(cmd_path).parent() {
+                        let script_path = parent.join(script_relative).to_string_lossy().to_string();
+
+                        // Verify the script exists
+                        if PathBuf::from(&script_path).exists() {
+                            debug!("Resolved .cmd wrapper to script: {}", script_path);
+                            return Some(("node".to_string(), script_path));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    debug!("Failed to resolve .cmd wrapper");
+    None
+}
+
+#[cfg(not(target_os = "windows"))]
+fn resolve_cmd_wrapper(_cmd_path: &str) -> Option<(String, String)> {
+    None
+}
+
 /// Compare two version strings
 fn compare_versions(a: &str, b: &str) -> Ordering {
     // Simple semantic version comparison
@@ -915,7 +965,38 @@ fn compare_versions(a: &str, b: &str) -> Ordering {
 
 /// Helper function to create a Command with proper environment variables (cross-platform)
 pub fn create_command_with_env(program: &str) -> Command {
-    let mut cmd = Command::new(program);
+    // On Windows, if the program is a .cmd file, try to resolve it to direct Node.js invocation
+    // This prevents the cmd.exe window from appearing
+    #[cfg(target_os = "windows")]
+    let (final_program, extra_args) = {
+        if program.ends_with(".cmd") {
+            if let Some((node_path, script_path)) = resolve_cmd_wrapper(program) {
+                info!("Resolved .cmd wrapper {} to Node.js script: {}", program, script_path);
+                (node_path, vec![script_path])
+            } else {
+                (program.to_string(), vec![])
+            }
+        } else {
+            (program.to_string(), vec![])
+        }
+    };
+
+    #[cfg(not(target_os = "windows"))]
+    let (final_program, extra_args) = (program.to_string(), Vec::<String>::new());
+
+    let mut cmd = Command::new(&final_program);
+
+    // Add any extra arguments (e.g., script path when using node directly)
+    for arg in extra_args {
+        cmd.arg(arg);
+    }
+
+    // Add CREATE_NO_WINDOW flag on Windows to prevent terminal window popup
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
 
     // Inherit essential environment variables from parent process
     for (key, value) in std::env::vars() {

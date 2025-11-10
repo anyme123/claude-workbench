@@ -521,11 +521,33 @@ fn escape_prompt_for_cli(prompt: &str) -> String {
 /// Helper function to create a tokio Command with proper environment variables
 /// This ensures commands like Claude can find Node.js and other dependencies
 fn create_command_with_env(program: &str) -> Command {
-    // Convert std::process::Command to tokio::process::Command
-    let _std_cmd = crate::claude_binary::create_command_with_env(program);
+    // On Windows, if the program is a .cmd file, try to resolve it to direct Node.js invocation
+    // This prevents the cmd.exe window from appearing
+    #[cfg(target_os = "windows")]
+    let (final_program, extra_args) = {
+        if program.ends_with(".cmd") {
+            // Use the resolver from claude_binary module
+            if let Some((node_path, script_path)) = resolve_cmd_wrapper_tokio(program) {
+                log::info!("Resolved .cmd wrapper {} to Node.js script: {}", program, script_path);
+                (node_path, vec![script_path])
+            } else {
+                (program.to_string(), vec![])
+            }
+        } else {
+            (program.to_string(), vec![])
+        }
+    };
 
-    // Create a new tokio Command from the program path
-    let mut tokio_cmd = Command::new(program);
+    #[cfg(not(target_os = "windows"))]
+    let (final_program, extra_args) = (program.to_string(), Vec::<String>::new());
+
+    // Create a new tokio Command from the resolved program path
+    let mut tokio_cmd = Command::new(&final_program);
+
+    // Add any extra arguments (e.g., script path when using node directly)
+    for arg in extra_args {
+        tokio_cmd.arg(arg);
+    }
 
     // Copy over all environment variables
     for (key, value) in std::env::vars() {
@@ -541,6 +563,14 @@ fn create_command_with_env(program: &str) -> Command {
             || key == "NVM_BIN"
             || key == "HOMEBREW_PREFIX"
             || key == "HOMEBREW_CELLAR"
+            // Windows-specific
+            || key == "USERPROFILE"
+            || key == "USERNAME"
+            || key == "COMPUTERNAME"
+            || key == "APPDATA"
+            || key == "LOCALAPPDATA"
+            || key == "TEMP"
+            || key == "TMP"
             // 🔥 修复：添加 ANTHROPIC 和 Claude Code 相关环境变量
             || key.starts_with("ANTHROPIC_")
             || key.starts_with("CLAUDE_CODE_")
@@ -551,19 +581,68 @@ fn create_command_with_env(program: &str) -> Command {
         }
     }
 
-    // Add NVM support if the program is in an NVM directory
-    if program.contains("/.nvm/versions/node/") {
+    // Add NVM support if the program is in an NVM directory (cross-platform)
+    if program.contains("/.nvm/versions/node/") || program.contains("\\.nvm\\versions\\node\\") {
         if let Some(node_bin_dir) = std::path::Path::new(program).parent() {
             let current_path = std::env::var("PATH").unwrap_or_default();
             let node_bin_str = node_bin_dir.to_string_lossy();
             if !current_path.contains(&node_bin_str.as_ref()) {
-                let new_path = format!("{}:{}", node_bin_str, current_path);
+                // Use platform-specific path separator
+                #[cfg(target_os = "windows")]
+                let separator = ";";
+                #[cfg(not(target_os = "windows"))]
+                let separator = ":";
+
+                let new_path = format!("{}{}{}", node_bin_str, separator, current_path);
                 tokio_cmd.env("PATH", new_path);
             }
         }
     }
 
     tokio_cmd
+}
+
+/// Windows-specific: Resolve .cmd wrapper to actual Node.js script path (for tokio)
+#[cfg(target_os = "windows")]
+fn resolve_cmd_wrapper_tokio(cmd_path: &str) -> Option<(String, String)> {
+    use std::fs;
+    use std::path::PathBuf;
+
+    log::debug!("Attempting to resolve .cmd wrapper: {}", cmd_path);
+
+    // Read the .cmd file content
+    let content = fs::read_to_string(cmd_path).ok()?;
+
+    // Parse the .cmd file to find the actual Node.js script
+    for line in content.lines() {
+        if line.contains(".js") && (line.contains("node.exe") || line.contains("\"node\"")) {
+            // Extract the script path - look for pattern like "%~dp0\path\to\script.js"
+            if let Some(start) = line.find("\"%~dp0") {
+                if let Some(end) = line[start..].find(".js\"") {
+                    let script_relative = &line[start + 7..start + end + 3];
+
+                    // Convert %~dp0 to absolute path
+                    if let Some(parent) = std::path::Path::new(cmd_path).parent() {
+                        let script_path = parent.join(script_relative).to_string_lossy().to_string();
+
+                        // Verify the script exists
+                        if PathBuf::from(&script_path).exists() {
+                            log::debug!("Resolved .cmd wrapper to script: {}", script_path);
+                            return Some(("node".to_string(), script_path));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    log::debug!("Failed to resolve .cmd wrapper");
+    None
+}
+
+#[cfg(not(target_os = "windows"))]
+fn resolve_cmd_wrapper_tokio(_cmd_path: &str) -> Option<(String, String)> {
+    None
 }
 
 

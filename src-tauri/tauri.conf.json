@@ -79,9 +79,6 @@
       "icons/icon.png"
     ],
     "resources": [],
-    "externalBin": [
-      "binaries/acemcp-sidecar"
-    ],
     "copyright": "",
     "category": "DeveloperTool",
     "shortDescription": "Professional GUI Toolkit for Claude CLI",
