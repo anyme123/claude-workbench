@@ -1598,6 +1598,53 @@ export const api = {
     }
   },
 
+  // ============================================================================
+  // ACEMCP INTEGRATION
+  // ============================================================================
+
+  /**
+   * Enhances a prompt by adding project context from acemcp semantic search
+   * @param prompt - The original prompt to enhance
+   * @param projectPath - Path to the project directory
+   * @param maxContextLength - Maximum length of context to include (default: 3000)
+   * @returns Promise resolving to enhancement result
+   */
+  async enhancePromptWithContext(
+    prompt: string,
+    projectPath: string,
+    maxContextLength?: number
+  ): Promise<{
+    originalPrompt: string;
+    enhancedPrompt: string;
+    contextCount: number;
+    acemcpUsed: boolean;
+    error?: string;
+  }> {
+    try {
+      return await invoke("enhance_prompt_with_context", {
+        prompt,
+        projectPath,
+        maxContextLength,
+      });
+    } catch (error) {
+      console.error("Failed to enhance prompt with context:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Tests if acemcp is available and can be used
+   * @returns Promise resolving to true if acemcp is available
+   */
+  async testAcemcpAvailability(): Promise<boolean> {
+    try {
+      return await invoke<boolean>("test_acemcp_availability");
+    } catch (error) {
+      console.error("Failed to test acemcp availability:", error);
+      return false;
+    }
+  },
+
   // Translation API methods
 
   /**

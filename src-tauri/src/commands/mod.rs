@@ -1,3 +1,4 @@
+pub mod acemcp;
 pub mod claude;
 pub mod clipboard;
 pub mod context_commands;

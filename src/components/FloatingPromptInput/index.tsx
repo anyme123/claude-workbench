@@ -135,6 +135,7 @@ const FloatingPromptInputInner = (
     handleEnhancePrompt,
     handleEnhancePromptWithGemini,
     handleEnhancePromptWithAPI,
+    handleEnhancePromptWithContext,
   } = usePromptEnhancement({
     prompt,
     selectedModel,
@@ -417,7 +418,17 @@ const FloatingPromptInputInner = (
                       <DropdownMenuItem onClick={handleEnhancePromptWithGemini}>
                         使用 Gemini (本地CLI)
                       </DropdownMenuItem>
-                      
+
+                      {/* Acemcp 项目上下文增强 */}
+                      {projectPath && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => handleEnhancePromptWithContext(projectPath)}>
+                            🔍 添加项目上下文 (acemcp)
+                          </DropdownMenuItem>
+                        </>
+                      )}
+
                       {/* 第三方API提供商 */}
                       {(() => {
                         const enabledProviders = getEnabledProviders();
@@ -438,7 +449,7 @@ const FloatingPromptInputInner = (
                         }
                         return null;
                       })()}
-                      
+
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => window.dispatchEvent(new CustomEvent('open-prompt-api-settings'))}>
                         <Settings className="h-3 w-3 mr-2" />
@@ -705,7 +716,17 @@ const FloatingPromptInputInner = (
                 <DropdownMenuItem onClick={handleEnhancePromptWithGemini}>
                   使用 Gemini (本地CLI)
                 </DropdownMenuItem>
-                
+
+                {/* Acemcp 项目上下文增强 */}
+                {projectPath && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => handleEnhancePromptWithContext(projectPath)}>
+                      🔍 添加项目上下文 (acemcp)
+                    </DropdownMenuItem>
+                  </>
+                )}
+
                 {/* 第三方API提供商 */}
                 {(() => {
                   const enabledProviders = getEnabledProviders();
@@ -726,7 +747,7 @@ const FloatingPromptInputInner = (
                   }
                   return null;
                 })()}
-                
+
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => window.dispatchEvent(new CustomEvent('open-prompt-api-settings'))}>
                   <Settings className="h-3 w-3 mr-2" />

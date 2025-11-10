@@ -227,10 +227,70 @@ export function usePromptEnhancement({
     }
   };
 
+  // ⚡ 新增：使用 acemcp 添加项目上下文
+  const handleEnhancePromptWithContext = async (projectPath: string) => {
+    console.log('[handleEnhancePromptWithContext] Starting context enhancement...');
+    const trimmedPrompt = prompt.trim();
+
+    if (!trimmedPrompt) {
+      onPromptChange("请描述您想要完成的任务");
+      return;
+    }
+
+    if (!projectPath) {
+      onPromptChange(trimmedPrompt + '\n\n❌ 项目路径未提供');
+      return;
+    }
+
+    setIsEnhancing(true);
+
+    try {
+      const result = await api.enhancePromptWithContext(trimmedPrompt, projectPath, 3000);
+      console.log('[handleEnhancePromptWithContext] Result:', result);
+
+      if (result.acemcpUsed && result.contextCount > 0) {
+        // 成功找到上下文，使用增强后的提示词
+        const target = isExpanded ? expandedTextareaRef.current : textareaRef.current;
+        if (target) {
+          updateTextareaWithUndo(target, result.enhancedPrompt);
+        }
+      } else if (result.error) {
+        // 有错误，显示错误信息
+        const target = isExpanded ? expandedTextareaRef.current : textareaRef.current;
+        if (target) {
+          updateTextareaWithUndo(target, trimmedPrompt + `\n\n⚠️ Acemcp: ${result.error}`);
+        }
+      } else {
+        // 没有找到相关上下文
+        const target = isExpanded ? expandedTextareaRef.current : textareaRef.current;
+        if (target) {
+          updateTextareaWithUndo(target, trimmedPrompt + '\n\n💡 未找到相关代码上下文，请确保提示词包含技术关键词');
+        }
+      }
+    } catch (error) {
+      console.error('[handleEnhancePromptWithContext] Failed:', error);
+      let errorMessage = '未知错误';
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+
+      const target = isExpanded ? expandedTextareaRef.current : textareaRef.current;
+      if (target) {
+        updateTextareaWithUndo(target, trimmedPrompt + `\n\n❌ Acemcp: ${errorMessage}`);
+      }
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
   return {
     isEnhancing,
     handleEnhancePrompt,
     handleEnhancePromptWithGemini,
     handleEnhancePromptWithAPI,
+    handleEnhancePromptWithContext,
   };
 }
