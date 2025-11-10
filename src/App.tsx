@@ -537,15 +537,23 @@ function AppContent() {
         return (
           <div className="flex-1 overflow-y-auto">
             <div className="container mx-auto p-6">
-              {/* Header - 只在主页显示，进入项目后隐藏（避免冗余） */}
+              {/* Header - 只在主页显示，标题和新建按钮在同一行 */}
               {!selectedProject && (
-                <div className="mb-6">
-                  <div className="mb-4">
+                <div className="mb-6 flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
                     <h1 className="text-3xl font-bold tracking-tight">{t('common.ccProjectsTitle')}</h1>
                     <p className="text-sm text-muted-foreground mt-1">
                       {t('common.browseClaudeSessions')}
                     </p>
                   </div>
+                  <Button
+                    onClick={handleNewProject}
+                    size="default"
+                    className="flex-shrink-0"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    {t('common.newProject')}
+                  </Button>
                 </div>
               )}
 
@@ -601,18 +609,6 @@ function AppContent() {
                     </div>
                   ) : (
                     <div>
-                      {/* New session button at the top */}
-                      <div className="mb-4">
-                        <Button
-                          onClick={handleNewProject}
-                          size="default"
-                          className="w-full max-w-md"
-                        >
-                          <Plus className="mr-2 h-4 w-4" />
-                          {t('common.newProject')}
-                        </Button>
-                      </div>
-
                       {/* Running Claude Sessions */}
                       <RunningClaudeSessions
                         onSessionClick={(session) => {
