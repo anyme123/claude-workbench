@@ -531,6 +531,7 @@ impl Default for AcemcpConfigData {
 }
 
 /// 保存 acemcp 配置到 ~/.acemcp/settings.toml
+/// 只更新指定的字段，保留其他现有配置（如 TEXT_EXTENSIONS, EXCLUDE_PATTERNS 等）
 #[tauri::command]
 pub async fn save_acemcp_config(
     base_url: String,
@@ -539,6 +540,7 @@ pub async fn save_acemcp_config(
     max_lines_per_blob: Option<u32>,
 ) -> Result<(), String> {
     use std::fs;
+    use std::collections::HashMap;
 
     info!("Saving acemcp config: base_url={}", base_url);
 
@@ -551,11 +553,38 @@ pub async fn save_acemcp_config(
 
     let config_file = config_dir.join("settings.toml");
 
-    // 构建 TOML 内容
-    let mut toml_content = format!(
-        "BASE_URL = \"{}\"\nTOKEN = \"{}\"\n",
-        base_url, token
-    );
+    // 读取现有配置（如果存在）
+    let mut existing_lines: HashMap<String, String> = HashMap::new();
+    let mut other_lines = Vec::new();
+
+    if config_file.exists() {
+        let existing_content = fs::read_to_string(&config_file)
+            .map_err(|e| format!("Failed to read existing config: {}", e))?;
+
+        for line in existing_content.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                other_lines.push(line.to_string());
+                continue;
+            }
+
+            // 提取键名
+            if let Some(eq_pos) = trimmed.find('=') {
+                let key = trimmed[..eq_pos].trim();
+                // 保留非 UI 管理的字段
+                if key != "BASE_URL" && key != "TOKEN" && key != "BATCH_SIZE" && key != "MAX_LINES_PER_BLOB" {
+                    existing_lines.insert(key.to_string(), line.to_string());
+                }
+            }
+        }
+    }
+
+    // 构建新的 TOML 内容
+    let mut toml_content = String::new();
+
+    // UI 管理的字段
+    toml_content.push_str(&format!("BASE_URL = \"{}\"\n", base_url));
+    toml_content.push_str(&format!("TOKEN = \"{}\"\n", token));
 
     if let Some(batch_size) = batch_size {
         toml_content.push_str(&format!("BATCH_SIZE = {}\n", batch_size));
@@ -563,6 +592,20 @@ pub async fn save_acemcp_config(
 
     if let Some(max_lines) = max_lines_per_blob {
         toml_content.push_str(&format!("MAX_LINES_PER_BLOB = {}\n", max_lines));
+    }
+
+    // 保留的其他配置
+    for line in existing_lines.values() {
+        toml_content.push_str(line);
+        toml_content.push('\n');
+    }
+
+    // 空行和注释
+    for line in other_lines {
+        if !line.trim().is_empty() {
+            toml_content.push_str(&line);
+            toml_content.push('\n');
+        }
     }
 
     fs::write(&config_file, toml_content)
