@@ -34,6 +34,7 @@ struct JsonRpcRequest {
 
 /// MCP JSON-RPC 响应
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct JsonRpcResponse {
     jsonrpc: String,
     id: u64,
@@ -47,12 +48,6 @@ struct JsonRpcError {
     message: String,
 }
 
-/// Search context 工具的参数
-#[derive(Debug, Serialize)]
-struct SearchContextParams {
-    project_root_path: String,
-    query: String,
-}
 
 /// 增强结果
 #[derive(Debug, Serialize, Deserialize)]
