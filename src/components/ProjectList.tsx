@@ -143,85 +143,111 @@ export const ProjectList: React.FC<ProjectListProps> = ({
   
   const ProjectGrid = () => (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-        {currentProjects.map((project) => (
-          <div
-            key={project.id}
-            onClick={() => onProjectClick(project)}
-            className="w-full text-left px-4 py-3 rounded-lg bg-card border border-transparent hover:border-border hover:bg-muted/30 transition-colors group cursor-pointer"
-          >
-            <div className="flex items-center justify-between gap-3 mb-2">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <FolderOpen className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
-                <h3 className="font-medium text-[15px] truncate">
-                  {getProjectName(project.path)}
-                </h3>
-              </div>
-              {project.sessions.length > 0 && (
-                <span className="text-xs text-muted-foreground font-medium px-2 py-0.5 bg-muted/50 rounded shrink-0">
-                  {project.sessions.length}
-                </span>
-              )}
-            </div>
+      <div
+        className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3"
+        role="list"
+        aria-label="项目列表"
+      >
+        {currentProjects.map((project) => {
+          const projectName = getProjectName(project.path);
+          const sessionCount = project.sessions.length;
 
-            <p className="text-sm text-muted-foreground truncate font-mono mb-2">
-              {project.path}
-            </p>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <Calendar className="h-3 w-3" />
-                  <span>{formatTimeAgo(project.created_at * 1000)}</span>
+          return (
+            <div
+              key={project.id}
+              role="listitem"
+              tabIndex={0}
+              onClick={() => onProjectClick(project)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onProjectClick(project);
+                }
+              }}
+              className="w-full text-left px-4 py-3 rounded-lg bg-card border border-transparent hover:border-border hover:bg-muted/30 transition-colors group cursor-pointer"
+              aria-label={`项目 ${projectName}，包含 ${sessionCount} 个会话，创建于 ${formatTimeAgo(project.created_at * 1000)}`}
+            >
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <FolderOpen className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" aria-hidden="true" />
+                  <h3 className="font-medium text-[15px] truncate">
+                    {projectName}
+                  </h3>
                 </div>
-                <div className="flex items-center gap-1">
-                  <FileText className="h-3 w-3" />
-                  <span>{project.sessions.length} 会话</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                {(onProjectSettings || onProjectDelete) && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon-sm" className="h-7 w-7">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {onProjectSettings && (
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onProjectSettings(project);
-                          }}
-                        >
-                          <Settings className="h-4 w-4 mr-2" />
-                          Hooks
-                        </DropdownMenuItem>
-                      )}
-                      {onProjectSettings && onProjectDelete && (
-                        <DropdownMenuSeparator />
-                      )}
-                      {onProjectDelete && (
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteProject(project);
-                          }}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          删除项目
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                {sessionCount > 0 && (
+                  <span
+                    className="text-xs text-muted-foreground font-medium px-2 py-0.5 bg-muted/50 rounded shrink-0"
+                    aria-label={`${sessionCount} 个会话`}
+                  >
+                    {sessionCount}
+                  </span>
                 )}
               </div>
+
+              <p className="text-sm text-muted-foreground truncate font-mono mb-2" aria-label={`路径: ${project.path}`}>
+                {project.path}
+              </p>
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3" aria-hidden="true" />
+                    <span>{formatTimeAgo(project.created_at * 1000)}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <FileText className="h-3 w-3" aria-hidden="true" />
+                    <span>{sessionCount} 会话</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+                  {(onProjectSettings || onProjectDelete) && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="h-7 w-7"
+                          aria-label={`${projectName} 项目操作菜单`}
+                        >
+                          <MoreVertical className="h-4 w-4" aria-hidden="true" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {onProjectSettings && (
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onProjectSettings(project);
+                            }}
+                          >
+                            <Settings className="h-4 w-4 mr-2" aria-hidden="true" />
+                            Hooks 配置
+                          </DropdownMenuItem>
+                        )}
+                        {onProjectSettings && onProjectDelete && (
+                          <DropdownMenuSeparator />
+                        )}
+                        {onProjectDelete && (
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteProject(project);
+                            }}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" aria-hidden="true" />
+                            删除项目
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
       
       <Pagination

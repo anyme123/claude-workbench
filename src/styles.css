@@ -200,47 +200,51 @@ button:disabled,
   cursor: not-allowed !important;
 }
 
-/* Remove all focus styles globally */
-* {
-  outline: none !important;
-  outline-offset: 0 !important;
+/* ========================================
+   ♿ ACCESSIBLE FOCUS STYLES - WCAG 2.1 Compliant
+   ======================================== */
+
+/* Hide focus outline only for mouse/touch interactions */
+*:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
 }
 
-*:focus,
-*:focus-visible,
-*:focus-within {
-  outline: none !important;
-  box-shadow: none !important;
+/* Show clear focus indicator for keyboard navigation */
+*:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+  transition: outline-offset 0.1s ease;
 }
 
-/* Specifically remove focus styles from form elements */
-input:focus,
-input:focus-visible,
-textarea:focus,
-textarea:focus-visible,
-select:focus,
-select:focus-visible,
-button:focus,
+/* Enhanced focus for interactive elements */
 button:focus-visible,
-[role="button"]:focus,
+a:focus-visible,
 [role="button"]:focus-visible,
-[role="combobox"]:focus,
-[role="combobox"]:focus-visible {
-  outline: none !important;
-  box-shadow: none !important;
-  border-color: var(--color-input) !important;
+[role="link"]:focus-visible,
+[role="tab"]:focus-visible,
+[role="menuitem"]:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--color-ring) / 0.1;
 }
 
-/* Remove ring styles */
-.ring-0,
-.ring-1,
-.ring-2,
-.ring,
-.ring-offset-0,
-.ring-offset-1,
-.ring-offset-2,
-.ring-offset {
-  box-shadow: none !important;
+/* Form elements get border-based focus indicator */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[role="combobox"]:focus-visible {
+  outline: none;
+  border-color: var(--color-ring);
+  box-shadow: 0 0 0 3px var(--color-ring) / 0.15;
+}
+
+/* Special handling for cards and complex interactive elements */
+[role="button"][class*="card"]:focus-visible,
+[class*="card"]:focus-within {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
 }
 
 /* Custom utilities */

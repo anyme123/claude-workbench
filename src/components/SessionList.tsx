@@ -310,64 +310,74 @@ export const SessionList: React.FC<SessionListProps> = ({
       )}
 
       {/* Compact session list */}
-      <div className="border border-border rounded-lg overflow-hidden divide-y divide-border">
-        {currentSessions.map((session) => (
-          <div
-            key={session.id}
-            className={cn(
-              "relative flex items-center group hover:bg-muted/30 transition-colors",
-              session.todo_data && "bg-primary/5 border-l-2 border-l-primary",
-              isSelectionMode && selectedSessions.has(session.id) && "bg-primary/10"
-            )}
-          >
-            {/* Checkbox in selection mode */}
-            {isSelectionMode && (
-              <div className="px-3 py-2.5">
-                <Checkbox
-                  checked={selectedSessions.has(session.id)}
-                  onCheckedChange={() => toggleSessionSelection(session.id)}
-                />
-              </div>
-            )}
+      <div
+        className="border border-border rounded-lg overflow-hidden divide-y divide-border"
+        role="list"
+        aria-label="会话列表"
+        aria-live="polite"
+      >
+        {currentSessions.map((session) => {
+          const firstMessagePreview = session.first_message
+            ? truncateText(getFirstLine(session.first_message), 80)
+            : session.id;
+          const timeDisplay = session.last_message_timestamp
+            ? formatISOTimestamp(session.last_message_timestamp)
+            : session.message_timestamp
+            ? formatISOTimestamp(session.message_timestamp)
+            : formatUnixTimestamp(session.created_at);
 
-            <button
-              onClick={() => {
-                if (isSelectionMode) {
-                  toggleSessionSelection(session.id);
-                } else {
-                  onSessionClick?.(session);
-                }
-              }}
-              className="flex-1 text-left px-4 py-2.5 min-w-0"
+          return (
+            <div
+              key={session.id}
+              role="listitem"
+              className={cn(
+                "relative flex items-center group hover:bg-muted/30 transition-colors",
+                session.todo_data && "bg-primary/5 border-l-2 border-l-primary",
+                isSelectionMode && selectedSessions.has(session.id) && "bg-primary/10"
+              )}
             >
+              {/* Checkbox in selection mode */}
+              {isSelectionMode && (
+                <div className="px-3 py-2.5">
+                  <Checkbox
+                    checked={selectedSessions.has(session.id)}
+                    onCheckedChange={() => toggleSessionSelection(session.id)}
+                    aria-label={`选择会话 ${firstMessagePreview}`}
+                  />
+                </div>
+              )}
+
+              <button
+                onClick={() => {
+                  if (isSelectionMode) {
+                    toggleSessionSelection(session.id);
+                  } else {
+                    onSessionClick?.(session);
+                  }
+                }}
+                className="flex-1 text-left px-4 py-2.5 min-w-0"
+                aria-label={`会话: ${firstMessagePreview}，时间: ${timeDisplay}`}
+              >
               <div className="flex items-center justify-between gap-3">
                 {/* Session info */}
                 <div className="flex-1 min-w-0 space-y-0.5">
                   {/* First message preview */}
                   <p className="text-sm font-medium truncate text-foreground group-hover:text-primary transition-colors">
-                    {session.first_message
-                      ? truncateText(getFirstLine(session.first_message), 80)
-                      : session.id
-                    }
+                    {firstMessagePreview}
                   </p>
 
                   {/* Session ID (small and subtle) */}
-                  <p className="text-xs font-mono text-muted-foreground truncate">
+                  <p className="text-xs font-mono text-muted-foreground truncate" aria-label={`会话 ID: ${session.id}`}>
                     {session.id}
                   </p>
                 </div>
 
                 {/* Timestamp - 优先显示最后一条消息时间 */}
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
-                  <Clock className="h-3 w-3" />
-                  <span>
-                    {session.last_message_timestamp
-                      ? formatISOTimestamp(session.last_message_timestamp)
-                      : session.message_timestamp
-                      ? formatISOTimestamp(session.message_timestamp)
-                      : formatUnixTimestamp(session.created_at)
-                    }
-                  </span>
+                  <Clock className="h-3 w-3" aria-hidden="true" />
+                  <time dateTime={session.last_message_timestamp || session.message_timestamp || new Date(session.created_at * 1000).toISOString()}>
+                    {timeDisplay}
+                  </time>
                 </div>
               </div>
             </button>
@@ -376,14 +386,15 @@ export const SessionList: React.FC<SessionListProps> = ({
             {!isSelectionMode && onSessionDelete && (
               <button
                 onClick={(e) => handleDeleteClick(e, session)}
-                className="px-3 py-2.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 text-destructive"
-                title="删除会话"
+                className="px-3 py-2.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity hover:bg-destructive/10 text-destructive"
+                aria-label={`删除会话 ${firstMessagePreview}`}
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
               </button>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       <Pagination

@@ -24,6 +24,8 @@ import { ClaudeExtensionsManager } from '@/components/ClaudeExtensionsManager';
 import { useTranslation } from '@/hooks/useTranslation';
 import { UpdateProvider } from '@/contexts/UpdateContext';
 import { UpdateDialog } from '@/components/UpdateDialog';
+import { useGlobalKeyboardShortcuts } from '@/hooks/useGlobalKeyboardShortcuts';
+import { Breadcrumbs, BreadcrumbItem } from '@/components/ui/breadcrumb';
 
 type View =
   | "projects"
@@ -83,6 +85,23 @@ function AppContent() {
   // 在项目视图中挂载时加载项目（仅在初次进入时加载）
   // Load projects on mount when in projects view (only load once on initial mount)
   const hasLoadedProjectsRef = useRef(false);
+
+  // ⌨️ 全局键盘快捷键配置
+  useGlobalKeyboardShortcuts({
+    onBack: () => {
+      console.log('[App] Global shortcut: Back');
+      handleSmartBack();
+    },
+    onOpenSettings: () => {
+      console.log('[App] Global shortcut: Open Settings');
+      handleViewChange('settings');
+    },
+    // onOpenSearch: () => {
+    //   // TODO: 实现全局搜索功能
+    //   console.log('[App] Global shortcut: Open Search (not implemented yet)');
+    // },
+    enabled: view !== 'claude-code-session', // 在会话视图中禁用，让会话自己处理快捷键
+  });
 
   // ⚡ 监听打开提示词API设置的事件，切换到设置页面
   useEffect(() => {
