@@ -163,11 +163,19 @@ impl AcemcpClient {
         }
 
         // 使用 tokio Command 启动 sidecar（保持 stdio 通信）
-        let child = Command::new(&sidecar_path)
-            .stdin(Stdio::piped())
+        let mut cmd = Command::new(&sidecar_path);
+        cmd.stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()
+            .stderr(Stdio::null());
+
+        // Windows: 隐藏控制台窗口
+        #[cfg(target_os = "windows")]
+        {
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            cmd.creation_flags(CREATE_NO_WINDOW);
+        }
+
+        let child = cmd.spawn()
             .map_err(|e| anyhow::anyhow!("Failed to spawn sidecar: {}. Path: {:?}", e, sidecar_path))?;
 
         info!("Acemcp sidecar started successfully");
