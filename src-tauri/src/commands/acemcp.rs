@@ -56,6 +56,7 @@ struct SearchContextParams {
 
 /// 增强结果
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EnhancementResult {
     /// 原始提示词
     pub original_prompt: String,
