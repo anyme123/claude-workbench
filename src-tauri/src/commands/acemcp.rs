@@ -106,22 +106,25 @@ impl AcemcpClient {
                 .join("binaries")
                 .join(exe_name))
         } else {
-            // 发布模式：从嵌入资源提取到临时目录
-            let temp_dir = std::env::temp_dir().join(".claude-workbench");
+            // 发布模式：从嵌入资源提取到 ~/.acemcp/ 目录（与配置文件同目录）
+            let acemcp_dir = dirs::home_dir()
+                .ok_or_else(|| anyhow::anyhow!("Cannot find home directory"))?
+                .join(".acemcp");
+
             let sidecar_name = if cfg!(windows) {
                 "acemcp-sidecar.exe"
             } else {
                 "acemcp-sidecar"
             };
-            let sidecar_path = temp_dir.join(sidecar_name);
+            let sidecar_path = acemcp_dir.join(sidecar_name);
 
             // 检查是否已提取
             if !sidecar_path.exists() {
                 info!("Extracting embedded sidecar to: {:?}", sidecar_path);
 
-                // 创建临时目录
-                std::fs::create_dir_all(&temp_dir)
-                    .map_err(|e| anyhow::anyhow!("Failed to create temp directory: {}", e))?;
+                // 创建 .acemcp 目录
+                std::fs::create_dir_all(&acemcp_dir)
+                    .map_err(|e| anyhow::anyhow!("Failed to create .acemcp directory: {}", e))?;
 
                 // 写入嵌入的 sidecar 字节
                 std::fs::write(&sidecar_path, ACEMCP_SIDECAR_BYTES)
