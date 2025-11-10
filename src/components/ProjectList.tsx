@@ -163,50 +163,48 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                   onProjectClick(project);
                 }
               }}
-              className="w-full text-left px-5 py-4 rounded-lg bg-card border border-border/40 hover:border-primary/50 hover:bg-muted/40 hover:shadow-md transition-all duration-200 group cursor-pointer"
+              className="w-full text-left px-5 py-4 rounded-lg bg-card border border-border/40 hover:border-primary/50 hover:bg-muted/40 hover:shadow-md transition-all duration-200 group cursor-pointer relative"
               aria-label={`项目 ${projectName}，包含 ${sessionCount} 个会话，创建于 ${formatAbsoluteDateTime(project.created_at)}`}
             >
-              {/* 主要信息区：项目名称 + 会话数徽章 */}
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                  <div className="p-2 rounded-md bg-primary/10 text-primary shrink-0">
-                    <FolderOpen className="h-5 w-5" aria-hidden="true" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-base truncate text-foreground group-hover:text-primary transition-colors">
-                      {projectName}
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {formatAbsoluteDateTime(project.created_at)}
-                    </p>
-                  </div>
+              {/* 主要信息区：项目图标 + 项目名称 */}
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-md bg-primary/10 text-primary shrink-0">
+                  <FolderOpen className="h-5 w-5" aria-hidden="true" />
                 </div>
+                <div className="flex-1 min-w-0 pr-20">
+                  <h3 className="font-semibold text-base truncate text-foreground group-hover:text-primary transition-colors">
+                    {projectName}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {formatAbsoluteDateTime(project.created_at)}
+                  </p>
+                  {/* 路径信息移到名称下方 */}
+                  <p
+                    className="text-xs text-muted-foreground truncate font-mono mt-2"
+                    aria-label={`路径: ${project.path}`}
+                    title={project.path}
+                  >
+                    {project.path}
+                  </p>
+                </div>
+              </div>
 
-                {/* 会话数徽章 - 更显眼 */}
+              {/* 右上角：会话数徽章 + 操作菜单 */}
+              <div className="absolute top-4 right-4 flex items-center gap-2">
+                {/* 会话数徽章 */}
                 {sessionCount > 0 && (
                   <div
-                    className="flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary rounded-full shrink-0"
+                    className="flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary rounded-full"
                     aria-label={`${sessionCount} 个会话`}
                   >
                     <FileText className="h-3.5 w-3.5" aria-hidden="true" />
                     <span className="text-sm font-medium">{sessionCount}</span>
                   </div>
                 )}
-              </div>
 
-              {/* 次要信息区：路径 */}
-              <p
-                className="text-sm text-muted-foreground truncate font-mono px-1"
-                aria-label={`路径: ${project.path}`}
-                title={project.path}
-              >
-                {project.path}
-              </p>
-
-              {/* 底部操作区：仅显示操作菜单 */}
-              {(onProjectSettings || onProjectDelete) && (
-                <div className="flex items-center justify-end pt-3 border-t border-border/50 mt-3">
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+                {/* 操作菜单 */}
+                {(onProjectSettings || onProjectDelete) && (
+                  <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                         <Button
@@ -248,8 +246,8 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           );
         })}
