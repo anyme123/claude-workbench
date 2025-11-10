@@ -7,7 +7,11 @@ mod process;
 
 use std::sync::{Arc, Mutex};
 
-use commands::acemcp::{enhance_prompt_with_context, test_acemcp_availability, save_acemcp_config, load_acemcp_config, preindex_project};
+use commands::acemcp::{
+    enhance_prompt_with_context, test_acemcp_availability,
+    save_acemcp_config, load_acemcp_config, preindex_project,
+    export_acemcp_sidecar, get_extracted_sidecar_path
+};
 use commands::claude::{
     cancel_claude_execution, check_claude_version, clear_custom_claude_path, continue_claude_code,
     delete_project, delete_project_permanently, delete_session, delete_sessions_batch,
@@ -173,6 +177,8 @@ fn main() {
             save_acemcp_config,
             load_acemcp_config,
             preindex_project,
+            export_acemcp_sidecar,
+            get_extracted_sidecar_path,
             // Enhanced Hooks Automation
             trigger_hook_event,
             test_hook_condition,

@@ -742,3 +742,75 @@ async fn preindex_project_internal(app: &AppHandle, project_path: &str) -> Resul
 
     Ok(())
 }
+
+// ============================================================================
+// Sidecar 导出（用于 CLI 配置）
+// ============================================================================
+
+/// 导出嵌入的 acemcp sidecar 到指定路径
+/// 用户可以将导出的文件配置到 Claude Code CLI 中使用
+#[tauri::command]
+pub async fn export_acemcp_sidecar(target_path: String) -> Result<String, String> {
+    use std::fs;
+
+    info!("Exporting acemcp sidecar to: {}", target_path);
+
+    let target = std::path::Path::new(&target_path);
+
+    // 如果是目录，使用默认文件名
+    let final_path = if target.is_dir() {
+        let exe_name = if cfg!(windows) {
+            "acemcp-sidecar.exe"
+        } else {
+            "acemcp-sidecar"
+        };
+        target.join(exe_name)
+    } else {
+        target.to_path_buf()
+    };
+
+    // 创建父目录
+    if let Some(parent) = final_path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create directory: {}", e))?;
+    }
+
+    // 写入 sidecar 字节
+    fs::write(&final_path, ACEMCP_SIDECAR_BYTES)
+        .map_err(|e| format!("Failed to export sidecar: {}", e))?;
+
+    // Unix 系统设置执行权限
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&final_path)
+            .map_err(|e| format!("Failed to get file metadata: {}", e))?
+            .permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&final_path, perms)
+            .map_err(|e| format!("Failed to set permissions: {}", e))?;
+    }
+
+    let final_path_str = final_path.to_string_lossy().to_string();
+    info!("✅ Sidecar exported successfully to: {}", final_path_str);
+
+    Ok(final_path_str)
+}
+
+/// 获取临时目录中提取的 sidecar 路径（如果存在）
+#[tauri::command]
+pub async fn get_extracted_sidecar_path() -> Result<Option<String>, String> {
+    let temp_dir = std::env::temp_dir().join(".claude-workbench");
+    let sidecar_name = if cfg!(windows) {
+        "acemcp-sidecar.exe"
+    } else {
+        "acemcp-sidecar"
+    };
+    let sidecar_path = temp_dir.join(sidecar_name);
+
+    if sidecar_path.exists() {
+        Ok(Some(sidecar_path.to_string_lossy().to_string()))
+    } else {
+        Ok(None)
+    }
+}

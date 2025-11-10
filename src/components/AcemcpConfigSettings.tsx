@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Database, Save, RefreshCw, Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react";
+import { Database, Save, RefreshCw, Eye, EyeOff, CheckCircle, AlertCircle, Download, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -110,6 +110,38 @@ export function AcemcpConfigSettings({ className }: AcemcpConfigSettingsProps) {
     setConfig({ ...config, [field]: value });
     setHasChanges(true);
     setTestStatus('idle');
+  };
+
+  const handleExportSidecar = async () => {
+    try {
+      const exportPath = await api.exportAcemcpSidecar(
+        'C:\\Users\\Administrator\\.local\\bin'
+      );
+      alert(`Acemcp sidecar 已导出到:\n${exportPath}\n\n现在可以在 Claude Code CLI 中配置使用。`);
+    } catch (error) {
+      alert('导出失败: ' + (error instanceof Error ? error.message : '未知错误'));
+    }
+  };
+
+  const handleCopyCliConfig = async () => {
+    const extractedPath = await api.getExtractedSidecarPath();
+    const sidecarPath = extractedPath || 'C:\\Users\\Administrator\\.local\\bin\\acemcp-sidecar.exe';
+
+    const cliConfig = `{
+  "mcpServers": {
+    "acemcp": {
+      "command": "${sidecarPath.replace(/\\/g, '\\\\')}",
+      "args": []
+    }
+  }
+}`;
+
+    try {
+      await navigator.clipboard.writeText(cliConfig);
+      alert('MCP 配置已复制到剪贴板！\n请粘贴到 ~/.claude/settings.json');
+    } catch (error) {
+      alert('复制失败，请手动复制:\n\n' + cliConfig);
+    }
   };
 
   return (
@@ -256,6 +288,30 @@ export function AcemcpConfigSettings({ className }: AcemcpConfigSettingsProps) {
                 </Badge>
               )}
             </div>
+
+            {/* CLI 配置 */}
+            <Card className="p-4 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-amber-900 dark:text-amber-100 mb-1">
+                    🔧 在 Claude Code CLI 中使用 Acemcp
+                  </p>
+                  <p className="text-xs text-amber-700 dark:text-amber-300">
+                    将内置的 acemcp sidecar 导出，即可在命令行中使用相同的功能
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={handleExportSidecar} size="sm" variant="outline">
+                    <Download className="h-3 w-3 mr-1" />
+                    导出
+                  </Button>
+                  <Button onClick={handleCopyCliConfig} size="sm" variant="outline">
+                    <Copy className="h-3 w-3 mr-1" />
+                    复制配置
+                  </Button>
+                </div>
+              </div>
+            </Card>
 
             {/* 说明 */}
             <Card className="p-3 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">

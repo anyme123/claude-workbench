@@ -1705,6 +1705,31 @@ export const api = {
     }
   },
 
+  /**
+   * Exports the embedded acemcp sidecar to a specified path
+   * For CLI configuration
+   */
+  async exportAcemcpSidecar(targetPath: string): Promise<string> {
+    try {
+      return await invoke<string>("export_acemcp_sidecar", { targetPath });
+    } catch (error) {
+      console.error("Failed to export sidecar:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Gets the path of extracted sidecar in temp directory (if exists)
+   */
+  async getExtractedSidecarPath(): Promise<string | null> {
+    try {
+      return await invoke<string | null>("get_extracted_sidecar_path");
+    } catch (error) {
+      console.error("Failed to get extracted sidecar path:", error);
+      return null;
+    }
+  },
+
   // Translation API methods
 
   /**
