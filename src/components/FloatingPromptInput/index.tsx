@@ -399,21 +399,6 @@ const FloatingPromptInputInner = (
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {/* 项目上下文开关（展开模式） */}
-                  {projectPath && (
-                    <Button
-                      variant={enableProjectContext ? "default" : "outline"}
-                      size="default"
-                      onClick={() => setEnableProjectContext(!enableProjectContext)}
-                      disabled={disabled}
-                      className="gap-2"
-                      title={enableProjectContext ? "已启用项目上下文搜索 (acemcp)" : "启用项目上下文搜索 (acemcp)"}
-                    >
-                      <Code2 className="h-4 w-4" />
-                      {enableProjectContext ? "上下文已启用" : "启用上下文"}
-                    </Button>
-                  )}
-
                   {/* Enhance Button in Expanded Mode */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -428,7 +413,40 @@ const FloatingPromptInputInner = (
                         <ChevronDown className="h-3 w-3" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuContent align="end" className="w-64">
+                      {/* 项目上下文开关 */}
+                      {projectPath && (
+                        <>
+                          <div className="px-2 py-1.5">
+                            <label className="flex items-center justify-between cursor-pointer">
+                              <div className="flex items-center gap-2">
+                                <Code2 className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-sm font-medium">启用项目上下文</span>
+                              </div>
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setEnableProjectContext(!enableProjectContext);
+                                }}
+                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                                  enableProjectContext ? 'bg-primary' : 'bg-gray-200 dark:bg-gray-700'
+                                }`}
+                              >
+                                <span
+                                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                    enableProjectContext ? 'translate-x-5' : 'translate-x-0.5'
+                                  }`}
+                                />
+                              </button>
+                            </label>
+                            <p className="text-xs text-muted-foreground mt-1 ml-6">
+                              使用 acemcp 搜索相关代码
+                            </p>
+                          </div>
+                          <DropdownMenuSeparator />
+                        </>
+                      )}
+
                       <DropdownMenuItem onClick={handleEnhancePrompt}>
                         使用 Claude (本地CLI)
                       </DropdownMenuItem>
@@ -702,21 +720,6 @@ const FloatingPromptInputInner = (
             {/* Spacer */}
             <div className="flex-1" />
 
-            {/* 项目上下文开关 */}
-            {projectPath && (
-              <Button
-                variant={enableProjectContext ? "default" : "outline"}
-                size="default"
-                onClick={() => setEnableProjectContext(!enableProjectContext)}
-                disabled={disabled}
-                className="gap-2 h-8"
-                title={enableProjectContext ? "已启用项目上下文搜索" : "启用项目上下文搜索"}
-              >
-                <Code2 className="h-3.5 w-3.5" />
-                <span className="text-xs">上下文</span>
-              </Button>
-            )}
-
             {/* Enhance Button */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -731,7 +734,40 @@ const FloatingPromptInputInner = (
                   <ChevronDown className="h-3 w-3" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent align="end" className="w-64">
+                {/* 项目上下文开关 */}
+                {projectPath && (
+                  <>
+                    <div className="px-2 py-1.5">
+                      <label className="flex items-center justify-between cursor-pointer">
+                        <div className="flex items-center gap-2">
+                          <Code2 className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm font-medium">启用项目上下文</span>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setEnableProjectContext(!enableProjectContext);
+                          }}
+                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                            enableProjectContext ? 'bg-primary' : 'bg-gray-200 dark:bg-gray-700'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              enableProjectContext ? 'translate-x-5' : 'translate-x-0.5'
+                            }`}
+                          />
+                        </button>
+                      </label>
+                      <p className="text-xs text-muted-foreground mt-1 ml-6">
+                        使用 acemcp 搜索相关代码
+                      </p>
+                    </div>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+
                 <DropdownMenuItem onClick={handleEnhancePrompt}>
                   使用 Claude (本地CLI)
                 </DropdownMenuItem>
