@@ -82,9 +82,21 @@ export function usePromptEnhancement({
 
       if (result.acemcpUsed && result.contextCount > 0) {
         console.log('[getProjectContext] Found context:', result.contextCount, 'items');
+        console.log('[getProjectContext] Enhanced prompt length:', result.enhancedPrompt.length);
+        console.log('[getProjectContext] Enhanced prompt preview:', result.enhancedPrompt.substring(0, 500));
+
         // 只返回上下文部分（不包括原提示词）
         const contextMatch = result.enhancedPrompt.match(/--- 项目上下文.*?---\n([\s\S]*)/);
-        return contextMatch ? contextMatch[0] : null;
+
+        if (contextMatch) {
+          const extractedContext = contextMatch[0];
+          console.log('[getProjectContext] Extracted context length:', extractedContext.length);
+          console.log('[getProjectContext] Extracted context preview:', extractedContext.substring(0, 300));
+          return extractedContext;
+        } else {
+          console.warn('[getProjectContext] Failed to extract context with regex');
+          return null;
+        }
       }
 
       return null;
@@ -117,10 +129,15 @@ export function usePromptEnhancement({
       // 如果有项目上下文，附加到 context 数组
       if (projectContext) {
         console.log('[handleEnhancePrompt] Adding project context to conversation context');
+        console.log('[handleEnhancePrompt] Project context length:', projectContext.length);
+        console.log('[handleEnhancePrompt] Project context preview:', projectContext.substring(0, 300));
         context = context ? [...context, projectContext] : [projectContext];
       }
 
-      console.log('[handleEnhancePrompt] Got context with', context?.length || 0, 'messages');
+      console.log('[handleEnhancePrompt] Final context array length:', context?.length || 0);
+      if (context && context.length > 0) {
+        console.log('[handleEnhancePrompt] Context items:', context.map(c => c.substring(0, 100) + '...'));
+      }
       console.log('[handleEnhancePrompt] Enhancing with Claude Code SDK, model:', selectedModel);
 
       // Call Claude Code SDK to enhance the prompt with context
