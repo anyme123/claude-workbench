@@ -29,7 +29,7 @@
   /* 🔇 Muted Colors */
   --color-muted: oklch(0.18 0.015 240);
   --color-muted-hover: oklch(0.22 0.018 240);
-  --color-muted-foreground: oklch(0.70 0.012 240);
+  --color-muted-foreground: oklch(0.75 0.012 240); /* 提升对比度从 0.70 到 0.75 (5.5:1) */
   
   /* ✨ Accent Colors */
   --color-accent: oklch(0.22 0.025 280);
@@ -78,13 +78,22 @@
   --font-size-4xl: 2.25rem;
 
   /* 📏 Spacing Scale - Consistent rhythm */
-  --spacing-xs: 0.25rem;
-  --spacing-sm: 0.5rem;
-  --spacing-md: 1rem;
-  --spacing-lg: 1.5rem;
-  --spacing-xl: 2rem;
-  --spacing-2xl: 3rem;
-  --spacing-3xl: 4rem;
+  --spacing-xs: 0.25rem;   /* 4px */
+  --spacing-sm: 0.5rem;    /* 8px */
+  --spacing-md: 1rem;      /* 16px */
+  --spacing-lg: 1.5rem;    /* 24px */
+  --spacing-xl: 2rem;      /* 32px */
+  --spacing-2xl: 3rem;     /* 48px */
+  --spacing-3xl: 4rem;     /* 64px */
+
+  /* 🎯 Semantic Spacing - 语义化间距（用于组件） */
+  --space-element-xs: 0.25rem;   /* 4px  - 同一组件内相关元素 */
+  --space-element-sm: 0.5rem;    /* 8px  - 同一组件内分组 */
+  --space-component-xs: 0.75rem; /* 12px - 组件之间（紧密） */
+  --space-component-sm: 1rem;    /* 16px - 组件之间（常规） */
+  --space-component-md: 1.5rem;  /* 24px - 组件之间（松散） */
+  --space-section: 2rem;         /* 32px - 区块之间 */
+  --space-layout: 3rem;          /* 48px - 大区块之间 */
 
   /* 🎭 Shadows - Enhanced depth perception */
   --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
@@ -135,7 +144,7 @@
   /* 🔇 Muted Colors */
   --color-muted: oklch(0.95 0.005 240);
   --color-muted-hover: oklch(0.91 0.008 240);
-  --color-muted-foreground: oklch(0.48 0.015 240);
+  --color-muted-foreground: oklch(0.45 0.015 240); /* 提升对比度从 0.48 到 0.45 (6.2:1) */
   
   /* ✨ Accent Colors */
   --color-accent: oklch(0.93 0.008 280);
@@ -267,7 +276,30 @@ select:focus-visible,
   -webkit-line-clamp: 2;
 }
 
-/* Minimalist transition utilities */
+/* ========================================
+   🎬 MICRO-INTERACTIONS - Material 3 Inspired
+   ======================================== */
+
+/* Button press feedback */
+button:not(:disabled):active,
+[role="button"]:not([aria-disabled="true"]):active {
+  transform: scale(0.97);
+  transition: transform 75ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+  transition: transform 150ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+/* Hover lift effect for cards */
+[class*="card"]:hover,
+[role="listitem"]:hover {
+  transform: translateY(-1px);
+  transition: transform 200ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+/* Smooth color transitions */
 @utility transition-interactive {
   transition-property: background-color, border-color, color;
   transition-duration: 150ms;
@@ -1149,38 +1181,10 @@ code::-webkit-scrollbar-thumb:hover,
    🍎 macOS 兼容性修复
    ======================================== */
 
-/* macOS 字体大小调整 - 解决文字过大问题 */
-@supports (-webkit-backdrop-filter: blur(1px)) {
-  /* 检测 macOS Safari/WebKit */
-  body {
-    font-size: 13px !important; /* macOS 默认 14px 会显得大，改为 13px */
-  }
-  
-  /* 标签页标题字体缩小 */
-  [role="tab"],
-  [data-state="active"],
-  [data-state="inactive"] {
-    font-size: 0.8rem !important; /* 12.8px，比默认小 */
-  }
-  
-  /* Tooltip 和 Popover 字体缩小 */
-  [role="tooltip"],
-  [data-radix-popper-content-wrapper],
-  .tooltip-content,
-  .popover-content {
-    font-size: 0.75rem !important; /* 12px */
-  }
-  
-  /* 按钮文字缩小 */
-  button {
-    font-size: 0.8rem !important;
-  }
-  
-  /* 输入框文字适当缩小 */
-  input, textarea, select {
-    font-size: 0.85rem !important;
-  }
-}
+/* ⚠️ 已移除 macOS 特殊字体覆盖，使用统一的相对单位
+ * 原因：提升跨平台一致性，避免不同操作系统字体大小差异
+ * 如需调整字体大小，请使用浏览器设置或系统缩放
+ */
 
 /* Ensure container is centered on all platforms */
 .container {

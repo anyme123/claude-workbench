@@ -164,40 +164,53 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                   onProjectClick(project);
                 }
               }}
-              className="w-full text-left px-4 py-3 rounded-lg bg-card border border-transparent hover:border-border hover:bg-muted/30 transition-colors group cursor-pointer"
+              className="w-full text-left px-5 py-4 rounded-lg bg-card border border-border/40 hover:border-primary/50 hover:bg-muted/40 hover:shadow-md transition-all duration-200 group cursor-pointer"
               aria-label={`项目 ${projectName}，包含 ${sessionCount} 个会话，创建于 ${formatTimeAgo(project.created_at * 1000)}`}
             >
-              <div className="flex items-center justify-between gap-3 mb-2">
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <FolderOpen className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" aria-hidden="true" />
-                  <h3 className="font-medium text-[15px] truncate">
-                    {projectName}
-                  </h3>
+              {/* 主要信息区：项目名称 + 会话数徽章 */}
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                  <div className="p-2 rounded-md bg-primary/10 text-primary shrink-0">
+                    <FolderOpen className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-base truncate text-foreground group-hover:text-primary transition-colors">
+                      {projectName}
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {formatTimeAgo(project.created_at * 1000)}
+                    </p>
+                  </div>
                 </div>
+
+                {/* 会话数徽章 - 更显眼 */}
                 {sessionCount > 0 && (
-                  <span
-                    className="text-xs text-muted-foreground font-medium px-2 py-0.5 bg-muted/50 rounded shrink-0"
+                  <div
+                    className="flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary rounded-full shrink-0"
                     aria-label={`${sessionCount} 个会话`}
                   >
-                    {sessionCount}
-                  </span>
+                    <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span className="text-sm font-medium">{sessionCount}</span>
+                  </div>
                 )}
               </div>
 
-              <p className="text-sm text-muted-foreground truncate font-mono mb-2" aria-label={`路径: ${project.path}`}>
+              {/* 次要信息区：路径 */}
+              <p
+                className="text-sm text-muted-foreground truncate font-mono mb-3 px-1"
+                aria-label={`路径: ${project.path}`}
+                title={project.path}
+              >
                 {project.path}
               </p>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3" aria-hidden="true" />
-                    <span>{formatTimeAgo(project.created_at * 1000)}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <FileText className="h-3 w-3" aria-hidden="true" />
-                    <span>{sessionCount} 会话</span>
-                  </div>
+              {/* 底部操作区 */}
+              <div className="flex items-center justify-between pt-3 border-t border-border/50">
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                  <span className="text-xs text-muted-foreground">
+                    创建于 {formatTimeAgo(project.created_at * 1000)}
+                  </span>
                 </div>
 
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
@@ -207,7 +220,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          className="h-7 w-7"
+                          className="h-8 w-8 hover:bg-muted"
                           aria-label={`${projectName} 项目操作菜单`}
                         >
                           <MoreVertical className="h-4 w-4" aria-hidden="true" />
