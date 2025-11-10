@@ -817,16 +817,19 @@ pub async fn export_acemcp_sidecar(target_path: String) -> Result<String, String
     Ok(final_path_str)
 }
 
-/// 获取临时目录中提取的 sidecar 路径（如果存在）
+/// 获取 ~/.acemcp/ 目录中的 sidecar 路径（如果存在）
 #[tauri::command]
 pub async fn get_extracted_sidecar_path() -> Result<Option<String>, String> {
-    let temp_dir = std::env::temp_dir().join(".claude-workbench");
+    let acemcp_dir = dirs::home_dir()
+        .ok_or("Cannot find home directory")?
+        .join(".acemcp");
+
     let sidecar_name = if cfg!(windows) {
         "acemcp-sidecar.exe"
     } else {
         "acemcp-sidecar"
     };
-    let sidecar_path = temp_dir.join(sidecar_name);
+    let sidecar_path = acemcp_dir.join(sidecar_name);
 
     if sidecar_path.exists() {
         Ok(Some(sidecar_path.to_string_lossy().to_string()))
