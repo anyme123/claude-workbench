@@ -19,6 +19,26 @@ export function formatUnixTimestamp(timestamp: number): string {
 }
 
 /**
+ * Formats a Unix timestamp to YYYY-MM-DD HH:mm format (full year)
+ * @param timestamp - Unix timestamp in seconds
+ * @returns Formatted date string with full year
+ *
+ * @example
+ * formatAbsoluteDateTime(1735555200) // "2024-12-30 14:30"
+ */
+export function formatAbsoluteDateTime(timestamp: number): string {
+  const date = new Date(timestamp * 1000);
+
+  const year = String(date.getFullYear());
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+
+  return `${year}-${month}-${day} ${hours}:${minutes}`;
+}
+
+/**
  * Formats an ISO timestamp string to a human-readable date
  * @param isoString - ISO timestamp string
  * @returns Formatted date string

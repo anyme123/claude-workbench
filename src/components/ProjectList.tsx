@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import {
   FolderOpen,
-  Calendar,
   FileText,
   Settings,
   MoreVertical,
@@ -26,7 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import type { Project } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { formatTimeAgo } from "@/lib/date-utils";
+import { formatAbsoluteDateTime } from "@/lib/date-utils";
 import { Pagination } from "@/components/ui/pagination";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DeletedProjects } from "./DeletedProjects";
@@ -165,7 +164,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                 }
               }}
               className="w-full text-left px-5 py-4 rounded-lg bg-card border border-border/40 hover:border-primary/50 hover:bg-muted/40 hover:shadow-md transition-all duration-200 group cursor-pointer"
-              aria-label={`项目 ${projectName}，包含 ${sessionCount} 个会话，创建于 ${formatTimeAgo(project.created_at * 1000)}`}
+              aria-label={`项目 ${projectName}，包含 ${sessionCount} 个会话，创建于 ${formatAbsoluteDateTime(project.created_at)}`}
             >
               {/* 主要信息区：项目名称 + 会话数徽章 */}
               <div className="flex items-start justify-between gap-3 mb-3">
@@ -178,7 +177,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                       {projectName}
                     </h3>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {formatTimeAgo(project.created_at * 1000)}
+                      {formatAbsoluteDateTime(project.created_at)}
                     </p>
                   </div>
                 </div>
@@ -197,24 +196,17 @@ export const ProjectList: React.FC<ProjectListProps> = ({
 
               {/* 次要信息区：路径 */}
               <p
-                className="text-sm text-muted-foreground truncate font-mono mb-3 px-1"
+                className="text-sm text-muted-foreground truncate font-mono px-1"
                 aria-label={`路径: ${project.path}`}
                 title={project.path}
               >
                 {project.path}
               </p>
 
-              {/* 底部操作区 */}
-              <div className="flex items-center justify-between pt-3 border-t border-border/50">
-                <div className="flex items-center gap-1">
-                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-                  <span className="text-xs text-muted-foreground">
-                    创建于 {formatTimeAgo(project.created_at * 1000)}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
-                  {(onProjectSettings || onProjectDelete) && (
+              {/* 底部操作区：仅显示操作菜单 */}
+              {(onProjectSettings || onProjectDelete) && (
+                <div className="flex items-center justify-end pt-3 border-t border-border/50 mt-3">
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                         <Button
@@ -255,9 +247,9 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                         )}
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           );
         })}
