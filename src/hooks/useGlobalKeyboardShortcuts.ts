@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { useTabs } from './useTabs';
 
 export interface GlobalKeyboardShortcutsConfig {
-  onBack?: () => void;
   onOpenSettings?: () => void;
   onOpenSearch?: () => void;
   enabled?: boolean;
@@ -10,7 +9,6 @@ export interface GlobalKeyboardShortcutsConfig {
 
 export function useGlobalKeyboardShortcuts(config: GlobalKeyboardShortcutsConfig = {}) {
   const {
-    onBack,
     onOpenSettings,
     onOpenSearch,
     enabled = true,
@@ -29,19 +27,20 @@ export function useGlobalKeyboardShortcuts(config: GlobalKeyboardShortcutsConfig
         target.isContentEditable ||
         target.closest('[role="textbox"]') !== null;
 
+      // ESC key handling: only blur input fields
+      // Note: "Double ESC to revert" functionality is handled by useKeyboardShortcuts hook
       if (event.key === 'Escape' && !event.ctrlKey && !event.metaKey && !event.altKey) {
         if (isInInput) {
           target.blur();
           return;
         }
 
+        // Let dialog handle ESC if one is open
         const hasDialog = document.querySelector('[role="dialog"]') !== null;
         if (hasDialog) return;
 
-        if (onBack) {
-          event.preventDefault();
-          onBack();
-        }
+        // Removed: ESC navigation back functionality
+        // This allows the double-ESC revert dialog to work properly
         return;
       }
 
@@ -79,5 +78,5 @@ export function useGlobalKeyboardShortcuts(config: GlobalKeyboardShortcutsConfig
     return () => {
       window.removeEventListener('keydown', handleKeyDown, { capture: true });
     };
-  }, [enabled, onBack, onOpenSettings, onOpenSearch, switchToTab, tabs]);
+  }, [enabled, onOpenSettings, onOpenSearch, switchToTab, tabs]);
 }

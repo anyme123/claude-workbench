@@ -88,10 +88,6 @@ function AppContent() {
 
   // ⌨️ 全局键盘快捷键配置
   useGlobalKeyboardShortcuts({
-    onBack: () => {
-      console.log('[App] Global shortcut: Back');
-      handleSmartBack();
-    },
     onOpenSettings: () => {
       console.log('[App] Global shortcut: Open Settings');
       handleViewChange('settings');
