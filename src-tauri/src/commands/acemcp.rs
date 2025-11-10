@@ -14,10 +14,21 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::process::Stdio;
-use tauri::{AppHandle, Manager};
+use std::path::PathBuf;
+use tauri::AppHandle;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use log::{debug, error, info, warn};
+
+// 嵌入 sidecar 可执行文件作为编译时资源
+#[cfg(target_os = "windows")]
+const ACEMCP_SIDECAR_BYTES: &[u8] = include_bytes!("../../binaries/acemcp-sidecar-x86_64-pc-windows-msvc.exe");
+
+#[cfg(target_os = "macos")]
+const ACEMCP_SIDECAR_BYTES: &[u8] = include_bytes!("../../binaries/acemcp-sidecar-aarch64-apple-darwin");
+
+#[cfg(target_os = "linux")]
+const ACEMCP_SIDECAR_BYTES: &[u8] = include_bytes!("../../binaries/acemcp-sidecar-x86_64-unknown-linux-gnu");
 
 // ============================================================================
 // MCP Protocol Types
@@ -76,16 +87,10 @@ struct AcemcpClient {
 }
 
 impl AcemcpClient {
-    /// 启动 acemcp MCP server (使用打包的 sidecar)
-    async fn start(app: &AppHandle) -> Result<Self> {
-        info!("Starting acemcp sidecar...");
-
-        // 开发模式和发布模式的路径不同
-        // 开发模式: src-tauri/binaries/acemcp-sidecar-x86_64-pc-windows-msvc.exe
-        // 发布模式: 使用 Tauri 的 resource resolver
-
-        let sidecar_path = if cfg!(debug_assertions) {
-            // 开发模式：使用相对于 src-tauri 的路径
+    /// 获取或提取 sidecar 可执行文件路径
+    fn get_or_extract_sidecar() -> Result<PathBuf> {
+        if cfg!(debug_assertions) {
+            // 开发模式：使用源码目录的 sidecar
             let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
                 .map_err(|e| anyhow::anyhow!("Failed to get CARGO_MANIFEST_DIR: {}", e))?;
 
@@ -97,15 +102,55 @@ impl AcemcpClient {
                 "acemcp-sidecar-x86_64-unknown-linux-gnu"
             };
 
-            std::path::PathBuf::from(manifest_dir)
+            Ok(std::path::PathBuf::from(manifest_dir)
                 .join("binaries")
-                .join(exe_name)
+                .join(exe_name))
         } else {
-            // 发布模式：使用 Tauri resource resolver
-            app.path().resolve("binaries/acemcp-sidecar",
-                tauri::path::BaseDirectory::Resource)
-                .map_err(|e| anyhow::anyhow!("Failed to resolve sidecar path: {}", e))?
-        };
+            // 发布模式：从嵌入资源提取到临时目录
+            let temp_dir = std::env::temp_dir().join(".claude-workbench");
+            let sidecar_name = if cfg!(windows) {
+                "acemcp-sidecar.exe"
+            } else {
+                "acemcp-sidecar"
+            };
+            let sidecar_path = temp_dir.join(sidecar_name);
+
+            // 检查是否已提取
+            if !sidecar_path.exists() {
+                info!("Extracting embedded sidecar to: {:?}", sidecar_path);
+
+                // 创建临时目录
+                std::fs::create_dir_all(&temp_dir)
+                    .map_err(|e| anyhow::anyhow!("Failed to create temp directory: {}", e))?;
+
+                // 写入嵌入的 sidecar 字节
+                std::fs::write(&sidecar_path, ACEMCP_SIDECAR_BYTES)
+                    .map_err(|e| anyhow::anyhow!("Failed to extract sidecar: {}", e))?;
+
+                // Unix 系统需要设置执行权限
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    let mut perms = std::fs::metadata(&sidecar_path)?.permissions();
+                    perms.set_mode(0o755);
+                    std::fs::set_permissions(&sidecar_path, perms)?;
+                }
+
+                info!("Sidecar extracted successfully ({} bytes)", ACEMCP_SIDECAR_BYTES.len());
+            } else {
+                debug!("Using existing sidecar at: {:?}", sidecar_path);
+            }
+
+            Ok(sidecar_path)
+        }
+    }
+
+    /// 启动 acemcp MCP server (使用嵌入的 sidecar)
+    async fn start(_app: &AppHandle) -> Result<Self> {
+        info!("Starting acemcp sidecar...");
+
+        // 获取或提取 sidecar 路径
+        let sidecar_path = Self::get_or_extract_sidecar()?;
 
         info!("Sidecar path: {:?}", sidecar_path);
 
