@@ -84,12 +84,42 @@ impl AcemcpClient {
     async fn start(app: &AppHandle) -> Result<Self> {
         info!("Starting acemcp sidecar...");
 
-        // 获取 sidecar 可执行文件路径
-        let sidecar_path = app.path().resolve("binaries/acemcp-sidecar",
-            tauri::path::BaseDirectory::Resource)
-            .map_err(|e| anyhow::anyhow!("Failed to resolve sidecar path: {}", e))?;
+        // 开发模式和发布模式的路径不同
+        // 开发模式: src-tauri/binaries/acemcp-sidecar-x86_64-pc-windows-msvc.exe
+        // 发布模式: 使用 Tauri 的 resource resolver
+
+        let sidecar_path = if cfg!(debug_assertions) {
+            // 开发模式：使用相对于 src-tauri 的路径
+            let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
+                .map_err(|e| anyhow::anyhow!("Failed to get CARGO_MANIFEST_DIR: {}", e))?;
+
+            let exe_name = if cfg!(windows) {
+                "acemcp-sidecar-x86_64-pc-windows-msvc.exe"
+            } else if cfg!(target_os = "macos") {
+                "acemcp-sidecar-aarch64-apple-darwin"
+            } else {
+                "acemcp-sidecar-x86_64-unknown-linux-gnu"
+            };
+
+            std::path::PathBuf::from(manifest_dir)
+                .join("binaries")
+                .join(exe_name)
+        } else {
+            // 发布模式：使用 Tauri resource resolver
+            app.path().resolve("binaries/acemcp-sidecar",
+                tauri::path::BaseDirectory::Resource)
+                .map_err(|e| anyhow::anyhow!("Failed to resolve sidecar path: {}", e))?
+        };
 
         info!("Sidecar path: {:?}", sidecar_path);
+
+        // 检查文件是否存在
+        if !sidecar_path.exists() {
+            return Err(anyhow::anyhow!(
+                "Sidecar executable not found at: {:?}. Please ensure the file exists.",
+                sidecar_path
+            ));
+        }
 
         // 使用 tokio Command 启动 sidecar（保持 stdio 通信）
         let child = Command::new(&sidecar_path)
