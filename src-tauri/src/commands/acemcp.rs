@@ -189,6 +189,29 @@ impl AcemcpClient {
         }
     }
 
+    /// 发送通知（notification，无需响应）
+    async fn send_notification(&mut self, method: &str, params: Option<Value>) -> Result<()> {
+        let notification = json!({
+            "jsonrpc": "2.0",
+            "method": method,
+            "params": params
+        });
+
+        let notification_json = serde_json::to_string(&notification)?;
+        debug!("Sending MCP notification: {}", notification_json);
+
+        // 发送通知（不等待响应）
+        if let Some(stdin) = self.child.stdin.as_mut() {
+            stdin.write_all(notification_json.as_bytes()).await?;
+            stdin.write_all(b"\n").await?;
+            stdin.flush().await?;
+        } else {
+            return Err(anyhow::anyhow!("stdin not available"));
+        }
+
+        Ok(())
+    }
+
     /// 初始化 MCP 会话
     async fn initialize(&mut self) -> Result<()> {
         info!("Initializing MCP session...");
@@ -201,10 +224,11 @@ impl AcemcpClient {
             }
         });
 
+        // 发送 initialize 请求并等待响应
         self.send_request("initialize", Some(params)).await?;
 
-        // 发送 initialized 通知
-        self.send_request("notifications/initialized", None).await?;
+        // 发送 initialized 通知（不等待响应）
+        self.send_notification("notifications/initialized", None).await?;
 
         info!("MCP session initialized successfully");
         Ok(())
