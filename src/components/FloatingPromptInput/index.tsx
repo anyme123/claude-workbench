@@ -64,7 +64,16 @@ const FloatingPromptInputInner = (
   const [isExpanded, setIsExpanded] = useState(false);
   const [showCostPopover, setShowCostPopover] = useState(false);
   const [cursorPosition, setCursorPosition] = useState(0);
-  const [enableProjectContext, setEnableProjectContext] = useState(false);
+
+  // 从 localStorage 读取项目上下文开关状态（持久化）
+  const [enableProjectContext, setEnableProjectContext] = useState(() => {
+    try {
+      const stored = localStorage.getItem('enable_project_context');
+      return stored === 'true';
+    } catch {
+      return false;
+    }
+  });
 
   // Refs
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -147,6 +156,15 @@ const FloatingPromptInputInner = (
     projectPath,
     enableProjectContext,
   });
+
+  // 持久化项目上下文开关状态
+  useEffect(() => {
+    try {
+      localStorage.setItem('enable_project_context', enableProjectContext.toString());
+    } catch (error) {
+      console.warn('Failed to save enable_project_context to localStorage:', error);
+    }
+  }, [enableProjectContext]);
 
   // Imperative handle for ref
   useImperativeHandle(ref, () => ({
