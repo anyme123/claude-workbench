@@ -11,6 +11,8 @@ export interface UsePromptEnhancementOptions {
   getConversationContext?: () => string[];
   textareaRef: React.RefObject<HTMLTextAreaElement>;
   expandedTextareaRef: React.RefObject<HTMLTextAreaElement>;
+  projectPath?: string;
+  enableProjectContext: boolean;
 }
 
 /**
@@ -61,28 +63,66 @@ export function usePromptEnhancement({
   getConversationContext,
   textareaRef,
   expandedTextareaRef,
+  projectPath,
+  enableProjectContext,
 }: UsePromptEnhancementOptions) {
   const [isEnhancing, setIsEnhancing] = useState(false);
+
+  /**
+   * 获取项目上下文（如果启用）
+   */
+  const getProjectContext = async (): Promise<string | null> => {
+    if (!enableProjectContext || !projectPath) {
+      return null;
+    }
+
+    try {
+      console.log('[getProjectContext] Fetching project context from acemcp...');
+      const result = await api.enhancePromptWithContext(prompt.trim(), projectPath, 3000);
+
+      if (result.acemcpUsed && result.contextCount > 0) {
+        console.log('[getProjectContext] Found context:', result.contextCount, 'items');
+        // 只返回上下文部分（不包括原提示词）
+        const contextMatch = result.enhancedPrompt.match(/--- 项目上下文.*?---\n([\s\S]*)/);
+        return contextMatch ? contextMatch[0] : null;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('[getProjectContext] Failed:', error);
+      return null;
+    }
+  };
 
   // Handle enhance prompt using Claude Code SDK
   const handleEnhancePrompt = async () => {
     console.log('[handleEnhancePrompt] Started, current prompt:', prompt);
     const trimmedPrompt = prompt.trim();
-    
+
     if (!trimmedPrompt) {
       console.log('[handleEnhancePrompt] Empty prompt, setting default message');
       onPromptChange("请描述您想要完成的任务，我会帮您优化这个提示词");
       return;
     }
-    
-    // Get conversation context if available
-    const context = getConversationContext ? getConversationContext() : undefined;
-    console.log('[handleEnhancePrompt] Got context with', context?.length || 0, 'messages');
-    
-    console.log('[handleEnhancePrompt] Enhancing with Claude Code SDK, model:', selectedModel);
+
     setIsEnhancing(true);
-    
+
     try {
+      // 获取项目上下文（如果启用）
+      const projectContext = await getProjectContext();
+
+      // 获取对话上下文
+      let context = getConversationContext ? getConversationContext() : undefined;
+
+      // 如果有项目上下文，附加到 context 数组
+      if (projectContext) {
+        console.log('[handleEnhancePrompt] Adding project context to conversation context');
+        context = context ? [...context, projectContext] : [projectContext];
+      }
+
+      console.log('[handleEnhancePrompt] Got context with', context?.length || 0, 'messages');
+      console.log('[handleEnhancePrompt] Enhancing with Claude Code SDK, model:', selectedModel);
+
       // Call Claude Code SDK to enhance the prompt with context
       const result = await api.enhancePrompt(trimmedPrompt, selectedModel, context);
       console.log('[handleEnhancePrompt] Enhancement result:', result);
@@ -125,16 +165,27 @@ export function usePromptEnhancement({
   const handleEnhancePromptWithGemini = async () => {
     console.log('[handleEnhancePromptWithGemini] Starting Gemini enhancement...');
     const trimmedPrompt = prompt.trim();
-    
+
     if (!trimmedPrompt) {
       onPromptChange("请描述您想要完成的任务，我会帮您优化这个提示词");
       return;
     }
-    
-    const context = getConversationContext ? getConversationContext() : undefined;
+
     setIsEnhancing(true);
-    
+
     try {
+      // 获取项目上下文（如果启用）
+      const projectContext = await getProjectContext();
+
+      // 获取对话上下文
+      let context = getConversationContext ? getConversationContext() : undefined;
+
+      // 如果有项目上下文，附加到 context 数组
+      if (projectContext) {
+        console.log('[handleEnhancePromptWithGemini] Adding project context to conversation context');
+        context = context ? [...context, projectContext] : [projectContext];
+      }
+
       const result = await api.enhancePromptWithGemini(trimmedPrompt, context);
       
       if (result && result.trim()) {
@@ -172,28 +223,39 @@ export function usePromptEnhancement({
   const handleEnhancePromptWithAPI = async (providerId: string) => {
     console.log('[handleEnhancePromptWithAPI] Starting with provider:', providerId);
     const trimmedPrompt = prompt.trim();
-    
+
     if (!trimmedPrompt) {
       onPromptChange("请描述您想要完成的任务");
       return;
     }
-    
+
     // 获取提供商配置
     const provider = getProvider(providerId);
     if (!provider) {
       onPromptChange(trimmedPrompt + '\n\n❌ 提供商配置未找到');
       return;
     }
-    
+
     if (!provider.enabled) {
       onPromptChange(trimmedPrompt + '\n\n❌ 提供商已禁用，请在设置中启用');
       return;
     }
-    
-    const context = getConversationContext ? getConversationContext() : undefined;
+
     setIsEnhancing(true);
-    
+
     try {
+      // 获取项目上下文（如果启用）
+      const projectContext = await getProjectContext();
+
+      // 获取对话上下文
+      let context = getConversationContext ? getConversationContext() : undefined;
+
+      // 如果有项目上下文，附加到 context 数组
+      if (projectContext) {
+        console.log('[handleEnhancePromptWithAPI] Adding project context to conversation context');
+        context = context ? [...context, projectContext] : [projectContext];
+      }
+
       const result = await callEnhancementAPI(provider, trimmedPrompt, context);
       
       if (result && result.trim()) {
@@ -227,70 +289,10 @@ export function usePromptEnhancement({
     }
   };
 
-  // ⚡ 新增：使用 acemcp 添加项目上下文
-  const handleEnhancePromptWithContext = async (projectPath: string) => {
-    console.log('[handleEnhancePromptWithContext] Starting context enhancement...');
-    const trimmedPrompt = prompt.trim();
-
-    if (!trimmedPrompt) {
-      onPromptChange("请描述您想要完成的任务");
-      return;
-    }
-
-    if (!projectPath) {
-      onPromptChange(trimmedPrompt + '\n\n❌ 项目路径未提供');
-      return;
-    }
-
-    setIsEnhancing(true);
-
-    try {
-      const result = await api.enhancePromptWithContext(trimmedPrompt, projectPath, 3000);
-      console.log('[handleEnhancePromptWithContext] Result:', result);
-
-      if (result.acemcpUsed && result.contextCount > 0) {
-        // 成功找到上下文，使用增强后的提示词
-        const target = isExpanded ? expandedTextareaRef.current : textareaRef.current;
-        if (target) {
-          updateTextareaWithUndo(target, result.enhancedPrompt);
-        }
-      } else if (result.error) {
-        // 有错误，显示错误信息
-        const target = isExpanded ? expandedTextareaRef.current : textareaRef.current;
-        if (target) {
-          updateTextareaWithUndo(target, trimmedPrompt + `\n\n⚠️ Acemcp: ${result.error}`);
-        }
-      } else {
-        // 没有找到相关上下文
-        const target = isExpanded ? expandedTextareaRef.current : textareaRef.current;
-        if (target) {
-          updateTextareaWithUndo(target, trimmedPrompt + '\n\n💡 未找到相关代码上下文，请确保提示词包含技术关键词');
-        }
-      }
-    } catch (error) {
-      console.error('[handleEnhancePromptWithContext] Failed:', error);
-      let errorMessage = '未知错误';
-
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      } else if (typeof error === 'string') {
-        errorMessage = error;
-      }
-
-      const target = isExpanded ? expandedTextareaRef.current : textareaRef.current;
-      if (target) {
-        updateTextareaWithUndo(target, trimmedPrompt + `\n\n❌ Acemcp: ${errorMessage}`);
-      }
-    } finally {
-      setIsEnhancing(false);
-    }
-  };
-
   return {
     isEnhancing,
     handleEnhancePrompt,
     handleEnhancePromptWithGemini,
     handleEnhancePromptWithAPI,
-    handleEnhancePromptWithContext,
   };
 }

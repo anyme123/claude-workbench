@@ -1,6 +1,6 @@
 import React, { useState, useRef, forwardRef, useImperativeHandle, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Maximize2, Minimize2, X, Wand2, ChevronDown, DollarSign, Info, Settings } from "lucide-react";
+import { Maximize2, Minimize2, X, Wand2, ChevronDown, DollarSign, Info, Settings, Code2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -64,6 +64,7 @@ const FloatingPromptInputInner = (
   const [isExpanded, setIsExpanded] = useState(false);
   const [showCostPopover, setShowCostPopover] = useState(false);
   const [cursorPosition, setCursorPosition] = useState(0);
+  const [enableProjectContext, setEnableProjectContext] = useState(false);
 
   // Refs
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -135,7 +136,6 @@ const FloatingPromptInputInner = (
     handleEnhancePrompt,
     handleEnhancePromptWithGemini,
     handleEnhancePromptWithAPI,
-    handleEnhancePromptWithContext,
   } = usePromptEnhancement({
     prompt,
     selectedModel,
@@ -144,6 +144,8 @@ const FloatingPromptInputInner = (
     getConversationContext,
     textareaRef,
     expandedTextareaRef,
+    projectPath,
+    enableProjectContext,
   });
 
   // Imperative handle for ref
@@ -397,6 +399,21 @@ const FloatingPromptInputInner = (
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {/* 项目上下文开关（展开模式） */}
+                  {projectPath && (
+                    <Button
+                      variant={enableProjectContext ? "default" : "outline"}
+                      size="default"
+                      onClick={() => setEnableProjectContext(!enableProjectContext)}
+                      disabled={disabled}
+                      className="gap-2"
+                      title={enableProjectContext ? "已启用项目上下文搜索 (acemcp)" : "启用项目上下文搜索 (acemcp)"}
+                    >
+                      <Code2 className="h-4 w-4" />
+                      {enableProjectContext ? "上下文已启用" : "启用上下文"}
+                    </Button>
+                  )}
+
                   {/* Enhance Button in Expanded Mode */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -418,16 +435,6 @@ const FloatingPromptInputInner = (
                       <DropdownMenuItem onClick={handleEnhancePromptWithGemini}>
                         使用 Gemini (本地CLI)
                       </DropdownMenuItem>
-
-                      {/* Acemcp 项目上下文增强 */}
-                      {projectPath && (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => handleEnhancePromptWithContext(projectPath)}>
-                            🔍 添加项目上下文 (acemcp)
-                          </DropdownMenuItem>
-                        </>
-                      )}
 
                       {/* 第三方API提供商 */}
                       {(() => {
@@ -695,6 +702,21 @@ const FloatingPromptInputInner = (
             {/* Spacer */}
             <div className="flex-1" />
 
+            {/* 项目上下文开关 */}
+            {projectPath && (
+              <Button
+                variant={enableProjectContext ? "default" : "outline"}
+                size="default"
+                onClick={() => setEnableProjectContext(!enableProjectContext)}
+                disabled={disabled}
+                className="gap-2 h-8"
+                title={enableProjectContext ? "已启用项目上下文搜索" : "启用项目上下文搜索"}
+              >
+                <Code2 className="h-3.5 w-3.5" />
+                <span className="text-xs">上下文</span>
+              </Button>
+            )}
+
             {/* Enhance Button */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -716,16 +738,6 @@ const FloatingPromptInputInner = (
                 <DropdownMenuItem onClick={handleEnhancePromptWithGemini}>
                   使用 Gemini (本地CLI)
                 </DropdownMenuItem>
-
-                {/* Acemcp 项目上下文增强 */}
-                {projectPath && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => handleEnhancePromptWithContext(projectPath)}>
-                      🔍 添加项目上下文 (acemcp)
-                    </DropdownMenuItem>
-                  </>
-                )}
 
                 {/* 第三方API提供商 */}
                 {(() => {
