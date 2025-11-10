@@ -389,16 +389,8 @@ function AppContent() {
     // 根据不同视图构建面包屑路径
     switch (view) {
       case 'projects':
-        if (selectedProject) {
-          breadcrumbs.push(
-            <BreadcrumbItem key="home" onClick={handleBack}>
-              项目列表
-            </BreadcrumbItem>,
-            <BreadcrumbItem key="project" current>
-              {selectedProject.path.split('/').pop() || selectedProject.path}
-            </BreadcrumbItem>
-          );
-        }
+        // 进入项目后不显示面包屑（避免与下方的返回按钮+项目路径冗余）
+        // if (selectedProject) { ... } - 已移除
         break;
 
       case 'editor':
@@ -545,15 +537,17 @@ function AppContent() {
         return (
           <div className="flex-1 overflow-y-auto">
             <div className="container mx-auto p-6">
-              {/* Header - 移除动画避免重复触发 */}
-              <div className="mb-6">
-                <div className="mb-4">
-                  <h1 className="text-3xl font-bold tracking-tight">{t('common.ccProjectsTitle')}</h1>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {t('common.browseClaudeSessions')}
-                  </p>
+              {/* Header - 只在主页显示，进入项目后隐藏（避免冗余） */}
+              {!selectedProject && (
+                <div className="mb-6">
+                  <div className="mb-4">
+                    <h1 className="text-3xl font-bold tracking-tight">{t('common.ccProjectsTitle')}</h1>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {t('common.browseClaudeSessions')}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Error display */}
               {error && (
