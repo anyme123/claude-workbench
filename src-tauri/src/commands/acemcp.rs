@@ -758,18 +758,35 @@ pub async fn export_acemcp_sidecar(target_path: String) -> Result<String, String
 
     info!("Exporting acemcp sidecar to: {}", target_path);
 
-    let target = std::path::Path::new(&target_path);
+    // 处理 ~/ 路径
+    let expanded_path = if target_path.starts_with("~/") {
+        let home = dirs::home_dir().ok_or("Cannot find home directory")?;
+        home.join(&target_path[2..])
+    } else if target_path == "~" {
+        dirs::home_dir().ok_or("Cannot find home directory")?
+    } else {
+        std::path::PathBuf::from(&target_path)
+    };
 
-    // 如果是目录，使用默认文件名
-    let final_path = if target.is_dir() {
+    info!("Expanded path: {:?}", expanded_path);
+
+    // 判断是否为目录
+    let is_directory = expanded_path.is_dir()
+        || expanded_path.extension().is_none();
+
+    info!("Is directory: {}", is_directory);
+
+    let final_path = if is_directory {
         let exe_name = if cfg!(windows) {
             "acemcp-sidecar.exe"
         } else {
             "acemcp-sidecar"
         };
-        target.join(exe_name)
+        let path = expanded_path.join(exe_name);
+        info!("Using filename: {:?}", path);
+        path
     } else {
-        target.to_path_buf()
+        expanded_path
     };
 
     // 创建父目录
