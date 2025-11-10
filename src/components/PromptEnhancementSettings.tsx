@@ -27,6 +27,7 @@ import {
 } from "@/lib/promptEnhancementService";
 import { cn } from "@/lib/utils";
 import { PromptContextConfigSettings } from "@/components/PromptContextConfigSettings";
+import { AcemcpConfigSettings } from "@/components/AcemcpConfigSettings";
 import { Separator } from "@/components/ui/separator";
 
 interface PromptEnhancementSettingsProps {
@@ -137,11 +138,16 @@ export const PromptEnhancementSettings: React.FC<PromptEnhancementSettingsProps>
 
   return (
     <div className={cn("space-y-6", className)}>
+      {/* Acemcp 配置 */}
+      <AcemcpConfigSettings />
+
+      <Separator />
+
       {/* 上下文配置 */}
       <PromptContextConfigSettings />
-      
+
       <Separator />
-      
+
       {/* API 提供商配置 */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">

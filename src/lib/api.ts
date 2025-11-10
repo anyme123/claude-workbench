@@ -1645,6 +1645,51 @@ export const api = {
     }
   },
 
+  /**
+   * Saves acemcp configuration to ~/.acemcp/settings.toml
+   */
+  async saveAcemcpConfig(
+    baseUrl: string,
+    token: string,
+    batchSize?: number,
+    maxLinesPerBlob?: number
+  ): Promise<void> {
+    try {
+      return await invoke("save_acemcp_config", {
+        baseUrl,
+        token,
+        batchSize,
+        maxLinesPerBlob,
+      });
+    } catch (error) {
+      console.error("Failed to save acemcp config:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Loads acemcp configuration from ~/.acemcp/settings.toml
+   */
+  async loadAcemcpConfig(): Promise<{
+    baseUrl: string;
+    token: string;
+    batchSize?: number;
+    maxLinesPerBlob?: number;
+  }> {
+    try {
+      return await invoke("load_acemcp_config");
+    } catch (error) {
+      console.error("Failed to load acemcp config:", error);
+      // 返回默认配置
+      return {
+        baseUrl: '',
+        token: '',
+        batchSize: 10,
+        maxLinesPerBlob: 800,
+      };
+    }
+  },
+
   // Translation API methods
 
   /**

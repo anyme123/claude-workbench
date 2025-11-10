@@ -505,3 +505,145 @@ pub async fn test_acemcp_availability(app: AppHandle) -> Result<bool, String> {
         }
     }
 }
+
+// ============================================================================
+// Acemcp 配置管理
+// ============================================================================
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AcemcpConfigData {
+    pub base_url: String,
+    pub token: String,
+    pub batch_size: Option<u32>,
+    pub max_lines_per_blob: Option<u32>,
+}
+
+impl Default for AcemcpConfigData {
+    fn default() -> Self {
+        Self {
+            base_url: String::new(),
+            token: String::new(),
+            batch_size: Some(10),
+            max_lines_per_blob: Some(800),
+        }
+    }
+}
+
+/// 保存 acemcp 配置到 ~/.acemcp/settings.toml
+#[tauri::command]
+pub async fn save_acemcp_config(
+    base_url: String,
+    token: String,
+    batch_size: Option<u32>,
+    max_lines_per_blob: Option<u32>,
+) -> Result<(), String> {
+    use std::fs;
+
+    info!("Saving acemcp config: base_url={}", base_url);
+
+    let config_dir = dirs::home_dir()
+        .ok_or("Cannot find home directory")?
+        .join(".acemcp");
+
+    fs::create_dir_all(&config_dir)
+        .map_err(|e| format!("Failed to create config dir: {}", e))?;
+
+    let config_file = config_dir.join("settings.toml");
+
+    // 构建 TOML 内容
+    let mut toml_content = format!(
+        "BASE_URL = \"{}\"\nTOKEN = \"{}\"\n",
+        base_url, token
+    );
+
+    if let Some(batch_size) = batch_size {
+        toml_content.push_str(&format!("BATCH_SIZE = {}\n", batch_size));
+    }
+
+    if let Some(max_lines) = max_lines_per_blob {
+        toml_content.push_str(&format!("MAX_LINES_PER_BLOB = {}\n", max_lines));
+    }
+
+    fs::write(&config_file, toml_content)
+        .map_err(|e| format!("Failed to write config: {}", e))?;
+
+    info!("Acemcp config saved to: {:?}", config_file);
+    Ok(())
+}
+
+/// 加载 acemcp 配置从 ~/.acemcp/settings.toml
+#[tauri::command]
+pub async fn load_acemcp_config() -> Result<AcemcpConfigData, String> {
+    use std::fs;
+
+    let config_file = dirs::home_dir()
+        .ok_or("Cannot find home directory")?
+        .join(".acemcp")
+        .join("settings.toml");
+
+    if !config_file.exists() {
+        info!("Acemcp config file not found, returning defaults");
+        return Ok(AcemcpConfigData::default());
+    }
+
+    let content = fs::read_to_string(&config_file)
+        .map_err(|e| format!("Failed to read config: {}", e))?;
+
+    // 简单的 TOML 解析（只解析我们需要的字段）
+    let mut base_url = String::new();
+    let mut token = String::new();
+    let mut batch_size = None;
+    let mut max_lines_per_blob = None;
+
+    for line in content.lines() {
+        let line = line.trim();
+        if line.starts_with("BASE_URL") {
+            if let Some(value) = extract_toml_string_value(line) {
+                base_url = value;
+            }
+        } else if line.starts_with("TOKEN") {
+            if let Some(value) = extract_toml_string_value(line) {
+                token = value;
+            }
+        } else if line.starts_with("BATCH_SIZE") {
+            if let Some(value) = extract_toml_number_value(line) {
+                batch_size = Some(value);
+            }
+        } else if line.starts_with("MAX_LINES_PER_BLOB") {
+            if let Some(value) = extract_toml_number_value(line) {
+                max_lines_per_blob = Some(value);
+            }
+        }
+    }
+
+    info!("Loaded acemcp config from: {:?}", config_file);
+    Ok(AcemcpConfigData {
+        base_url,
+        token,
+        batch_size,
+        max_lines_per_blob,
+    })
+}
+
+/// 提取 TOML 字符串值
+fn extract_toml_string_value(line: &str) -> Option<String> {
+    // 解析格式: KEY = "value"
+    if let Some(eq_pos) = line.find('=') {
+        let value_part = line[eq_pos + 1..].trim();
+        if value_part.starts_with('"') && value_part.ends_with('"') {
+            return Some(value_part[1..value_part.len() - 1].to_string());
+        }
+    }
+    None
+}
+
+/// 提取 TOML 数字值
+fn extract_toml_number_value(line: &str) -> Option<u32> {
+    // 解析格式: KEY = 123
+    if let Some(eq_pos) = line.find('=') {
+        let value_part = line[eq_pos + 1..].trim();
+        return value_part.parse::<u32>().ok();
+    }
+    None
+}
