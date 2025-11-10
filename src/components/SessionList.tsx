@@ -284,67 +284,59 @@ export const SessionList: React.FC<SessionListProps> = ({
         )}
       </div>
 
-      {/* New Session Button */}
-      {onNewSession && (
-        <div className="mb-4">
-          <Button
-            onClick={() => onNewSession(projectPath)}
-            size="default"
-            className="w-full max-w-md"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            {t('claude.newSession')}
-          </Button>
-        </div>
-      )}
-
-      {/* Batch operation toolbar */}
-      {onSessionsBatchDelete && validSessions.length > 0 && (
-        <div className="flex items-center justify-between gap-3 p-3 bg-muted/30 rounded-lg border border-border">
-          <div className="flex items-center gap-2">
-            {isSelectionMode ? (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={selectAllOnPage}
-                >
-                  {selectedSessions.size === currentSessions.length ? (
-                    <>
-                      <CheckSquare className="h-4 w-4 mr-2" />
-                      取消全选
-                    </>
-                  ) : (
-                    <>
-                      <Square className="h-4 w-4 mr-2" />
-                      全选当前页
-                    </>
-                  )}
-                </Button>
+      {/* 🎯 新布局：批量管理会话 + 新建会话按钮在同一行 */}
+      <div className="flex items-center justify-between gap-3 p-3 bg-muted/30 rounded-lg border border-border">
+        {/* 左侧：批量管理会话 */}
+        <div className="flex items-center gap-2 flex-1">
+          {onSessionsBatchDelete && validSessions.length > 0 && (
+            <>
+              {isSelectionMode ? (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={selectAllOnPage}
+                  >
+                    {selectedSessions.size === currentSessions.length ? (
+                      <>
+                        <CheckSquare className="h-4 w-4 mr-2" />
+                        取消全选
+                      </>
+                    ) : (
+                      <>
+                        <Square className="h-4 w-4 mr-2" />
+                        全选当前页
+                      </>
+                    )}
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    已选择 {selectedSessions.size} 个会话
+                  </span>
+                </>
+              ) : (
                 <span className="text-sm text-muted-foreground">
-                  已选择 {selectedSessions.size} 个会话
+                  批量管理会话
                 </span>
-              </>
-            ) : (
-              <span className="text-sm text-muted-foreground">
-                批量管理会话
-              </span>
-            )}
-          </div>
+              )}
+            </>
+          )}
+        </div>
 
-          <div className="flex items-center gap-2">
-            {isSelectionMode && selectedSessions.size > 0 && (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleBatchDelete}
-                disabled={isDeleting}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                {isDeleting ? "删除中..." : `删除选中 (${selectedSessions.size})`}
-              </Button>
-            )}
+        {/* 右侧：批量操作按钮 + 新建会话按钮 */}
+        <div className="flex items-center gap-2">
+          {isSelectionMode && selectedSessions.size > 0 && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleBatchDelete}
+              disabled={isDeleting}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              {isDeleting ? "删除中..." : `删除选中 (${selectedSessions.size})`}
+            </Button>
+          )}
 
+          {onSessionsBatchDelete && validSessions.length > 0 && (
             <Button
               variant={isSelectionMode ? "default" : "outline"}
               size="sm"
@@ -353,9 +345,20 @@ export const SessionList: React.FC<SessionListProps> = ({
             >
               {isSelectionMode ? "取消选择" : "批量选择"}
             </Button>
-          </div>
+          )}
+
+          {/* 新建会话按钮 */}
+          {onNewSession && (
+            <Button
+              onClick={() => onNewSession(projectPath)}
+              size="sm"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              {t('claude.newSession')}
+            </Button>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Compact session list */}
       <div
