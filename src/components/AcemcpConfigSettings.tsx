@@ -114,10 +114,10 @@ export function AcemcpConfigSettings({ className }: AcemcpConfigSettingsProps) {
 
   const handleExportSidecar = async () => {
     try {
-      const exportPath = await api.exportAcemcpSidecar(
-        'C:\\Users\\Administrator\\.local\\bin'
-      );
-      alert(`Acemcp sidecar 已导出到:\n${exportPath}\n\n现在可以在 Claude Code CLI 中配置使用。`);
+      // 导出到用户主目录的 .acemcp 目录（与配置文件同目录）
+      // 传递目录路径，Rust 会自动确定 home 目录
+      const exportPath = await api.exportAcemcpSidecar('~/.acemcp');
+      alert(`Acemcp sidecar 已导出到:\n${exportPath}\n\n与配置文件 settings.toml 在同一目录\n\n现在可以在 Claude Code CLI 中配置使用。`);
     } catch (error) {
       alert('导出失败: ' + (error instanceof Error ? error.message : '未知错误'));
     }
@@ -125,7 +125,17 @@ export function AcemcpConfigSettings({ className }: AcemcpConfigSettingsProps) {
 
   const handleCopyCliConfig = async () => {
     const extractedPath = await api.getExtractedSidecarPath();
-    const sidecarPath = extractedPath || 'C:\\Users\\Administrator\\.local\\bin\\acemcp-sidecar.exe';
+
+    // 使用实际路径或默认路径
+    let sidecarPath = extractedPath;
+    if (!sidecarPath) {
+      // Windows 默认路径
+      if (navigator.platform.indexOf('Win') !== -1) {
+        sidecarPath = 'C:\\\\Users\\\\Administrator\\\\.acemcp\\\\acemcp-sidecar.exe';
+      } else {
+        sidecarPath = '~/.acemcp/acemcp-sidecar';
+      }
+    }
 
     const cliConfig = `{
   "mcpServers": {
@@ -138,7 +148,7 @@ export function AcemcpConfigSettings({ className }: AcemcpConfigSettingsProps) {
 
     try {
       await navigator.clipboard.writeText(cliConfig);
-      alert('MCP 配置已复制到剪贴板！\n请粘贴到 ~/.claude/settings.json');
+      alert('MCP 配置已复制到剪贴板！\n\n请粘贴到 ~/.claude/settings.json 的 mcpServers 部分');
     } catch (error) {
       alert('复制失败，请手动复制:\n\n' + cliConfig);
     }
