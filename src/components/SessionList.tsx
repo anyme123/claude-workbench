@@ -1,9 +1,8 @@
-import React, { useState } from "react";
-import { ArrowLeft, Clock, Plus, Trash2, CheckSquare, Square } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { ArrowLeft, Clock, Plus, Trash2, CheckSquare, Square, FilePenLine, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ClaudeMemoriesDropdown } from "@/components/ClaudeMemoriesDropdown";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { formatUnixTimestamp, formatISOTimestamp, truncateText, getFirstLine } from "@/lib/date-utils";
 import type { Session, ClaudeMdFile } from "@/lib/api";
+import { api } from "@/lib/api";
 import { useTranslation } from '@/hooks/useTranslation';
 
 interface SessionListProps {
@@ -83,11 +83,47 @@ export const SessionList: React.FC<SessionListProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<Session | null>(null);
+  const [claudeMdFiles, setClaudeMdFiles] = useState<ClaudeMdFile[]>([]);
+  const [loadingClaudeMd, setLoadingClaudeMd] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Multi-selection mode
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
+
+  // Load CLAUDE.md files on mount
+  useEffect(() => {
+    if (onEditClaudeFile && projectPath) {
+      loadClaudeMdFiles();
+    }
+  }, [projectPath, onEditClaudeFile]);
+
+  const loadClaudeMdFiles = async () => {
+    try {
+      setLoadingClaudeMd(true);
+      const files = await api.findClaudeMdFiles(projectPath);
+      setClaudeMdFiles(files);
+    } catch (err) {
+      console.error('Failed to load CLAUDE.md files:', err);
+      setClaudeMdFiles([]);
+    } finally {
+      setLoadingClaudeMd(false);
+    }
+  };
+
+  const handleEditClaudeMd = () => {
+    if (!onEditClaudeFile) return;
+
+    // Find the main CLAUDE.md file (at project root)
+    const mainFile = claudeMdFiles.find(f => f.relative_path === 'CLAUDE.md');
+
+    if (mainFile) {
+      onEditClaudeFile(mainFile);
+    } else if (claudeMdFiles.length > 0) {
+      // If no main CLAUDE.md, open the first one found
+      onEditClaudeFile(claudeMdFiles[0]);
+    }
+  };
 
   // 🔧 过滤掉空白无用的会话（没有 first_message 或 id 为空的）
   const validSessions = sessions.filter(session =>
@@ -204,37 +240,49 @@ export const SessionList: React.FC<SessionListProps> = ({
 
   return (
     <div className={cn("space-y-4", className)}>
-      <div className="flex items-center space-x-3">
-        {/* 🔧 IMPROVED: 提升返回项目列表按钮的显著性 */}
-        <Button
-          variant="default"
-          size="default"
-          onClick={onBack}
-          className="h-10 px-4 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all duration-200 shadow-md"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          <span>返回项目列表</span>
-        </Button>
-        <div className="flex-1 min-w-0">
-          <h2 className="text-base font-medium truncate">{projectPath}</h2>
-          <p className="text-xs text-muted-foreground">
-            {validSessions.length} valid session{validSessions.length !== 1 ? 's' : ''}
-            {sessions.length !== validSessions.length && (
-              <span className="text-muted-foreground/70"> ({sessions.length - validSessions.length} hidden)</span>
-            )}
-          </p>
+      {/* 🎯 重构后的布局：项目信息 + Edit CLAUDE.md 按钮在同一行 */}
+      <div className="flex items-center justify-between gap-4">
+        {/* 左侧：返回按钮 + 项目信息 */}
+        <div className="flex items-center space-x-3 flex-1 min-w-0">
+          <Button
+            variant="default"
+            size="default"
+            onClick={onBack}
+            className="h-10 px-4 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all duration-200 shadow-md flex-shrink-0"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            <span>返回项目列表</span>
+          </Button>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-base font-medium truncate">{projectPath}</h2>
+            <p className="text-xs text-muted-foreground">
+              {validSessions.length} valid session{validSessions.length !== 1 ? 's' : ''}
+              {sessions.length !== validSessions.length && (
+                <span className="text-muted-foreground/70"> ({sessions.length - validSessions.length} hidden)</span>
+              )}
+            </p>
+          </div>
         </div>
-      </div>
 
-      {/* CLAUDE.md Memories Dropdown */}
-      {onEditClaudeFile && (
-        <div>
-          <ClaudeMemoriesDropdown
-            projectPath={projectPath}
-            onEditFile={onEditClaudeFile}
-          />
-        </div>
-      )}
+        {/* 右侧：Edit CLAUDE.md 按钮 */}
+        {onEditClaudeFile && (
+          <Button
+            variant="outline"
+            size="default"
+            onClick={handleEditClaudeMd}
+            disabled={loadingClaudeMd || claudeMdFiles.length === 0}
+            className="h-10 px-4 flex-shrink-0"
+            title={claudeMdFiles.length > 0 ? "Edit CLAUDE.md" : "No CLAUDE.md found"}
+          >
+            {loadingClaudeMd ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <FilePenLine className="h-4 w-4 mr-2" />
+            )}
+            <span>Edit CLAUDE.md</span>
+          </Button>
+        )}
+      </div>
 
       {/* New Session Button */}
       {onNewSession && (
