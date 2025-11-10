@@ -176,6 +176,10 @@ function AppContent() {
       const sessionList = await api.getProjectSessions(project.id);
       setSessions(sessionList);
       setSelectedProject(project);
+
+      // 🔍 后台预索引项目（静默执行，不阻塞 UI）
+      console.log('[App] Triggering background pre-indexing for:', project.path);
+      api.preindexProject(project.path);
     } catch (err) {
       console.error("Failed to load sessions:", err);
       setError(t('common.loadingSessions'));

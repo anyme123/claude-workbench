@@ -1690,6 +1690,21 @@ export const api = {
     }
   },
 
+  /**
+   * Pre-indexes a project in background (non-blocking)
+   * Automatically triggered when user selects a project
+   */
+  async preindexProject(projectPath: string): Promise<void> {
+    try {
+      // 后台执行，不等待结果
+      invoke("preindex_project", { projectPath }).catch((error) => {
+        console.warn("Background pre-indexing failed:", error);
+      });
+    } catch (error) {
+      console.warn("Failed to start pre-indexing:", error);
+    }
+  },
+
   // Translation API methods
 
   /**

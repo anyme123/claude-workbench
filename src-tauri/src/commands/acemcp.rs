@@ -690,3 +690,55 @@ fn extract_toml_number_value(line: &str) -> Option<u32> {
     }
     None
 }
+
+// ============================================================================
+// 后台预索引
+// ============================================================================
+
+/// 后台预索引项目（不阻塞 UI）
+/// 在用户选择项目后自动调用，提前完成索引以加快后续搜索
+#[tauri::command]
+pub async fn preindex_project(app: AppHandle, project_path: String) -> Result<(), String> {
+    info!("Starting background pre-indexing for project: {}", project_path);
+
+    // 检查项目路径是否存在
+    if !std::path::Path::new(&project_path).exists() {
+        warn!("Project path does not exist, skipping pre-index: {}", project_path);
+        return Ok(());
+    }
+
+    // 启动后台任务进行索引
+    tauri::async_runtime::spawn(async move {
+        match preindex_project_internal(&app, &project_path).await {
+            Ok(_) => {
+                info!("✅ Background pre-indexing completed for: {}", project_path);
+            }
+            Err(e) => {
+                warn!("⚠️ Background pre-indexing failed for {}: {}", project_path, e);
+            }
+        }
+    });
+
+    // 立即返回，不等待索引完成
+    Ok(())
+}
+
+/// 内部预索引实现
+async fn preindex_project_internal(app: &AppHandle, project_path: &str) -> Result<()> {
+    info!("🔄 Pre-indexing project: {}", project_path);
+
+    // 启动 acemcp 客户端
+    let mut client = AcemcpClient::start(app).await?;
+
+    // 初始化 MCP 会话
+    client.initialize().await?;
+
+    // 调用 search_context，触发自动索引
+    // 使用一个通用的查询来触发索引，不关心搜索结果
+    let _ = client.search_context(project_path, "preindex initialization").await;
+
+    // 关闭客户端
+    client.shutdown().await?;
+
+    Ok(())
+}
