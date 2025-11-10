@@ -14,6 +14,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::process::Stdio;
+use tauri::{AppHandle, Manager};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use log::{debug, error, info, warn};
@@ -79,41 +80,31 @@ struct AcemcpClient {
 }
 
 impl AcemcpClient {
-    /// 启动 acemcp MCP server
-    async fn start() -> Result<Self> {
-        info!("Starting acemcp MCP server...");
+    /// 启动 acemcp MCP server (使用打包的 sidecar)
+    async fn start(app: &AppHandle) -> Result<Self> {
+        info!("Starting acemcp sidecar...");
 
-        // 尝试查找 acemcp 命令
-        let acemcp_command = if cfg!(windows) {
-            // Windows: 尝试多种可能的路径
-            vec!["acemcp.exe", "acemcp"]
-        } else {
-            vec!["acemcp"]
-        };
+        // 获取 sidecar 可执行文件路径
+        let sidecar_path = app.path().resolve("binaries/acemcp-sidecar",
+            tauri::path::BaseDirectory::Resource)
+            .map_err(|e| anyhow::anyhow!("Failed to resolve sidecar path: {}", e))?;
 
-        let mut last_error = None;
-        for cmd in &acemcp_command {
-            match Command::new(cmd)
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::null())
-                .spawn()
-            {
-                Ok(child) => {
-                    info!("Successfully started acemcp with command: {}", cmd);
-                    return Ok(Self { child, request_id: 0 });
-                }
-                Err(e) => {
-                    debug!("Failed to start acemcp with {}: {}", cmd, e);
-                    last_error = Some(e);
-                }
-            }
-        }
+        info!("Sidecar path: {:?}", sidecar_path);
 
-        Err(anyhow::anyhow!(
-            "Failed to start acemcp. Please ensure acemcp is installed and in PATH. Last error: {:?}",
-            last_error
-        ))
+        // 使用 tokio Command 启动 sidecar（保持 stdio 通信）
+        let child = Command::new(&sidecar_path)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|e| anyhow::anyhow!("Failed to spawn sidecar: {}. Path: {:?}", e, sidecar_path))?;
+
+        info!("Acemcp sidecar started successfully");
+
+        Ok(Self {
+            child,
+            request_id: 0
+        })
     }
 
     /// 发送 JSON-RPC 请求
@@ -264,6 +255,7 @@ fn extract_keywords(prompt: &str) -> String {
 /// 使用 acemcp 增强提示词，添加项目上下文
 #[tauri::command]
 pub async fn enhance_prompt_with_context(
+    app: AppHandle,
     prompt: String,
     project_path: String,
     max_context_length: Option<usize>,
@@ -303,7 +295,7 @@ pub async fn enhance_prompt_with_context(
     info!("Extracted keywords: {}", keywords);
 
     // 启动 acemcp 客户端
-    let mut client = match AcemcpClient::start().await {
+    let mut client = match AcemcpClient::start(&app).await {
         Ok(c) => c,
         Err(e) => {
             error!("Failed to start acemcp: {}", e);
@@ -390,10 +382,10 @@ pub async fn enhance_prompt_with_context(
 
 /// 测试 acemcp 是否可用
 #[tauri::command]
-pub async fn test_acemcp_availability() -> Result<bool, String> {
+pub async fn test_acemcp_availability(app: AppHandle) -> Result<bool, String> {
     info!("Testing acemcp availability...");
 
-    match AcemcpClient::start().await {
+    match AcemcpClient::start(&app).await {
         Ok(mut client) => {
             if let Err(e) = client.initialize().await {
                 error!("Failed to initialize acemcp: {}", e);
