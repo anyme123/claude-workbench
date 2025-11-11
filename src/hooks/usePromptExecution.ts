@@ -17,6 +17,7 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { api, type Session } from '@/lib/api';
 import { translationMiddleware, isSlashCommand, type TranslationResult } from '@/lib/translationMiddleware';
 import type { ClaudeStreamMessage } from '@/types/claude';
+import type { ModelType } from '@/components/FloatingPromptInput/types';
 
 // ============================================================================
 // Type Definitions
@@ -25,7 +26,7 @@ import type { ClaudeStreamMessage } from '@/types/claude';
 interface QueuedPrompt {
   id: string;
   prompt: string;
-  model: 'sonnet' | 'opus' | 'sonnet1m';
+  model: ModelType;
 }
 
 interface UsePromptExecutionConfig {
@@ -63,7 +64,7 @@ interface UsePromptExecutionConfig {
 }
 
 interface UsePromptExecutionReturn {
-  handleSendPrompt: (prompt: string, model: 'sonnet' | 'opus' | 'sonnet1m', maxThinkingTokens?: number) => Promise<void>;
+  handleSendPrompt: (prompt: string, model: ModelType, maxThinkingTokens?: number) => Promise<void>;
 }
 
 // ============================================================================
@@ -103,7 +104,7 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
 
   const handleSendPrompt = useCallback(async (
     prompt: string,
-    model: 'sonnet' | 'opus' | 'sonnet1m',
+    model: ModelType,
     maxThinkingTokens?: number
   ) => {
     console.log('[usePromptExecution] handleSendPrompt called with:', {

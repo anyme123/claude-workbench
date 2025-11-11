@@ -3,13 +3,14 @@ import { ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { ModelType } from "./types";
+import { ModelType, ModelConfig } from "./types";
 import { MODELS } from "./constants";
 
 interface ModelSelectorProps {
   selectedModel: ModelType;
   onModelChange: (model: ModelType) => void;
   disabled?: boolean;
+  availableModels?: ModelConfig[];
 }
 
 /**
@@ -18,10 +19,11 @@ interface ModelSelectorProps {
 export const ModelSelector: React.FC<ModelSelectorProps> = ({
   selectedModel,
   onModelChange,
-  disabled = false
+  disabled = false,
+  availableModels = MODELS
 }) => {
   const [open, setOpen] = React.useState(false);
-  const selectedModelData = MODELS.find(m => m.id === selectedModel) || MODELS[0];
+  const selectedModelData = availableModels.find(m => m.id === selectedModel) || availableModels[0];
 
   return (
     <Popover
@@ -39,7 +41,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
       }
       content={
         <div className="w-[300px] p-1">
-          {MODELS.map((model) => (
+          {availableModels.map((model) => (
             <button
               key={model.id}
               onClick={() => {

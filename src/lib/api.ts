@@ -1572,11 +1572,11 @@ export const api = {
   /**
    * Enhances a prompt using Claude Code SDK
    * @param prompt - The original prompt to enhance
-   * @param model - The model to use for enhancement
+   * @param model - The model to use for enhancement (string to support custom models)
    * @param context - Optional conversation context (recent messages)
    * @returns Promise resolving to the enhanced prompt
    */
-  async enhancePrompt(prompt: string, model: "sonnet" | "opus" | "sonnet1m", context?: string[]): Promise<string> {
+  async enhancePrompt(prompt: string, model: string, context?: string[]): Promise<string> {
     try {
       return await invoke<string>("enhance_prompt", { prompt, model, context });
     } catch (error) {

@@ -1,6 +1,6 @@
 import React, { useState, useRef, forwardRef, useImperativeHandle, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Maximize2, Minimize2, X, Wand2, ChevronDown, DollarSign, Info, Settings, Code2 } from "lucide-react";
+import { Maximize2, Minimize2, X, Wand2, ChevronDown, DollarSign, Info, Settings, Code2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,8 +13,8 @@ import { ModelSelector } from "./ModelSelector";
 import { ThinkingModeToggle } from "./ThinkingModeToggle";
 import { PlanModeToggle } from "./PlanModeToggle";
 import { Popover } from "@/components/ui/popover";
-import { FloatingPromptInputProps, FloatingPromptInputRef, ThinkingMode, ModelType } from "./types";
-import { THINKING_MODES } from "./constants";
+import { FloatingPromptInputProps, FloatingPromptInputRef, ThinkingMode, ModelType, ModelConfig } from "./types";
+import { THINKING_MODES, MODELS } from "./constants";
 import { formatDuration } from "@/lib/pricing";
 import { useImageHandling } from "./hooks/useImageHandling";
 import { useFileSelection } from "./hooks/useFileSelection";
@@ -80,6 +80,9 @@ const FloatingPromptInputInner = (
   const [isExpanded, setIsExpanded] = useState(false);
   const [showCostPopover, setShowCostPopover] = useState(false);
   const [cursorPosition, setCursorPosition] = useState(0);
+
+  // 动态加载模型列表（包括自定义模型）
+  const [availableModels, setAvailableModels] = useState<ModelConfig[]>(MODELS);
 
   // 从 localStorage 读取项目上下文开关状态（持久化）
   const [enableProjectContext, setEnableProjectContext] = useState(() => {
@@ -190,6 +193,55 @@ const FloatingPromptInputInner = (
       setSelectedModel(parsedSessionModel);
     }
   }, [sessionModel]);
+
+  // 读取 settings.json 中的自定义模型配置
+  useEffect(() => {
+    const loadCustomModel = async () => {
+      try {
+        const settings = await api.getClaudeSettings();
+        const envVars = settings?.data?.env || settings?.env;
+
+        if (envVars && typeof envVars === 'object') {
+          // 查找自定义模型名称
+          const customModel = envVars.ANTHROPIC_MODEL ||
+                             envVars.ANTHROPIC_DEFAULT_SONNET_MODEL ||
+                             envVars.ANTHROPIC_DEFAULT_OPUS_MODEL;
+
+          if (customModel && typeof customModel === 'string') {
+            // 检查是否是第三方模型（不是标准的 Claude 模型）
+            const isThirdPartyModel = !customModel.toLowerCase().includes('claude') &&
+                                     !customModel.toLowerCase().includes('sonnet') &&
+                                     !customModel.toLowerCase().includes('opus');
+
+            if (isThirdPartyModel) {
+              console.log(`[FloatingPromptInput] Detected custom model: ${customModel}`);
+
+              // 添加自定义模型到列表
+              const customModelConfig: ModelConfig = {
+                id: "custom" as ModelType,
+                name: customModel,
+                description: "Third-party model from settings.json",
+                icon: <Sparkles className="h-4 w-4" />
+              };
+
+              // 更新模型列表（如果还没有自定义模型）
+              setAvailableModels(prev => {
+                const hasCustom = prev.some(m => m.id === "custom");
+                if (!hasCustom) {
+                  return [...prev, customModelConfig];
+                }
+                return prev;
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error('[FloatingPromptInput] Failed to load custom model:', error);
+      }
+    };
+
+    loadCustomModel();
+  }, []); // 只在组件挂载时加载一次
 
   // Imperative handle for ref
   useImperativeHandle(ref, () => ({
@@ -426,6 +478,7 @@ const FloatingPromptInputInner = (
                     selectedModel={selectedModel}
                     onModelChange={setSelectedModel}
                     disabled={disabled}
+                    availableModels={availableModels}
                   />
                   <ThinkingModeToggle
                     isEnabled={selectedThinkingMode === "on"}
@@ -644,6 +697,7 @@ const FloatingPromptInputInner = (
               selectedModel={selectedModel}
               onModelChange={setSelectedModel}
               disabled={disabled}
+              availableModels={availableModels}
             />
 
             {/* Thinking Mode Toggle */}

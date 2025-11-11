@@ -14,7 +14,7 @@ import { api, type Session, type Project } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { StreamMessageV2 } from "./message";
-import { FloatingPromptInput, type FloatingPromptInputRef } from "./FloatingPromptInput";
+import { FloatingPromptInput, type FloatingPromptInputRef, type ModelType } from "./FloatingPromptInput";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { SlashCommandsManager } from "./SlashCommandsManager";
 import { RevertPromptPicker } from "./RevertPromptPicker";
@@ -95,7 +95,7 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
   const [isPlanMode, setIsPlanMode] = useState(false);
 
   // Queued prompts state
-  const [queuedPrompts, setQueuedPrompts] = useState<Array<{ id: string; prompt: string; model: "sonnet" | "opus" | "sonnet1m" }>>([]);
+  const [queuedPrompts, setQueuedPrompts] = useState<Array<{ id: string; prompt: string; model: ModelType }>>([]);
 
   // State for revert prompt picker (defined early for useKeyboardShortcuts)
   const [showRevertPicker, setShowRevertPicker] = useState(false);
@@ -174,7 +174,7 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
   const unlistenRefs = useRef<UnlistenFn[]>([]);
   const hasActiveSessionRef = useRef(false);
   const floatingPromptRef = useRef<FloatingPromptInputRef>(null);
-  const queuedPromptsRef = useRef<Array<{ id: string; prompt: string; model: "sonnet" | "opus" | "sonnet1m" }>>([]);
+  const queuedPromptsRef = useRef<Array<{ id: string; prompt: string; model: ModelType }>>([]);
   const isMountedRef = useRef(true);
   const isListeningRef = useRef(false);
 
