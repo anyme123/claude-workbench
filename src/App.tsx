@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Plus, Loader2 } from "lucide-react";
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { api, type Project, type Session, type ClaudeMdFile } from "@/lib/api";
 import { OutputCacheProvider } from "@/lib/outputCache";
 import { Button } from "@/components/ui/button";
@@ -161,6 +162,57 @@ function AppContent() {
       window.removeEventListener('claude-not-found', handleClaudeNotFound as EventListener);
     };
   }, []);
+
+  // 监听会话完成事件，自动刷新项目列表和会话列表
+  // Listen for session completion events to auto-refresh project and session lists
+  useEffect(() => {
+    let unlistenComplete: UnlistenFn | null = null;
+
+    const setupListener = async () => {
+      try {
+        // 监听全局的 claude-complete 事件
+        unlistenComplete = await listen<boolean>('claude-complete', async (event) => {
+          console.log('[App] Received claude-complete event, success:', event.payload);
+
+          // 只在会话成功完成时刷新
+          if (event.payload === true) {
+            console.log('[App] Session completed successfully, refreshing lists...');
+
+            // 刷新项目列表（更新会话数量和时间戳）
+            try {
+              const projectList = await api.listProjects();
+              setProjects(projectList);
+              console.log('[App] Projects list refreshed');
+            } catch (err) {
+              console.error('[App] Failed to refresh projects:', err);
+            }
+
+            // 如果当前有选中的项目，也刷新会话列表
+            if (selectedProject) {
+              try {
+                const sessionList = await api.getProjectSessions(selectedProject.id);
+                setSessions(sessionList);
+                console.log('[App] Sessions list refreshed for project:', selectedProject.id);
+              } catch (err) {
+                console.error('[App] Failed to refresh sessions:', err);
+              }
+            }
+          }
+        });
+      } catch (err) {
+        console.error('[App] Failed to setup claude-complete listener:', err);
+      }
+    };
+
+    setupListener();
+
+    // 清理监听器
+    return () => {
+      if (unlistenComplete) {
+        unlistenComplete();
+      }
+    };
+  }, [selectedProject]); // 依赖 selectedProject，以便在选中项目变化时重新设置监听器
 
   /**
    * 从 ~/.claude/projects 目录加载所有项目
