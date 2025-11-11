@@ -372,7 +372,27 @@ pub async fn enhance_prompt_with_context(
         project_path
     );
 
+    // ⚡ 添加长度限制配置
+    const MAX_PROMPT_LENGTH: usize = 80_000; // 最大提示词长度
+    const MAX_TOTAL_OUTPUT_LENGTH: usize = 150_000; // 最大输出长度
+
     let max_length = max_context_length.unwrap_or(3000);
+
+    // ⚡ 检查提示词长度
+    if prompt.len() > MAX_PROMPT_LENGTH {
+        warn!("Prompt too long ({} chars), exceeds maximum ({})",
+            prompt.len(), MAX_PROMPT_LENGTH);
+        return Ok(EnhancementResult {
+            original_prompt: prompt.clone(),
+            enhanced_prompt: prompt.clone(),
+            context_count: 0,
+            acemcp_used: false,
+            error: Some(format!(
+                "提示词过长（{} 字符），超过最大限制（{} 字符）。请缩短提示词或分批处理。",
+                prompt.len(), MAX_PROMPT_LENGTH
+            )),
+        });
+    }
 
     // 检查项目路径是否存在
     if !std::path::Path::new(&project_path).exists() {
@@ -447,9 +467,12 @@ pub async fn enhance_prompt_with_context(
     // 关闭客户端
     let _ = client.shutdown().await;
 
-    // 处理上下文结果
+    // ⚡ 改进：智能处理上下文结果
     let trimmed_context = if context_result.len() > max_length {
-        format!("{}...\n\n(上下文过长，已截断)", &context_result[..max_length])
+        warn!("Context too long ({} chars), truncating to {} chars",
+            context_result.len(), max_length);
+        format!("{}...\n\n[上下文过长，已自动截断。建议在设置中降低 maxContextLength 参数]",
+            &context_result[..max_length])
     } else {
         context_result.clone()
     };
@@ -457,13 +480,49 @@ pub async fn enhance_prompt_with_context(
     // 统计上下文条目数（简单计数 "Path:" 出现次数）
     let context_count = trimmed_context.matches("Path:").count();
 
-    // 格式化增强后的提示词
+    // ⚡ 改进：格式化增强后的提示词，并验证总长度
     let enhanced_prompt = if !trimmed_context.trim().is_empty() {
-        format!(
+        let candidate = format!(
             "{}\n\n--- 项目上下文 (来自 acemcp 语义搜索) ---\n{}",
             prompt.trim(),
             trimmed_context
-        )
+        );
+
+        // 检查最终输出长度
+        if candidate.len() > MAX_TOTAL_OUTPUT_LENGTH {
+            warn!("Enhanced prompt too long ({} chars), exceeds maximum ({})",
+                candidate.len(), MAX_TOTAL_OUTPUT_LENGTH);
+
+            // 动态调整上下文长度
+            let available_space = MAX_TOTAL_OUTPUT_LENGTH.saturating_sub(prompt.len() + 100); // 预留100字符给分隔符
+            if available_space > 1000 {
+                let adjusted_context = format!("{}...\n\n[上下文已自动调整以适应长度限制]",
+                    &trimmed_context[..available_space]);
+                format!(
+                    "{}\n\n--- 项目上下文 (来自 acemcp 语义搜索) ---\n{}",
+                    prompt.trim(),
+                    adjusted_context
+                )
+            } else {
+                // 如果连最小的上下文都放不下，返回带警告的原提示词
+                warn!("Cannot fit any context, prompt too long: {} chars", prompt.len());
+                return Ok(EnhancementResult {
+                    original_prompt: prompt.clone(),
+                    enhanced_prompt: prompt.clone(),
+                    context_count: 0,
+                    acemcp_used: false,
+                    error: Some(format!(
+                        "提示词太长（{} 字符），无法添加项目上下文。\n\
+                        建议：\n\
+                        1. 缩短提示词长度\n\
+                        2. 直接使用原提示词，不添加上下文",
+                        prompt.len()
+                    )),
+                });
+            }
+        } else {
+            candidate
+        }
     } else {
         // 如果没有找到相关上下文，返回原提示词
         info!("No relevant context found");
@@ -471,8 +530,9 @@ pub async fn enhance_prompt_with_context(
     };
 
     info!(
-        "Enhanced prompt: original_len={}, enhanced_len={}, context_count={}",
+        "Enhanced prompt: original_len={}, context_len={}, enhanced_len={}, context_count={}",
         prompt.len(),
+        trimmed_context.len(),
         enhanced_prompt.len(),
         context_count
     );
