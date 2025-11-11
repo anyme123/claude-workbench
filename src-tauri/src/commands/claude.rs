@@ -634,6 +634,27 @@ fn create_command_with_env(program: &str) -> Command {
         }
     }
 
+    // 🔥 新增：读取 ~/.claude/settings.json 中的自定义环境变量
+    // 这些变量会覆盖系统环境变量，确保用户的自定义配置生效
+    if let Ok(claude_dir) = get_claude_dir() {
+        let settings_path = claude_dir.join("settings.json");
+        if settings_path.exists() {
+            if let Ok(content) = fs::read_to_string(&settings_path) {
+                if let Ok(settings) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Some(env_obj) = settings.get("env").and_then(|v| v.as_object()) {
+                        log::info!("Loading {} custom environment variables from settings.json", env_obj.len());
+                        for (key, value) in env_obj {
+                            if let Some(value_str) = value.as_str() {
+                                log::info!("Setting custom env var: {}={}", key, value_str);
+                                tokio_cmd.env(key, value_str);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     tokio_cmd
 }
 
