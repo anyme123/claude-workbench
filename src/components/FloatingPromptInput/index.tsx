@@ -45,6 +45,7 @@ const FloatingPromptInputInner = (
     isLoading = false,
     disabled = false,
     defaultModel = "sonnet",
+    sessionModel,
     projectPath,
     className,
     onCancel,
@@ -57,9 +58,24 @@ const FloatingPromptInputInner = (
   }: FloatingPromptInputProps,
   ref: React.Ref<FloatingPromptInputRef>,
 ) => {
-  // State
+  // Helper function to convert backend model string to frontend ModelType
+  const parseSessionModel = (modelStr?: string): ModelType | null => {
+    if (!modelStr) return null;
+
+    const lowerModel = modelStr.toLowerCase();
+    if (lowerModel.includes("opus")) return "opus";
+    if (lowerModel.includes("sonnet") && lowerModel.includes("1m")) return "sonnet1m";
+    if (lowerModel.includes("sonnet")) return "sonnet";
+
+    return null;
+  };
+
+  // State - Initialize selectedModel from sessionModel if available
   const [prompt, setPrompt] = useState("");
-  const [selectedModel, setSelectedModel] = useState<ModelType>(defaultModel);
+  const [selectedModel, setSelectedModel] = useState<ModelType>(() => {
+    const parsedSessionModel = parseSessionModel(sessionModel);
+    return parsedSessionModel || defaultModel;
+  });
   const [selectedThinkingMode, setSelectedThinkingMode] = useState<ThinkingMode>("on");
   const [isExpanded, setIsExpanded] = useState(false);
   const [showCostPopover, setShowCostPopover] = useState(false);
@@ -165,6 +181,15 @@ const FloatingPromptInputInner = (
       console.warn('Failed to save enable_project_context to localStorage:', error);
     }
   }, [enableProjectContext]);
+
+  // 恢复会话模型选择（当 sessionModel 变化时）
+  useEffect(() => {
+    const parsedSessionModel = parseSessionModel(sessionModel);
+    if (parsedSessionModel) {
+      console.log(`[FloatingPromptInput] Restoring model from session: ${sessionModel} -> ${parsedSessionModel}`);
+      setSelectedModel(parsedSessionModel);
+    }
+  }, [sessionModel]);
 
   // Imperative handle for ref
   useImperativeHandle(ref, () => ({

@@ -51,6 +51,8 @@ export interface Session {
   message_timestamp?: string;
   /** Timestamp of the last message in the session (if available) - ISO string */
   last_message_timestamp?: string;
+  /** The model used in this session (if available) */
+  model?: string;
 }
 
 /**

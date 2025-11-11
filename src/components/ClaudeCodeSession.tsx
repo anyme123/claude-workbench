@@ -1053,6 +1053,7 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
               isLoading={isLoading}
               disabled={!projectPath}
               projectPath={projectPath}
+              sessionModel={session?.model}
               getConversationContext={getConversationContext}
               isPlanMode={isPlanMode}
               onTogglePlanMode={handleTogglePlanMode}

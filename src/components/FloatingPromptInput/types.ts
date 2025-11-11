@@ -64,6 +64,10 @@ export interface FloatingPromptInputProps {
    */
   defaultModel?: ModelType;
   /**
+   * Model from session (for restoring model selection on page reload)
+   */
+  sessionModel?: string;
+  /**
    * Project path for file picker
    */
   projectPath?: string;

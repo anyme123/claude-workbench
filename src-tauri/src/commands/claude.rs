@@ -125,6 +125,8 @@ pub struct Session {
     pub message_timestamp: Option<String>,
     /// Timestamp of the last message in the session (if available) - ISO string
     pub last_message_timestamp: Option<String>,
+    /// The model used in this session (if available)
+    pub model: Option<String>,
 }
 
 /// Represents a message entry in the JSONL file
@@ -442,6 +444,39 @@ fn extract_last_message_timestamp(jsonl_path: &PathBuf) -> Option<String> {
     }
 
     last_timestamp
+}
+
+/// Extracts the model used in the session from a JSONL file
+/// Looks for model information in system init messages or assistant messages
+fn extract_session_model(jsonl_path: &PathBuf) -> Option<String> {
+    let file = match fs::File::open(jsonl_path) {
+        Ok(file) => file,
+        Err(_) => return None,
+    };
+
+    let reader = BufReader::new(file);
+    let mut last_model: Option<String> = None;
+
+    for line in reader.lines() {
+        if let Ok(line) = line {
+            // Try to parse as a generic JSON value first
+            if let Ok(entry) = serde_json::from_str::<serde_json::Value>(&line) {
+                // Check for model in different locations:
+                // 1. System init message: { "type": "system", "model": "..." }
+                // 2. Assistant message: { "type": "assistant", "message": { "model": "..." } }
+
+                if let Some(model_str) = entry.get("model").and_then(|m| m.as_str()) {
+                    last_model = Some(model_str.to_string());
+                } else if let Some(message) = entry.get("message") {
+                    if let Some(model_str) = message.get("model").and_then(|m| m.as_str()) {
+                        last_model = Some(model_str.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    last_model
 }
 
 /// Escapes prompt content for safe command line usage
@@ -945,6 +980,9 @@ pub async fn get_project_sessions(project_id: String) -> Result<Vec<Session>, St
                 // Extract last message timestamp (any message, user or assistant)
                 let last_message_timestamp = extract_last_message_timestamp(&path);
 
+                // Extract model used in this session
+                let model = extract_session_model(&path);
+
                 // Try to load associated todo data
                 let todo_path = todos_dir.join(format!("{}.json", session_id));
                 let todo_data = if todo_path.exists() {
@@ -964,6 +1002,7 @@ pub async fn get_project_sessions(project_id: String) -> Result<Vec<Session>, St
                     first_message,
                     message_timestamp,
                     last_message_timestamp,
+                    model,
                 });
             }
         }
