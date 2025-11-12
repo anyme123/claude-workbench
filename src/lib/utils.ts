@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { normalizeRawUsage } from './tokenExtractor';
 
 /**
  * Combines multiple class values into a single string using clsx and tailwind-merge.
@@ -18,6 +19,8 @@ export function cn(...inputs: ClassValue[]) {
 
 /**
  * Usage data interface that supports both API formats
+ *
+ * @deprecated Use StandardizedTokenUsage from tokenExtractor.ts instead
  */
 export interface UsageData {
   input_tokens: number;
@@ -32,11 +35,9 @@ export interface UsageData {
 
 /**
  * Standardizes usage data from Claude API to consistent frontend format.
- * Handles field name mapping from API format to frontend expectation.
  *
- * This function resolves the cache token field name inconsistency where:
- * - Claude API returns: cache_creation_input_tokens, cache_read_input_tokens
- * - Frontend expects: cache_creation_tokens, cache_read_tokens
+ * ⚠️ This function now delegates to tokenExtractor.ts for unified token normalization.
+ * All token standardization logic is centralized in tokenExtractor.ts
  *
  * @param usage - Raw usage data from Claude API or frontend
  * @returns Standardized usage data with consistent field names
@@ -52,45 +53,19 @@ export interface UsageData {
  * // Result: { input_tokens: 100, output_tokens: 50, cache_creation_tokens: 20, cache_read_tokens: 10 }
  */
 export function normalizeUsageData(usage: any): UsageData {
-  if (!usage) {
-    return {
-      input_tokens: 0,
-      output_tokens: 0,
-      cache_creation_tokens: 0,
-      cache_read_tokens: 0,
-    };
-  }
+  // Delegate to the unified token normalization system
+  const standardized = normalizeRawUsage(usage);
 
-  try {
-    // Extract base tokens with safe conversion
-    const input_tokens = Number(usage.input_tokens) || 0;
-    const output_tokens = Number(usage.output_tokens) || 0;
-
-    // Handle cache tokens with fallback logic
-    // Priority: API format -> frontend format -> 0
-    const cache_creation_tokens =
-      Number(usage.cache_creation_input_tokens) ||
-      Number(usage.cache_creation_tokens) || 0;
-
-    const cache_read_tokens =
-      Number(usage.cache_read_input_tokens) ||
-      Number(usage.cache_read_tokens) || 0;
-
-    return {
-      input_tokens,
-      output_tokens,
-      cache_creation_tokens,
-      cache_read_tokens,
-    };
-  } catch (error) {
-    console.warn('[normalizeUsageData] Error processing usage data:', error, usage);
-    return {
-      input_tokens: 0,
-      output_tokens: 0,
-      cache_creation_tokens: 0,
-      cache_read_tokens: 0,
-    };
-  }
+  // Return in the legacy UsageData format for backward compatibility
+  return {
+    input_tokens: standardized.input_tokens,
+    output_tokens: standardized.output_tokens,
+    cache_creation_tokens: standardized.cache_creation_tokens,
+    cache_read_tokens: standardized.cache_read_tokens,
+    // Also include API format fields for full compatibility
+    cache_creation_input_tokens: standardized.cache_creation_tokens,
+    cache_read_input_tokens: standardized.cache_read_tokens,
+  };
 }
 
 /**

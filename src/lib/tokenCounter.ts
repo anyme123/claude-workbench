@@ -534,15 +534,23 @@ export class TokenCounterService {
 
   /**
    * 标准化token使用数据
+   *
+   * ⚠️ This method now delegates to tokenExtractor.ts for unified token normalization.
+   * All token standardization logic is centralized in tokenExtractor.ts
    */
   normalizeUsage(usage: TokenUsage): Required<TokenUsage> {
+    // Import from tokenExtractor for unified normalization
+    const { normalizeRawUsage } = require('./tokenExtractor');
+    const standardized = normalizeRawUsage(usage);
+
+    // Return in the expected TokenUsage format
     return {
-      input_tokens: usage.input_tokens || 0,
-      output_tokens: usage.output_tokens || 0,
-      cache_creation_input_tokens: usage.cache_creation_input_tokens || usage.cache_creation_tokens || 0,
-      cache_creation_tokens: usage.cache_creation_tokens || usage.cache_creation_input_tokens || 0,
-      cache_read_input_tokens: usage.cache_read_input_tokens || usage.cache_read_tokens || 0,
-      cache_read_tokens: usage.cache_read_tokens || usage.cache_read_input_tokens || 0,
+      input_tokens: standardized.input_tokens,
+      output_tokens: standardized.output_tokens,
+      cache_creation_input_tokens: standardized.cache_creation_tokens,
+      cache_creation_tokens: standardized.cache_creation_tokens,
+      cache_read_input_tokens: standardized.cache_read_tokens,
+      cache_read_tokens: standardized.cache_read_tokens,
     };
   }
 

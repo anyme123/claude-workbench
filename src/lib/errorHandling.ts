@@ -1,11 +1,17 @@
 /**
- * Enhanced Error Handling System with SDK Native Error Types
+ * Unified Error Handling System
  *
- * Comprehensive error handling system that provides detailed error classification,
- * recovery strategies, and user-friendly error messages based on Claude SDK errors.
+ * Comprehensive error handling for both Claude SDK API and CLI integration.
+ * Provides detailed error classification, recovery strategies, and user-friendly messages.
+ *
+ * Merged from errorHandler.ts and errorHandling.ts for unified error management.
  */
 
 import { APIError } from '@anthropic-ai/sdk/error';
+
+// ============================================================================
+// Types and Interfaces
+// ============================================================================
 
 export interface ErrorContext {
   operation: string;
@@ -23,6 +29,9 @@ export interface RecoveryAction {
   primary?: boolean;
   destructive?: boolean;
 }
+
+// Backward compatibility - alias for RecoveryAction
+export type ErrorAction = RecoveryAction;
 
 export interface ErrorDetails {
   code: string;
@@ -60,6 +69,17 @@ export enum ErrorType {
   SDK_CONFIGURATION_ERROR = 'SDK_CONFIGURATION_ERROR',
   SDK_VERSION_MISMATCH = 'SDK_VERSION_MISMATCH',
 
+  // CLI Specific Errors (merged from errorHandler.ts)
+  CLAUDE_NOT_FOUND = 'CLAUDE_NOT_FOUND',
+  CLAUDE_NOT_EXECUTABLE = 'CLAUDE_NOT_EXECUTABLE',
+  CLAUDE_VERSION_MISMATCH = 'CLAUDE_VERSION_MISMATCH',
+  CLAUDE_PERMISSION_DENIED = 'CLAUDE_PERMISSION_DENIED',
+  CLAUDE_NETWORK_ERROR = 'CLAUDE_NETWORK_ERROR',
+  CLAUDE_TIMEOUT = 'CLAUDE_TIMEOUT',
+  CLAUDE_PROCESS_ERROR = 'CLAUDE_PROCESS_ERROR',
+  CLAUDE_CONFIG_ERROR = 'CLAUDE_CONFIG_ERROR',
+  SYSTEM_PATH_ERROR = 'SYSTEM_PATH_ERROR',
+
   // Application Errors
   APP_SESSION_EXPIRED = 'APP_SESSION_EXPIRED',
   APP_INVALID_STATE = 'APP_INVALID_STATE',
@@ -74,6 +94,23 @@ export enum ErrorType {
   UNKNOWN_ERROR = 'UNKNOWN_ERROR',
 }
 
+// Backward compatibility - legacy ErrorCode type
+export type ErrorCode =
+  | 'CLAUDE_NOT_FOUND'
+  | 'CLAUDE_NOT_EXECUTABLE'
+  | 'CLAUDE_VERSION_MISMATCH'
+  | 'CLAUDE_PERMISSION_DENIED'
+  | 'CLAUDE_NETWORK_ERROR'
+  | 'CLAUDE_TIMEOUT'
+  | 'CLAUDE_PROCESS_ERROR'
+  | 'CLAUDE_CONFIG_ERROR'
+  | 'SYSTEM_PATH_ERROR'
+  | 'UNKNOWN_ERROR';
+
+// ============================================================================
+// ClaudeError Class
+// ============================================================================
+
 export class ClaudeError extends Error {
   public readonly code: string;
   public readonly type: ErrorType;
@@ -82,21 +119,59 @@ export class ClaudeError extends Error {
   public readonly retryable: boolean;
   public readonly context?: ErrorContext;
   public readonly originalError?: Error;
-  public readonly actions?: RecoveryAction[];
+  public readonly actions: RecoveryAction[];
   public readonly documentation?: string;
 
-  constructor(details: ErrorDetails) {
-    super(details.message);
+  constructor(details: ErrorDetails);
+  constructor(
+    code: ErrorCode,
+    message: string,
+    userMessage: string,
+    options?: {
+      recoverable?: boolean;
+      retryable?: boolean;
+      actions?: ErrorAction[];
+      originalError?: Error;
+    }
+  );
+  constructor(
+    detailsOrCode: ErrorDetails | ErrorCode,
+    message?: string,
+    userMessage?: string,
+    options?: {
+      recoverable?: boolean;
+      retryable?: boolean;
+      actions?: ErrorAction[];
+      originalError?: Error;
+    }
+  ) {
+    // Handle both constructor signatures for backward compatibility
+    if (typeof detailsOrCode === 'object') {
+      const details = detailsOrCode;
+      super(details.message);
+      this.code = details.code;
+      this.type = details.type;
+      this.userMessage = details.userMessage;
+      this.recoverable = details.recoverable;
+      this.retryable = details.retryable;
+      this.context = details.context;
+      this.originalError = details.originalError;
+      this.actions = details.actions ?? [];
+      this.documentation = details.documentation;
+    } else {
+      // Legacy constructor for backward compatibility
+      const code = detailsOrCode;
+      super(message!);
+      this.code = code;
+      this.type = ErrorType[code as keyof typeof ErrorType] || ErrorType.UNKNOWN_ERROR;
+      this.userMessage = userMessage!;
+      this.recoverable = options?.recoverable ?? true;
+      this.retryable = options?.retryable ?? false;
+      this.actions = options?.actions ?? [];
+      this.originalError = options?.originalError;
+    }
+
     this.name = 'ClaudeError';
-    this.code = details.code;
-    this.type = details.type;
-    this.userMessage = details.userMessage;
-    this.recoverable = details.recoverable;
-    this.retryable = details.retryable;
-    this.context = details.context;
-    this.originalError = details.originalError;
-    this.actions = details.actions;
-    this.documentation = details.documentation;
   }
 
   /**
@@ -121,6 +196,10 @@ export class ClaudeError extends Error {
     return this.retryable && (this.context?.retryCount || 0) < 3;
   }
 }
+
+// ============================================================================
+// ErrorHandler Class
+// ============================================================================
 
 export class ErrorHandler {
   private errorHistory: ClaudeError[] = [];
@@ -332,18 +411,101 @@ export class ErrorHandler {
   }
 
   /**
-   * Handle generic JavaScript errors
+   * Handle generic JavaScript errors (includes CLI errors)
    */
   private handleGenericError(error: Error, context: ErrorContext): ClaudeError {
-    const message = error.message.toLowerCase();
+    const message = error.message;
+    const lowerMessage = message.toLowerCase();
 
-    // Network errors
-    if (message.includes('fetch') || message.includes('network') || message.includes('connection')) {
+    // CLI not found
+    if (lowerMessage.includes('claude cli not found') ||
+        lowerMessage.includes('no such file or directory') ||
+        lowerMessage.includes('command not found') ||
+        lowerMessage.includes('not recognized as an internal or external command')) {
       return new ClaudeError({
-        code: 'NETWORK_CONNECTION_FAILED',
-        type: ErrorType.NETWORK_CONNECTION_FAILED,
+        code: 'CLAUDE_NOT_FOUND',
+        type: ErrorType.CLAUDE_NOT_FOUND,
         message: error.message,
-        userMessage: '网络连接失败，请检查网络连接后重试',
+        userMessage: 'Claude CLI is not installed or not found in your system PATH.',
+        recoverable: true,
+        retryable: false,
+        context,
+        originalError: error,
+        actions: [
+          {
+            label: 'Install Claude CLI',
+            action: () => { window.open('https://docs.anthropic.com/claude/docs/claude-cli', '_blank'); },
+            primary: true
+          },
+          {
+            label: 'Select Custom Path',
+            action: () => {
+              window.dispatchEvent(new CustomEvent('open-claude-settings'));
+            }
+          }
+        ]
+      });
+    }
+
+    // Permission denied
+    if (lowerMessage.includes('permission denied') ||
+        lowerMessage.includes('access is denied') ||
+        lowerMessage.includes('eacces')) {
+      return new ClaudeError({
+        code: 'CLAUDE_PERMISSION_DENIED',
+        type: ErrorType.CLAUDE_PERMISSION_DENIED,
+        message: error.message,
+        userMessage: 'Permission denied when trying to execute Claude CLI. Please check file permissions.',
+        recoverable: true,
+        retryable: true,
+        context,
+        originalError: error,
+        actions: [
+          {
+            label: 'Run as Administrator',
+            action: () => {
+              console.log('Please try running the application as Administrator');
+            }
+          }
+        ]
+      });
+    }
+
+    // Process execution errors
+    if (lowerMessage.includes('spawning') ||
+        lowerMessage.includes('process') ||
+        lowerMessage.includes('exit code')) {
+      return new ClaudeError({
+        code: 'CLAUDE_PROCESS_ERROR',
+        type: ErrorType.CLAUDE_PROCESS_ERROR,
+        message: error.message,
+        userMessage: 'Failed to start or communicate with Claude CLI process.',
+        recoverable: true,
+        retryable: true,
+        context,
+        originalError: error,
+        actions: [
+          {
+            label: 'Check Claude Installation',
+            action: () => {
+              window.dispatchEvent(new CustomEvent('validate-claude-installation'));
+            }
+          }
+        ]
+      });
+    }
+
+    // Network/connection errors
+    if (lowerMessage.includes('network') ||
+        lowerMessage.includes('connection') ||
+        lowerMessage.includes('enotfound') ||
+        lowerMessage.includes('econnrefused') ||
+        lowerMessage.includes('fetch')) {
+      return new ClaudeError({
+        code: lowerMessage.includes('claude') ? 'CLAUDE_NETWORK_ERROR' : 'NETWORK_CONNECTION_FAILED',
+        type: lowerMessage.includes('claude') ? ErrorType.CLAUDE_NETWORK_ERROR : ErrorType.NETWORK_CONNECTION_FAILED,
+        message: error.message,
+        userMessage: 'Network connection error. Please check your internet connection and try again.',
         recoverable: true,
         retryable: true,
         context,
@@ -367,10 +529,10 @@ export class ErrorHandler {
     }
 
     // Timeout errors
-    if (message.includes('timeout') || message.includes('aborted')) {
+    if (lowerMessage.includes('timeout') || lowerMessage.includes('aborted')) {
       return new ClaudeError({
-        code: 'NETWORK_TIMEOUT',
-        type: ErrorType.NETWORK_TIMEOUT,
+        code: lowerMessage.includes('claude') ? 'CLAUDE_TIMEOUT' : 'NETWORK_TIMEOUT',
+        type: lowerMessage.includes('claude') ? ErrorType.CLAUDE_TIMEOUT : ErrorType.NETWORK_TIMEOUT,
         message: error.message,
         userMessage: '请求超时，请重试或检查网络状况',
         recoverable: true,
@@ -380,8 +542,56 @@ export class ErrorHandler {
       });
     }
 
+    // Configuration errors
+    if (lowerMessage.includes('config') ||
+        lowerMessage.includes('settings') ||
+        lowerMessage.includes('invalid') ||
+        lowerMessage.includes('malformed') ||
+        lowerMessage.includes('initialization')) {
+      return new ClaudeError({
+        code: lowerMessage.includes('claude') ? 'CLAUDE_CONFIG_ERROR' : 'SDK_CONFIGURATION_ERROR',
+        type: lowerMessage.includes('claude') ? ErrorType.CLAUDE_CONFIG_ERROR : ErrorType.SDK_CONFIGURATION_ERROR,
+        message: error.message,
+        userMessage: '配置错误，请检查设置',
+        recoverable: true,
+        retryable: false,
+        context,
+        originalError: error,
+        actions: [
+          {
+            label: '检查配置',
+            action: () => {
+              window.dispatchEvent(new CustomEvent('open-settings'));
+            },
+            primary: true,
+          },
+        ],
+      });
+    }
+
+    // PATH related errors
+    if (lowerMessage.includes('path') &&
+        (lowerMessage.includes('not found') || lowerMessage.includes('invalid'))) {
+      return new ClaudeError({
+        code: 'SYSTEM_PATH_ERROR',
+        type: ErrorType.SYSTEM_PATH_ERROR,
+        message: error.message,
+        userMessage: 'System PATH configuration issue. Claude CLI may not be properly installed.',
+        recoverable: true,
+        retryable: false,
+        context,
+        originalError: error,
+        actions: [
+          {
+            label: 'Check Installation Guide',
+            action: () => { window.open('https://docs.anthropic.com/claude/docs/claude-cli#installation', '_blank'); }
+          }
+        ]
+      });
+    }
+
     // Storage errors
-    if (message.includes('quota') || message.includes('storage')) {
+    if (lowerMessage.includes('quota') || lowerMessage.includes('storage')) {
       return new ClaudeError({
         code: 'STORAGE_QUOTA_EXCEEDED',
         type: ErrorType.STORAGE_QUOTA_EXCEEDED,
@@ -396,29 +606,6 @@ export class ErrorHandler {
             label: '清理缓存',
             action: () => {
               window.dispatchEvent(new CustomEvent('clear-cache'));
-            },
-            primary: true,
-          },
-        ],
-      });
-    }
-
-    // Configuration errors
-    if (message.includes('config') || message.includes('initialization')) {
-      return new ClaudeError({
-        code: 'SDK_CONFIGURATION_ERROR',
-        type: ErrorType.SDK_CONFIGURATION_ERROR,
-        message: error.message,
-        userMessage: '配置错误，请检查设置',
-        recoverable: true,
-        retryable: false,
-        context,
-        originalError: error,
-        actions: [
-          {
-            label: '检查配置',
-            action: () => {
-              window.dispatchEvent(new CustomEvent('open-settings'));
             },
             primary: true,
           },
@@ -479,16 +666,16 @@ export class ErrorHandler {
       return acc;
     }, {} as Record<ErrorType, number>);
 
-    const mostCommonError = Object.entries(errorsByType).reduce((a, b) =>
-      errorsByType[a[0] as ErrorType] > errorsByType[b[0] as ErrorType] ? a : b,
-      ['', 0]
-    )[0] as ErrorType | null;
+    const entries = Object.entries(errorsByType);
+    const mostCommonError = entries.length > 0
+      ? entries.reduce((a, b) => (errorsByType[a[0] as ErrorType] > errorsByType[b[0] as ErrorType] ? a : b))[0] as ErrorType
+      : null;
 
     return {
       totalErrors: this.errorHistory.length,
       errorsByType,
       recentErrors: this.errorHistory.slice(0, 10),
-      mostCommonError: mostCommonError || null,
+      mostCommonError,
     };
   }
 
@@ -523,7 +710,11 @@ export class ErrorHandler {
         }
 
         // Exponential backoff with jitter
-        const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 1000;
+        const delay = Math.min(
+          baseDelay * Math.pow(2, attempt) + Math.random() * 1000,
+          baseDelay * 32
+        );
+        console.warn(`Operation failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay}ms:`, error);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
@@ -532,8 +723,67 @@ export class ErrorHandler {
   }
 }
 
+// ============================================================================
+// Singleton Instance and Utility Functions
+// ============================================================================
+
 // Export singleton instance
 export const errorHandler = new ErrorHandler();
+
+/**
+ * Parse error messages and categorize them (legacy API for backward compatibility)
+ */
+export function parseClaudeError(error: unknown): ClaudeError {
+  return errorHandler.handleError(error);
+}
+
+/**
+ * Get user-friendly error message for display
+ */
+export function getErrorMessage(error: unknown): string {
+  if (error instanceof ClaudeError) {
+    return error.userMessage;
+  }
+
+  const claudeError = parseClaudeError(error);
+  return claudeError.userMessage;
+}
+
+/**
+ * Check if an error is recoverable
+ */
+export function isRecoverableError(error: unknown): boolean {
+  if (error instanceof ClaudeError) {
+    return error.recoverable;
+  }
+
+  const claudeError = parseClaudeError(error);
+  return claudeError.recoverable;
+}
+
+/**
+ * Check if an error is retryable
+ */
+export function isRetryableError(error: unknown): boolean {
+  if (error instanceof ClaudeError) {
+    return error.retryable;
+  }
+
+  const claudeError = parseClaudeError(error);
+  return claudeError.retryable;
+}
+
+/**
+ * Get available actions for an error
+ */
+export function getErrorActions(error: unknown): RecoveryAction[] {
+  if (error instanceof ClaudeError) {
+    return error.actions;
+  }
+
+  const claudeError = parseClaudeError(error);
+  return claudeError.actions;
+}
 
 /**
  * Utility function to handle errors in async operations
@@ -556,16 +806,90 @@ export async function handleAsync<T>(
  */
 export function withErrorHandling<T extends (...args: any[]) => Promise<any>>(
   fn: T,
-  context?: Partial<ErrorContext>
+  options?: {
+    context?: Partial<ErrorContext>;
+    retryable?: boolean;
+    retryHandler?: RetryHandler;
+    fallback?: T;
+  }
 ): T {
-  return (async (...args: Parameters<T>) => {
+  const wrappedFn = async (...args: Parameters<T>) => {
     try {
-      return await fn(...args);
+      if (options?.retryable && options?.retryHandler) {
+        return await options.retryHandler.execute(() => fn(...args), (error) => {
+          const claudeError = parseClaudeError(error);
+          return claudeError.retryable;
+        });
+      } else if (options?.retryable) {
+        return await errorHandler.retryWithBackoff(() => fn(...args));
+      } else {
+        return await fn(...args);
+      }
     } catch (error) {
-      throw errorHandler.handleError(error, {
+      const claudeError = errorHandler.handleError(error, {
         operation: fn.name,
-        ...context,
+        ...options?.context,
       });
+
+      // Try fallback if available
+      if (options?.fallback && claudeError.recoverable) {
+        try {
+          console.warn('Primary operation failed, trying fallback:', claudeError.message);
+          return await options.fallback(...args);
+        } catch (fallbackError) {
+          console.error('Fallback also failed:', fallbackError);
+        }
+      }
+
+      throw claudeError;
     }
-  }) as T;
+  };
+
+  return wrappedFn as T;
+}
+
+/**
+ * Retry mechanism with exponential backoff (legacy API for backward compatibility)
+ */
+export class RetryHandler {
+  private maxRetries: number;
+  private baseDelay: number;
+  private maxDelay: number;
+
+  constructor(maxRetries = 3, baseDelay = 1000, maxDelay = 10000) {
+    this.maxRetries = maxRetries;
+    this.baseDelay = baseDelay;
+    this.maxDelay = maxDelay;
+  }
+
+  async execute<T>(
+    operation: () => Promise<T>,
+    shouldRetry: (error: unknown) => boolean = () => true
+  ): Promise<T> {
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        lastError = error;
+
+        // Don't retry on the last attempt or if error is not retryable
+        if (attempt === this.maxRetries || !shouldRetry(error)) {
+          break;
+        }
+
+        // Calculate delay with exponential backoff and jitter
+        const delay = Math.min(
+          this.baseDelay * Math.pow(2, attempt) + Math.random() * 1000,
+          this.maxDelay
+        );
+
+        console.warn(`Operation failed (attempt ${attempt + 1}/${this.maxRetries + 1}), retrying in ${delay}ms:`, error);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+
+    throw lastError;
+  }
 }

@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { copyTextToClipboard } from "@/lib/clipboard";
 
 interface AcemcpConfigSettingsProps {
   className?: string;
@@ -147,7 +148,7 @@ export function AcemcpConfigSettings({ className }: AcemcpConfigSettingsProps) {
 }`;
 
     try {
-      await navigator.clipboard.writeText(cliConfig);
+      await copyTextToClipboard(cliConfig);
       alert('MCP 配置已复制到剪贴板！\n\n请粘贴到 ~/.claude/settings.json 的 mcpServers 部分');
     } catch (error) {
       alert('复制失败，请手动复制:\n\n' + cliConfig);

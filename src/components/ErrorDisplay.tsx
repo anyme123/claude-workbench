@@ -10,12 +10,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { 
-  ClaudeError, 
+import {
+  ClaudeError,
   getErrorMessage,
   getErrorActions,
-  isRetryableError 
-} from '@/lib/errorHandler';
+  isRetryableError
+} from '@/lib/errorHandling';
 
 interface ErrorDisplayProps {
   error: unknown;

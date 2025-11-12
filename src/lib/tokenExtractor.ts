@@ -121,24 +121,23 @@ export interface TokenTooltipInfo {
 }
 
 /**
- * 从ClaudeStreamMessage中提取token数据
+ * 标准化原始usage对象 (核心标准化逻辑)
  *
- * 智能处理多种字段命名方式和数据结构：
- * 1. 优先从 message.usage 获取数据
- * 2. 降级到顶层 usage 字段
- * 3. 映射所有发现的字段命名变体
- * 4. 安全处理null/undefined值
- * 5. 向后兼容现有代码
- * 6. 处理cache_creation对象格式
+ * 这是所有token标准化的核心函数，处理所有字段命名变体。
  *
- * @param message - Claude流消息对象
+ * @param rawUsage - 原始usage对象
  * @returns 标准化的token使用数据
  */
-export function extractMessageTokens(message: ClaudeStreamMessage | ExtendedClaudeStreamMessage): StandardizedTokenUsage {
-  // 尝试从不同位置获取usage数据（基于代码分析的优先级）
-  const primaryUsage = (message as ExtendedClaudeStreamMessage).message?.usage; // 优先级1：message.usage (主要使用)
-  const secondaryUsage = message.usage; // 优先级2：顶层usage
-  const rawUsage: RawTokenUsage = primaryUsage || secondaryUsage || {};
+export function normalizeRawUsage(rawUsage: RawTokenUsage | null | undefined): StandardizedTokenUsage {
+  if (!rawUsage) {
+    return {
+      input_tokens: 0,
+      output_tokens: 0,
+      cache_creation_tokens: 0,
+      cache_read_tokens: 0,
+      total_tokens: 0,
+    };
+  }
 
   // 提取基础token数据
   const input_tokens = rawUsage.input_tokens ?? 0;
@@ -184,6 +183,30 @@ export function extractMessageTokens(message: ClaudeStreamMessage | ExtendedClau
     cache_read_tokens,
     total_tokens,
   };
+}
+
+/**
+ * 从ClaudeStreamMessage中提取token数据
+ *
+ * 智能处理多种字段命名方式和数据结构：
+ * 1. 优先从 message.usage 获取数据
+ * 2. 降级到顶层 usage 字段
+ * 3. 映射所有发现的字段命名变体
+ * 4. 安全处理null/undefined值
+ * 5. 向后兼容现有代码
+ * 6. 处理cache_creation对象格式
+ *
+ * @param message - Claude流消息对象
+ * @returns 标准化的token使用数据
+ */
+export function extractMessageTokens(message: ClaudeStreamMessage | ExtendedClaudeStreamMessage): StandardizedTokenUsage {
+  // 尝试从不同位置获取usage数据（基于代码分析的优先级）
+  const primaryUsage = (message as ExtendedClaudeStreamMessage).message?.usage; // 优先级1：message.usage (主要使用)
+  const secondaryUsage = message.usage; // 优先级2：顶层usage
+  const rawUsage: RawTokenUsage = primaryUsage || secondaryUsage || {};
+
+  // 委托给核心标准化函数
+  return normalizeRawUsage(rawUsage);
 }
 
 /**
