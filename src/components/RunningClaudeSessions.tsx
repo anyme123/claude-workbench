@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Play, Loader2, Terminal, AlertCircle } from "lucide-react";
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { api, type ProcessInfo, type Session } from "@/lib/api";
@@ -19,6 +20,7 @@ interface RunningClaudeSessionsProps {
 
 /**
  * Component to display currently running Claude sessions
+ * 使用 Tauri 事件系统实现实时更新，替代轮询
  */
 export const RunningClaudeSessions: React.FC<RunningClaudeSessionsProps> = ({
   onSessionClick,
@@ -28,12 +30,36 @@ export const RunningClaudeSessions: React.FC<RunningClaudeSessionsProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // 监听会话状态变化事件，实时更新列表
   useEffect(() => {
-    loadRunningSessions();
-    
-    // Poll for updates every 5 seconds
-    const interval = setInterval(loadRunningSessions, 5000);
-    return () => clearInterval(interval);
+    let unlistenFn: UnlistenFn | null = null;
+
+    const setupEventListener = async () => {
+      try {
+        // 初始加载会话列表
+        await loadRunningSessions();
+
+        // 监听 claude-session-state 事件进行实时更新
+        unlistenFn = await listen<any>('claude-session-state', async (event) => {
+          console.log('[RunningClaudeSessions] Received claude-session-state event:', event.payload);
+          // 会话状态变化时，重新加载列表
+          await loadRunningSessions();
+        });
+
+        console.log('[RunningClaudeSessions] Event listener setup complete');
+      } catch (err) {
+        console.error('[RunningClaudeSessions] Failed to setup event listener:', err);
+      }
+    };
+
+    setupEventListener();
+
+    // 清理监听器
+    return () => {
+      if (unlistenFn) {
+        unlistenFn();
+      }
+    };
   }, []);
 
   const loadRunningSessions = async () => {
