@@ -83,6 +83,12 @@ const SONNET_35_OUTPUT_PRICE: f64 = 15.0;
 const SONNET_35_CACHE_WRITE_PRICE: f64 = 3.75;
 const SONNET_35_CACHE_READ_PRICE: f64 = 0.30;
 
+// Claude 3.5 Haiku pricing
+const HAIKU_35_INPUT_PRICE: f64 = 0.80;
+const HAIKU_35_OUTPUT_PRICE: f64 = 4.0;
+const HAIKU_35_CACHE_WRITE_PRICE: f64 = 1.0;
+const HAIKU_35_CACHE_READ_PRICE: f64 = 0.08;
+
 #[derive(Debug, Deserialize)]
 struct JsonlEntry {
     timestamp: String,
@@ -117,6 +123,8 @@ fn calculate_cost(model: &str, usage: &UsageData) -> f64 {
     let cache_read_tokens = usage.cache_read_input_tokens.unwrap_or(0) as f64;
 
     // Calculate cost based on model
+    // IMPORTANT: Check for haiku BEFORE checking for "3.5" or "35"
+    // because haiku model names may contain "3.5" (e.g., claude-3-5-haiku-20241022)
     let (input_price, output_price, cache_write_price, cache_read_price) =
         if model.contains("opus-4") || model.contains("claude-opus-4") {
             (
@@ -131,6 +139,14 @@ fn calculate_cost(model: &str, usage: &UsageData) -> f64 {
                 SONNET_4_OUTPUT_PRICE,
                 SONNET_4_CACHE_WRITE_PRICE,
                 SONNET_4_CACHE_READ_PRICE,
+            )
+        } else if model.contains("haiku") {
+            // Haiku pricing (must check before "3.5" check)
+            (
+                HAIKU_35_INPUT_PRICE,
+                HAIKU_35_OUTPUT_PRICE,
+                HAIKU_35_CACHE_WRITE_PRICE,
+                HAIKU_35_CACHE_READ_PRICE,
             )
         } else if model.contains("3.5") || model.contains("35") || model.contains("sonnet") {
             // Default to Sonnet 3.5 pricing for any sonnet variant
