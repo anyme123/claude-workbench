@@ -10,14 +10,41 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { api } from './api';
 
-// 官方定价 (每百万token) - 2025年1月最新定价
+// ============================================================================
+// Claude Model Pricing - MUST MATCH BACKEND (usage.rs)
+// ⚠️ WARNING: This pricing table MUST be kept in sync with:
+//    src-tauri/src/commands/usage.rs::ModelPricing
+// Source: https://docs.claude.com/en/docs/about-claude/models/overview
+// Last Updated: January 2025
+// ============================================================================
+
 export const CLAUDE_PRICING = {
-  'claude-opus-4': {
-    input: 15.0,
-    output: 75.0,
-    cache_write: 18.75,
-    cache_read: 1.50,
+  // Claude 4.5 Series (Latest - January 2025)
+  'claude-sonnet-4-5': {
+    input: 3.0,
+    output: 15.0,
+    cache_write: 3.75,
+    cache_read: 0.30,
   },
+  'claude-sonnet-4-5-20250929': {
+    input: 3.0,
+    output: 15.0,
+    cache_write: 3.75,
+    cache_read: 0.30,
+  },
+  'claude-haiku-4-5': {
+    input: 1.0,
+    output: 5.0,
+    cache_write: 1.25,
+    cache_read: 0.10,
+  },
+  'claude-haiku-4-5-20251001': {
+    input: 1.0,
+    output: 5.0,
+    cache_write: 1.25,
+    cache_read: 0.10,
+  },
+  // Claude 4.1 Series
   'claude-opus-4-1': {
     input: 15.0,
     output: 75.0,
@@ -30,13 +57,21 @@ export const CLAUDE_PRICING = {
     cache_write: 18.75,
     cache_read: 1.50,
   },
+  // Claude 4 Series
+  'claude-opus-4': {
+    input: 15.0,
+    output: 75.0,
+    cache_write: 18.75,
+    cache_read: 1.50,
+  },
   'claude-sonnet-4': {
     input: 3.0,
     output: 15.0,
     cache_write: 3.75,
     cache_read: 0.30,
   },
-  'claude-sonnet-3.7': {
+  // Claude 3.5 Series
+  'claude-sonnet-3-5': {
     input: 3.0,
     output: 15.0,
     cache_write: 3.75,
@@ -54,7 +89,7 @@ export const CLAUDE_PRICING = {
     cache_write: 3.75,
     cache_read: 0.30,
   },
-  'claude-haiku-3.5': {
+  'claude-haiku-3-5': {
     input: 0.80,
     output: 4.0,
     cache_write: 1.0,
@@ -66,12 +101,12 @@ export const CLAUDE_PRICING = {
     cache_write: 1.0,
     cache_read: 0.08,
   },
-  // 向后兼容
+  // Claude 3 Series (Legacy)
   'claude-3-opus-20240229': {
     input: 15.0,
     output: 75.0,
-    cache_write: 22.5,
-    cache_read: 1.5,
+    cache_write: 18.75,
+    cache_read: 1.50,
   },
   'claude-3-sonnet-20240229': {
     input: 3.0,
@@ -79,7 +114,7 @@ export const CLAUDE_PRICING = {
     cache_write: 3.75,
     cache_read: 0.30,
   },
-  // 默认值
+  // 默认值 (使用最新 Sonnet 4.5 定价)
   'default': {
     input: 3.0,
     output: 15.0,
@@ -90,12 +125,15 @@ export const CLAUDE_PRICING = {
 
 // 标准化模型名称映射
 export const MODEL_ALIASES = {
-  'opus': 'claude-opus-4',
+  'opus': 'claude-opus-4-1',
   'opus4': 'claude-opus-4',
   'opus-4': 'claude-opus-4',
-  'sonnet': 'claude-sonnet-4',
+  'sonnet': 'claude-sonnet-4-5', // 默认最新版本
   'sonnet4': 'claude-sonnet-4',
   'sonnet-4': 'claude-sonnet-4',
+  'haiku': 'claude-haiku-4-5', // 默认最新版本
+  'haiku4': 'claude-haiku-4-5',
+  'haiku-4': 'claude-haiku-4-5',
 } as const;
 
 // Token使用统计接口
@@ -227,26 +265,78 @@ export class TokenCounterService {
 
   /**
    * 标准化模型名称
+   * ⚠️ MUST MATCH: src-tauri/src/commands/usage.rs::parse_model_family
+   *
+   * This function replicates the backend logic to ensure consistent
+   * model identification and pricing across frontend and backend.
    */
   public normalizeModel(model?: string): string {
-    if (!model) return 'claude-3-5-sonnet-20241022';
+    if (!model) return 'claude-sonnet-4-5-20250929';
 
-    const normalized = model.toLowerCase().replace(/-/g, '').replace(/\./g, '');
+    // Normalize: lowercase + remove common prefixes/suffixes
+    let normalized = model.toLowerCase();
+    normalized = normalized.replace('anthropic.', '');
+    normalized = normalized.replace('-v1:0', '');
 
-    // 检查别名映射
-    for (const [alias, fullName] of Object.entries(MODEL_ALIASES)) {
-      if (normalized.includes(alias.toLowerCase().replace(/-/g, '').replace(/\./g, ''))) {
-        return fullName;
-      }
+    // Handle @ symbol for Vertex AI format
+    const atIndex = normalized.indexOf('@');
+    if (atIndex !== -1) {
+      normalized = normalized.substring(0, atIndex);
     }
 
-    // 模型名称模式匹配
-    if (model.includes('opus')) return 'claude-opus-4';
-    if (model.includes('sonnet') && model.includes('4')) return 'claude-sonnet-4';
-    if (model.includes('sonnet') && model.includes('3.7')) return 'claude-sonnet-3.7';
-    if (model.includes('sonnet')) return 'claude-3-5-sonnet-20241022';
+    // Priority-based matching (order matters! MUST match backend logic)
 
-    return model; // 返回原始名称
+    // Claude 4.5 Series (Latest)
+    if (normalized.includes('haiku') && (normalized.includes('4.5') || normalized.includes('4-5'))) {
+      return 'claude-haiku-4-5';
+    }
+    if (normalized.includes('sonnet') && (normalized.includes('4.5') || normalized.includes('4-5'))) {
+      return 'claude-sonnet-4-5';
+    }
+
+    // Claude 4.1 Series
+    if (normalized.includes('opus') && (normalized.includes('4.1') || normalized.includes('4-1'))) {
+      return 'claude-opus-4-1';
+    }
+
+    // Claude 4 Series
+    if (normalized.includes('opus') && (normalized.includes('opus-4') || normalized.includes('opus_4'))) {
+      return 'claude-opus-4';
+    }
+    if (normalized.includes('sonnet') && (normalized.includes('sonnet-4') || normalized.includes('sonnet_4'))) {
+      return 'claude-sonnet-4';
+    }
+
+    // Claude 3.5 Series (check BEFORE 3.x to avoid mismatches)
+    if (normalized.includes('haiku') && (normalized.includes('3.5') || normalized.includes('3-5') || normalized.includes('35'))) {
+      return 'claude-haiku-3-5';
+    }
+    if (normalized.includes('sonnet') && (normalized.includes('3.5') || normalized.includes('3-5') || normalized.includes('35'))) {
+      return 'claude-sonnet-3-5';
+    }
+
+    // Claude 3 Series (Legacy)
+    if (normalized.includes('opus') && normalized.includes('3')) {
+      return 'claude-opus-4'; // Default to 4
+    }
+    if (normalized.includes('sonnet') && normalized.includes('3')) {
+      return 'claude-sonnet-3-5';
+    }
+
+    // Generic family detection (fallback - MUST match backend)
+    if (normalized.includes('haiku')) {
+      return 'claude-haiku-4-5'; // Default to latest
+    }
+    if (normalized.includes('opus')) {
+      return 'claude-opus-4-1'; // Default to latest
+    }
+    if (normalized.includes('sonnet')) {
+      return 'claude-sonnet-4-5'; // Default to latest
+    }
+
+    // Unknown model - return original
+    console.warn(`[TokenCounter] Unknown model: '${model}'. Using default pricing.`);
+    return model;
   }
 
   /**

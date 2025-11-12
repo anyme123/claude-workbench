@@ -66,28 +66,181 @@ pub struct ProjectUsage {
     last_used: String,
 }
 
-// Claude 4 pricing constants (per million tokens)
-const OPUS_4_INPUT_PRICE: f64 = 15.0;
-const OPUS_4_OUTPUT_PRICE: f64 = 75.0;
-const OPUS_4_CACHE_WRITE_PRICE: f64 = 18.75;
-const OPUS_4_CACHE_READ_PRICE: f64 = 1.50;
+// ============================================================================
+// Claude Model Pricing - Single Source of Truth
+// Source: https://docs.claude.com/en/docs/about-claude/models/overview
+// Last Updated: January 2025
+// ============================================================================
 
-const SONNET_4_INPUT_PRICE: f64 = 3.0;
-const SONNET_4_OUTPUT_PRICE: f64 = 15.0;
-const SONNET_4_CACHE_WRITE_PRICE: f64 = 3.75;
-const SONNET_4_CACHE_READ_PRICE: f64 = 0.30;
+/// Model pricing structure (prices per million tokens)
+#[derive(Debug, Clone, Copy)]
+struct ModelPricing {
+    input: f64,
+    output: f64,
+    cache_write: f64,
+    cache_read: f64,
+}
 
-// Claude 3.5 Sonnet pricing (for backward compatibility)
-const SONNET_35_INPUT_PRICE: f64 = 3.0;
-const SONNET_35_OUTPUT_PRICE: f64 = 15.0;
-const SONNET_35_CACHE_WRITE_PRICE: f64 = 3.75;
-const SONNET_35_CACHE_READ_PRICE: f64 = 0.30;
+/// Model family enumeration for categorization
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum ModelFamily {
+    Opus41,      // Claude 4.1 Opus
+    Sonnet45,    // Claude 4.5 Sonnet
+    Haiku45,     // Claude 4.5 Haiku
+    Sonnet4,     // Claude 4 Sonnet
+    Opus4,       // Claude 4 Opus
+    Sonnet35,    // Claude 3.5 Sonnet
+    Haiku35,     // Claude 3.5 Haiku
+    Opus3,       // Claude 3 Opus
+    Sonnet3,     // Claude 3 Sonnet
+    Unknown,     // Unknown model
+}
 
-// Claude 3.5 Haiku pricing
-const HAIKU_35_INPUT_PRICE: f64 = 0.80;
-const HAIKU_35_OUTPUT_PRICE: f64 = 4.0;
-const HAIKU_35_CACHE_WRITE_PRICE: f64 = 1.0;
-const HAIKU_35_CACHE_READ_PRICE: f64 = 0.08;
+impl ModelPricing {
+    /// Get pricing for a specific model family
+    const fn for_family(family: ModelFamily) -> Self {
+        match family {
+            // Claude 4.5 Series (Latest - January 2025)
+            ModelFamily::Sonnet45 => ModelPricing {
+                input: 3.0,
+                output: 15.0,
+                cache_write: 3.75,
+                cache_read: 0.30,
+            },
+            ModelFamily::Haiku45 => ModelPricing {
+                input: 1.0,
+                output: 5.0,
+                cache_write: 1.25,
+                cache_read: 0.10,
+            },
+            // Claude 4.1 Series
+            ModelFamily::Opus41 => ModelPricing {
+                input: 15.0,
+                output: 75.0,
+                cache_write: 18.75,
+                cache_read: 1.50,
+            },
+            // Claude 4 Series
+            ModelFamily::Sonnet4 => ModelPricing {
+                input: 3.0,
+                output: 15.0,
+                cache_write: 3.75,
+                cache_read: 0.30,
+            },
+            ModelFamily::Opus4 => ModelPricing {
+                input: 15.0,
+                output: 75.0,
+                cache_write: 18.75,
+                cache_read: 1.50,
+            },
+            // Claude 3.5 Series
+            ModelFamily::Sonnet35 => ModelPricing {
+                input: 3.0,
+                output: 15.0,
+                cache_write: 3.75,
+                cache_read: 0.30,
+            },
+            ModelFamily::Haiku35 => ModelPricing {
+                input: 0.80,
+                output: 4.0,
+                cache_write: 1.0,
+                cache_read: 0.08,
+            },
+            // Claude 3 Series (Legacy)
+            ModelFamily::Opus3 => ModelPricing {
+                input: 15.0,
+                output: 75.0,
+                cache_write: 18.75,
+                cache_read: 1.50,
+            },
+            ModelFamily::Sonnet3 => ModelPricing {
+                input: 3.0,
+                output: 15.0,
+                cache_write: 3.75,
+                cache_read: 0.30,
+            },
+            ModelFamily::Unknown => ModelPricing {
+                input: 0.0,
+                output: 0.0,
+                cache_write: 0.0,
+                cache_read: 0.0,
+            },
+        }
+    }
+}
+
+/// Parse model name and determine its family
+///
+/// This function handles various model name formats including:
+/// - Full names: claude-sonnet-4-5-20250929
+/// - Aliases: claude-sonnet-4-5
+/// - Short names: sonnet-4-5
+/// - Bedrock format: anthropic.claude-sonnet-4-5-20250929-v1:0
+/// - Vertex AI format: claude-sonnet-4-5@20250929
+fn parse_model_family(model: &str) -> ModelFamily {
+    // Normalize the model name (lowercase + remove common prefixes/suffixes)
+    let mut normalized = model.to_lowercase();
+    normalized = normalized.replace("anthropic.", "");
+    normalized = normalized.replace("-v1:0", "");
+
+    // Handle @ symbol for Vertex AI format
+    if let Some(pos) = normalized.find('@') {
+        normalized = normalized[..pos].to_string();
+    }
+
+    // Priority-based matching (order matters!)
+    // Check for specific model families in order from most to least specific
+
+    // Claude 4.5 Series (Latest)
+    if normalized.contains("haiku") && (normalized.contains("4.5") || normalized.contains("4-5")) {
+        return ModelFamily::Haiku45;
+    }
+    if normalized.contains("sonnet") && (normalized.contains("4.5") || normalized.contains("4-5")) {
+        return ModelFamily::Sonnet45;
+    }
+
+    // Claude 4.1 Series
+    if normalized.contains("opus") && (normalized.contains("4.1") || normalized.contains("4-1")) {
+        return ModelFamily::Opus41;
+    }
+
+    // Claude 4 Series
+    if normalized.contains("opus") && (normalized.contains("opus-4") || normalized.contains("opus_4")) {
+        return ModelFamily::Opus4;
+    }
+    if normalized.contains("sonnet") && (normalized.contains("sonnet-4") || normalized.contains("sonnet_4")) {
+        return ModelFamily::Sonnet4;
+    }
+
+    // Claude 3.5 Series (check BEFORE 3.x to avoid mismatches)
+    if normalized.contains("haiku") && (normalized.contains("3.5") || normalized.contains("3-5") || normalized.contains("35")) {
+        return ModelFamily::Haiku35;
+    }
+    if normalized.contains("sonnet") && (normalized.contains("3.5") || normalized.contains("3-5") || normalized.contains("35")) {
+        return ModelFamily::Sonnet35;
+    }
+
+    // Claude 3 Series (Legacy)
+    if normalized.contains("opus") && normalized.contains("3") {
+        return ModelFamily::Opus3;
+    }
+    if normalized.contains("sonnet") && normalized.contains("3") {
+        return ModelFamily::Sonnet3;
+    }
+
+    // Generic family detection (fallback)
+    if normalized.contains("haiku") {
+        return ModelFamily::Haiku35; // Default to 3.5 Haiku
+    }
+    if normalized.contains("opus") {
+        return ModelFamily::Opus4; // Default to 4 Opus
+    }
+    if normalized.contains("sonnet") {
+        return ModelFamily::Sonnet45; // Default to latest Sonnet
+    }
+
+    ModelFamily::Unknown
+}
 
 #[derive(Debug, Deserialize)]
 struct JsonlEntry {
@@ -116,56 +269,30 @@ struct UsageData {
     cache_read_input_tokens: Option<u64>,
 }
 
+/// Calculate cost for a model usage
+///
+/// This is the single source of truth for cost calculations.
+/// All cost computations in the application should ultimately use this function.
 fn calculate_cost(model: &str, usage: &UsageData) -> f64 {
     let input_tokens = usage.input_tokens.unwrap_or(0) as f64;
     let output_tokens = usage.output_tokens.unwrap_or(0) as f64;
     let cache_creation_tokens = usage.cache_creation_input_tokens.unwrap_or(0) as f64;
     let cache_read_tokens = usage.cache_read_input_tokens.unwrap_or(0) as f64;
 
-    // Calculate cost based on model
-    // IMPORTANT: Check for haiku BEFORE checking for "3.5" or "35"
-    // because haiku model names may contain "3.5" (e.g., claude-3-5-haiku-20241022)
-    let (input_price, output_price, cache_write_price, cache_read_price) =
-        if model.contains("opus-4") || model.contains("claude-opus-4") {
-            (
-                OPUS_4_INPUT_PRICE,
-                OPUS_4_OUTPUT_PRICE,
-                OPUS_4_CACHE_WRITE_PRICE,
-                OPUS_4_CACHE_READ_PRICE,
-            )
-        } else if model.contains("sonnet-4") || model.contains("claude-sonnet-4") {
-            (
-                SONNET_4_INPUT_PRICE,
-                SONNET_4_OUTPUT_PRICE,
-                SONNET_4_CACHE_WRITE_PRICE,
-                SONNET_4_CACHE_READ_PRICE,
-            )
-        } else if model.contains("haiku") {
-            // Haiku pricing (must check before "3.5" check)
-            (
-                HAIKU_35_INPUT_PRICE,
-                HAIKU_35_OUTPUT_PRICE,
-                HAIKU_35_CACHE_WRITE_PRICE,
-                HAIKU_35_CACHE_READ_PRICE,
-            )
-        } else if model.contains("3.5") || model.contains("35") || model.contains("sonnet") {
-            // Default to Sonnet 3.5 pricing for any sonnet variant
-            (
-                SONNET_35_INPUT_PRICE,
-                SONNET_35_OUTPUT_PRICE,
-                SONNET_35_CACHE_WRITE_PRICE,
-                SONNET_35_CACHE_READ_PRICE,
-            )
-        } else {
-            // Return 0 for unknown models to avoid incorrect cost estimations
-            (0.0, 0.0, 0.0, 0.0)
-        };
+    // Parse model and get pricing
+    let family = parse_model_family(model);
+    let pricing = ModelPricing::for_family(family);
+
+    // Log unrecognized models for debugging
+    if family == ModelFamily::Unknown {
+        log::warn!("Unknown model detected: '{}'. Cost calculation will return 0.", model);
+    }
 
     // Calculate cost (prices are per million tokens)
-    let cost = (input_tokens * input_price / 1_000_000.0)
-        + (output_tokens * output_price / 1_000_000.0)
-        + (cache_creation_tokens * cache_write_price / 1_000_000.0)
-        + (cache_read_tokens * cache_read_price / 1_000_000.0);
+    let cost = (input_tokens * pricing.input / 1_000_000.0)
+        + (output_tokens * pricing.output / 1_000_000.0)
+        + (cache_creation_tokens * pricing.cache_write / 1_000_000.0)
+        + (cache_read_tokens * pricing.cache_read / 1_000_000.0);
 
     cost
 }

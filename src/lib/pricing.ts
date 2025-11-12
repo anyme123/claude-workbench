@@ -1,8 +1,10 @@
 /**
  * 统一的 Claude 模型定价模块
- * 
- * 根据官方文档：https://docs.claude.com/en/docs/claude-code/costs
+ * ⚠️ MUST MATCH: src-tauri/src/commands/usage.rs::ModelPricing
+ *
+ * 根据官方文档：https://docs.claude.com/en/docs/about-claude/models/overview
  * 价格单位：美元/百万 tokens
+ * Last Updated: January 2025
  */
 
 export interface ModelPricing {
@@ -14,34 +16,60 @@ export interface ModelPricing {
 
 /**
  * 模型定价常量（每百万 tokens）
- * 来源：Anthropic 官方定价
+ * 来源：Anthrop ic 官方定价
  */
 export const MODEL_PRICING: Record<string, ModelPricing> = {
-  // Claude 4.1 Opus
-  'claude-opus-4.1': {
-    input: 15.0,
-    output: 75.0,
-    cacheWrite: 18.75,
-    cacheRead: 1.50
-  },
-  
-  // Claude 4.5 Sonnet (current latest)
+  // Claude 4.5 Series (Latest - January 2025)
   'claude-sonnet-4.5': {
     input: 3.0,
     output: 15.0,
     cacheWrite: 3.75,
     cacheRead: 0.30
   },
-  
-  // Claude 3.5 Sonnet
+  'claude-haiku-4.5': {
+    input: 1.0,
+    output: 5.0,
+    cacheWrite: 1.25,
+    cacheRead: 0.10
+  },
+
+  // Claude 4.1 Series
+  'claude-opus-4.1': {
+    input: 15.0,
+    output: 75.0,
+    cacheWrite: 18.75,
+    cacheRead: 1.50
+  },
+
+  // Claude 4 Series
+  'claude-opus-4': {
+    input: 15.0,
+    output: 75.0,
+    cacheWrite: 18.75,
+    cacheRead: 1.50
+  },
+  'claude-sonnet-4': {
+    input: 3.0,
+    output: 15.0,
+    cacheWrite: 3.75,
+    cacheRead: 0.30
+  },
+
+  // Claude 3.5 Series
   'claude-sonnet-3.5': {
     input: 3.0,
     output: 15.0,
     cacheWrite: 3.75,
     cacheRead: 0.30
   },
-  
-  // Default fallback (use Sonnet 4.5 pricing)
+  'claude-haiku-3.5': {
+    input: 0.80,
+    output: 4.0,
+    cacheWrite: 1.0,
+    cacheRead: 0.08
+  },
+
+  // Default fallback (use latest Sonnet 4.5 pricing)
   'default': {
     input: 3.0,
     output: 15.0,
@@ -52,6 +80,8 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
 
 /**
  * 根据模型名称获取定价
+ * ⚠️ MUST MATCH: Backend logic in usage.rs::parse_model_family
+ *
  * @param model - 模型名称或标识符
  * @returns 模型定价对象
  */
@@ -59,25 +89,70 @@ export function getPricingForModel(model?: string): ModelPricing {
   if (!model) {
     return MODEL_PRICING['default'];
   }
-  
-  const normalizedModel = model.toLowerCase();
-  
-  // Claude 4.1 Opus
-  if (normalizedModel.includes('opus-4') || normalizedModel.includes('opus 4')) {
-    return MODEL_PRICING['claude-opus-4.1'];
+
+  // Normalize: lowercase + remove common prefixes/suffixes
+  let normalized = model.toLowerCase();
+  normalized = normalized.replace('anthropic.', '');
+  normalized = normalized.replace('-v1:0', '');
+
+  // Handle @ symbol for Vertex AI format
+  const atIndex = normalized.indexOf('@');
+  if (atIndex !== -1) {
+    normalized = normalized.substring(0, atIndex);
   }
-  
-  // Claude 4.5 Sonnet
-  if (normalizedModel.includes('sonnet-4.5') || normalizedModel.includes('sonnet 4.5')) {
+
+  // Priority-based matching (order matters! MUST match backend logic)
+
+  // Claude 4.5 Series (Latest)
+  if (normalized.includes('haiku') && (normalized.includes('4.5') || normalized.includes('4-5'))) {
+    return MODEL_PRICING['claude-haiku-4.5'];
+  }
+  if (normalized.includes('sonnet') && (normalized.includes('4.5') || normalized.includes('4-5'))) {
     return MODEL_PRICING['claude-sonnet-4.5'];
   }
-  
-  // Claude 3.5 Sonnet
-  if (normalizedModel.includes('sonnet-3.5') || normalizedModel.includes('sonnet 3.5') || normalizedModel.includes('35')) {
+
+  // Claude 4.1 Series
+  if (normalized.includes('opus') && (normalized.includes('4.1') || normalized.includes('4-1'))) {
+    return MODEL_PRICING['claude-opus-4.1'];
+  }
+
+  // Claude 4 Series
+  if (normalized.includes('opus') && (normalized.includes('opus-4') || normalized.includes('opus_4'))) {
+    return MODEL_PRICING['claude-opus-4'];
+  }
+  if (normalized.includes('sonnet') && (normalized.includes('sonnet-4') || normalized.includes('sonnet_4'))) {
+    return MODEL_PRICING['claude-sonnet-4'];
+  }
+
+  // Claude 3.5 Series (check BEFORE 3.x to avoid mismatches)
+  if (normalized.includes('haiku') && (normalized.includes('3.5') || normalized.includes('3-5') || normalized.includes('35'))) {
+    return MODEL_PRICING['claude-haiku-3.5'];
+  }
+  if (normalized.includes('sonnet') && (normalized.includes('3.5') || normalized.includes('3-5') || normalized.includes('35'))) {
     return MODEL_PRICING['claude-sonnet-3.5'];
   }
-  
-  // Default to Sonnet 4.5 pricing
+
+  // Claude 3 Series (Legacy)
+  if (normalized.includes('opus') && normalized.includes('3')) {
+    return MODEL_PRICING['claude-opus-4'];
+  }
+  if (normalized.includes('sonnet') && normalized.includes('3')) {
+    return MODEL_PRICING['claude-sonnet-3.5'];
+  }
+
+  // Generic family detection (fallback - MUST match backend)
+  if (normalized.includes('haiku')) {
+    return MODEL_PRICING['claude-haiku-4.5']; // Default to latest
+  }
+  if (normalized.includes('opus')) {
+    return MODEL_PRICING['claude-opus-4.1']; // Default to latest
+  }
+  if (normalized.includes('sonnet')) {
+    return MODEL_PRICING['claude-sonnet-4.5']; // Default to latest
+  }
+
+  // Unknown model - use default
+  console.warn(`[pricing] Unknown model: '${model}'. Using default pricing.`);
   return MODEL_PRICING['default'];
 }
 
@@ -97,12 +172,12 @@ export function calculateMessageCost(
   model?: string
 ): number {
   const pricing = getPricingForModel(model);
-  
+
   const inputCost = (tokens.input_tokens / 1_000_000) * pricing.input;
   const outputCost = (tokens.output_tokens / 1_000_000) * pricing.output;
   const cacheWriteCost = (tokens.cache_creation_tokens / 1_000_000) * pricing.cacheWrite;
   const cacheReadCost = (tokens.cache_read_tokens / 1_000_000) * pricing.cacheRead;
-  
+
   return inputCost + outputCost + cacheWriteCost + cacheReadCost;
 }
 
@@ -130,21 +205,20 @@ export function formatDuration(seconds: number): string {
   if (seconds < 60) {
     return `${Math.round(seconds)}s`;
   }
-  
+
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = Math.round(seconds % 60);
-  
+
   if (minutes < 60) {
-    return remainingSeconds > 0 
+    return remainingSeconds > 0
       ? `${minutes}m ${remainingSeconds}s`
       : `${minutes}m`;
   }
-  
+
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
-  
+
   return remainingMinutes > 0
     ? `${hours}h ${remainingMinutes}m`
     : `${hours}h`;
 }
-
