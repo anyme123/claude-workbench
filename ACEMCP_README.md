@@ -46,8 +46,8 @@ Claude Workbench 已完全集成 acemcp 语义搜索引擎，提供智能的项�
 
 ```
 ~/.acemcp/
-├── acemcp-sidecar.exe     ← Sidecar（首次运行时自动提取，35MB）
-├── settings.toml          ← 配置文件（UI 或手动编辑）
+├── acemcp-mcp-server.exe     ← Sidecar（首次运行时自动提取，35MB）
+├── config.toml          ← 配置文件（UI 或手动编辑）
 ├── data/
 │   └── projects.json      ← 索引数据
 └── log/
@@ -63,7 +63,7 @@ Claude Workbench 已完全集成 acemcp 语义搜索引擎，提供智能的项�
 在 Claude Workbench 中：
 1. **设置** → **提示词优化**
 2. 滚动到橙色卡片 "在 Claude Code CLI 中使用 Acemcp"
-3. 点击 **导出** 按钮（自动导出到 `~/.acemcp/acemcp-sidecar.exe`）
+3. 点击 **导出** 按钮（自动导出到 `~/.acemcp/acemcp-mcp-server.exe`）
 4. 点击 **复制配置** 按钮
 
 ### 配置 Claude Code
@@ -74,7 +74,7 @@ Claude Workbench 已完全集成 acemcp 语义搜索引擎，提供智能的项�
 {
   "mcpServers": {
     "acemcp": {
-      "command": "C:\\Users\\<用户名>\\.acemcp\\acemcp-sidecar.exe",
+      "command": "C:\\Users\\<用户名>\\.acemcp\\acemcp-mcp-server.exe",
       "args": []
     }
   }
@@ -84,7 +84,7 @@ Claude Workbench 已完全集成 acemcp 语义搜索引擎，提供智能的项�
 验证：
 ```bash
 claude mcp list
-# 应看到: acemcp: ~/.acemcp/acemcp-sidecar.exe - ✓ Connected
+# 应看到: acemcp: ~/.acemcp/acemcp-mcp-server.exe - ✓ Connected
 ```
 
 ---
@@ -122,7 +122,7 @@ A: ❌ 不需要！acemcp 已完全嵌入应用。
 A: ❌ 不会！选择项目时已自动后台索引，使用时索引已完成。
 
 ### Q: 配置文件在哪？
-A: `~/.acemcp/settings.toml`，可在 UI 中配置。
+A: `~/.acemcp/config.toml`，可在 UI 中配置。
 
 ### Q: CLI 和 GUI 共享配置吗？
 A: ✅ 是的！共享同一个配置文件和索引数据。

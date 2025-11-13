@@ -118,7 +118,7 @@ export function AcemcpConfigSettings({ className }: AcemcpConfigSettingsProps) {
       // 导出到用户主目录的 .acemcp 目录（与配置文件同目录）
       // 传递目录路径，Rust 会自动确定 home 目录
       const exportPath = await api.exportAcemcpSidecar('~/.acemcp');
-      alert(`Acemcp sidecar 已导出到:\n${exportPath}\n\n与配置文件 settings.toml 在同一目录\n\n现在可以在 Claude Code CLI 中配置使用。`);
+      alert(`Acemcp sidecar 已导出到:\n${exportPath}\n\n与配置文件 config.toml 在同一目录\n\n现在可以在 Claude Code CLI 中配置使用。`);
     } catch (error) {
       alert('导出失败: ' + (error instanceof Error ? error.message : '未知错误'));
     }
@@ -130,12 +130,8 @@ export function AcemcpConfigSettings({ className }: AcemcpConfigSettingsProps) {
     // 使用实际路径或默认路径
     let sidecarPath = extractedPath;
     if (!sidecarPath) {
-      // Windows 默认路径
-      if (navigator.platform.indexOf('Win') !== -1) {
-        sidecarPath = 'C:\\\\Users\\\\Administrator\\\\.acemcp\\\\acemcp-sidecar.exe';
-      } else {
-        sidecarPath = '~/.acemcp/acemcp-sidecar';
-      }
+      // Node.js 版本统一使用 .cjs 文件
+      sidecarPath = '~/.acemcp/acemcp-mcp-server.cjs';
     }
 
     const cliConfig = `{
@@ -327,7 +323,7 @@ export function AcemcpConfigSettings({ className }: AcemcpConfigSettingsProps) {
             {/* 说明 */}
             <Card className="p-3 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
               <p className="text-sm text-blue-900 dark:text-blue-100">
-                💡 配置保存到 <code className="px-1 py-0.5 bg-blue-100 dark:bg-blue-900 rounded text-xs">~/.acemcp/settings.toml</code>
+                💡 配置保存到 <code className="px-1 py-0.5 bg-blue-100 dark:bg-blue-900 rounded text-xs">~/.acemcp/config.toml</code>
               </p>
               <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
                 启用 "项目上下文" 开关后，优化提示词时会自动调用 acemcp 搜索相关代码

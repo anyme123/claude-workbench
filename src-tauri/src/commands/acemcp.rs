@@ -20,15 +20,15 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use log::{debug, error, info, warn};
 
-// 嵌入 sidecar 可执行文件作为编译时资源
+// 嵌入 sidecar 可执行文件作为编译时资源（Node.js 版本）
 #[cfg(target_os = "windows")]
-const ACEMCP_SIDECAR_BYTES: &[u8] = include_bytes!("../../binaries/acemcp-sidecar-x86_64-pc-windows-msvc.exe");
+const ACEMCP_SIDECAR_BYTES: &[u8] = include_bytes!("../../binaries/acemcp-mcp-server.cjs");
 
 #[cfg(target_os = "macos")]
-const ACEMCP_SIDECAR_BYTES: &[u8] = include_bytes!("../../binaries/acemcp-sidecar-aarch64-apple-darwin");
+const ACEMCP_SIDECAR_BYTES: &[u8] = include_bytes!("../../binaries/acemcp-mcp-server.cjs");
 
 #[cfg(target_os = "linux")]
-const ACEMCP_SIDECAR_BYTES: &[u8] = include_bytes!("../../binaries/acemcp-sidecar-x86_64-unknown-linux-gnu");
+const ACEMCP_SIDECAR_BYTES: &[u8] = include_bytes!("../../binaries/acemcp-mcp-server.cjs");
 
 // ============================================================================
 // MCP Protocol Types
@@ -90,17 +90,12 @@ impl AcemcpClient {
     /// 获取或提取 sidecar 可执行文件路径
     fn get_or_extract_sidecar() -> Result<PathBuf> {
         if cfg!(debug_assertions) {
-            // 开发模式：使用源码目录的 sidecar
+            // 开发模式：使用源码目录的 sidecar（Node.js 版本）
             let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
                 .map_err(|e| anyhow::anyhow!("Failed to get CARGO_MANIFEST_DIR: {}", e))?;
 
-            let exe_name = if cfg!(windows) {
-                "acemcp-sidecar-x86_64-pc-windows-msvc.exe"
-            } else if cfg!(target_os = "macos") {
-                "acemcp-sidecar-aarch64-apple-darwin"
-            } else {
-                "acemcp-sidecar-x86_64-unknown-linux-gnu"
-            };
+            // Node.js 版本统一使用 .cjs 文件
+            let exe_name = "acemcp-mcp-server.cjs";
 
             Ok(std::path::PathBuf::from(manifest_dir)
                 .join("binaries")
@@ -111,11 +106,8 @@ impl AcemcpClient {
                 .ok_or_else(|| anyhow::anyhow!("Cannot find home directory"))?
                 .join(".acemcp");
 
-            let sidecar_name = if cfg!(windows) {
-                "acemcp-sidecar.exe"
-            } else {
-                "acemcp-sidecar"
-            };
+            // Node.js 版本统一使用 .cjs 文件
+            let sidecar_name = "acemcp-mcp-server.cjs";
             let sidecar_path = acemcp_dir.join(sidecar_name);
 
             // 检查是否已提取
@@ -165,9 +157,24 @@ impl AcemcpClient {
             ));
         }
 
+        // Node.js 版本：通过 node 运行 .cjs 文件
+        // 首先检查 node 是否可用
+        let node_check = Command::new("node")
+            .arg("--version")
+            .output()
+            .await;
+
+        if node_check.is_err() {
+            return Err(anyhow::anyhow!(
+                "Node.js not found. Please install Node.js to use acemcp.\n\
+                Download from: https://nodejs.org/"
+            ));
+        }
+
         // 使用 tokio Command 启动 sidecar（保持 stdio 通信）
-        let mut cmd = Command::new(&sidecar_path);
-        cmd.stdin(Stdio::piped())
+        let mut cmd = Command::new("node");
+        cmd.arg(&sidecar_path)
+            .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null());
 
@@ -619,7 +626,7 @@ impl Default for AcemcpConfigData {
     }
 }
 
-/// 保存 acemcp 配置到 ~/.acemcp/settings.toml
+/// 保存 acemcp 配置到 ~/.acemcp/config.toml
 /// 只更新指定的字段，保留其他现有配置（如 TEXT_EXTENSIONS, EXCLUDE_PATTERNS 等）
 #[tauri::command]
 pub async fn save_acemcp_config(
@@ -640,7 +647,7 @@ pub async fn save_acemcp_config(
     fs::create_dir_all(&config_dir)
         .map_err(|e| format!("Failed to create config dir: {}", e))?;
 
-    let config_file = config_dir.join("settings.toml");
+    let config_file = config_dir.join("config.toml");
 
     // 读取现有配置（如果存在）
     let mut existing_lines: HashMap<String, String> = HashMap::new();
@@ -704,15 +711,36 @@ pub async fn save_acemcp_config(
     Ok(())
 }
 
-/// 加载 acemcp 配置从 ~/.acemcp/settings.toml
+/// 加载 acemcp 配置从 ~/.acemcp/config.toml
+/// 自动迁移旧的 settings.toml 配置文件
 #[tauri::command]
 pub async fn load_acemcp_config() -> Result<AcemcpConfigData, String> {
     use std::fs;
 
-    let config_file = dirs::home_dir()
+    let acemcp_dir = dirs::home_dir()
         .ok_or("Cannot find home directory")?
-        .join(".acemcp")
-        .join("settings.toml");
+        .join(".acemcp");
+
+    let config_file = acemcp_dir.join("config.toml");
+    let old_config_file = acemcp_dir.join("settings.toml");
+
+    // 迁移逻辑：如果 settings.toml 存在而 config.toml 不存在，自动迁移
+    if !config_file.exists() && old_config_file.exists() {
+        info!("Migrating configuration from settings.toml to config.toml");
+        match fs::rename(&old_config_file, &config_file) {
+            Ok(_) => info!("✅ Configuration migrated successfully"),
+            Err(e) => {
+                warn!("Failed to migrate config file: {}. Will try to copy instead.", e);
+                // 如果重命名失败（可能是跨设备），尝试复制
+                if let Ok(content) = fs::read_to_string(&old_config_file) {
+                    if let Err(copy_err) = fs::write(&config_file, content) {
+                        return Err(format!("Failed to migrate config: {}", copy_err));
+                    }
+                    info!("✅ Configuration copied successfully");
+                }
+            }
+        }
+    }
 
     if !config_file.exists() {
         info!("Acemcp config file not found, returning defaults");
@@ -863,11 +891,8 @@ pub async fn export_acemcp_sidecar(target_path: String) -> Result<String, String
     info!("Is directory: {}", is_directory);
 
     let final_path = if is_directory {
-        let exe_name = if cfg!(windows) {
-            "acemcp-sidecar.exe"
-        } else {
-            "acemcp-sidecar"
-        };
+        // Node.js 版本统一使用 .cjs 文件
+        let exe_name = "acemcp-mcp-server.cjs";
         let path = expanded_path.join(exe_name);
         info!("Using filename: {:?}", path);
         path
@@ -910,11 +935,8 @@ pub async fn get_extracted_sidecar_path() -> Result<Option<String>, String> {
         .ok_or("Cannot find home directory")?
         .join(".acemcp");
 
-    let sidecar_name = if cfg!(windows) {
-        "acemcp-sidecar.exe"
-    } else {
-        "acemcp-sidecar"
-    };
+    // Node.js 版本统一使用 .cjs 文件
+    let sidecar_name = "acemcp-mcp-server.cjs";
     let sidecar_path = acemcp_dir.join(sidecar_name);
 
     if sidecar_path.exists() {
