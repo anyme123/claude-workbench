@@ -34,21 +34,26 @@ import {
   // 子代理类
   TaskWidget,
   MultiEditWidget,
+
+  // Web 工具类
+  WebFetchWidget,
+  WebSearchWidget,
+
+  // MCP 工具类
+  MCPWidget,
+
+  // 系统初始化
+  SystemInitializedWidget,
+
+  // 文件操作（已补充）
+  WriteWidget,
+
+  // 搜索（已补充）
+  GrepWidget,
 } from '@/components/widgets';
 
-// 未迁移组件：仍从 ToolWidgets.tsx 导入
-// Note: Result 组件不需要在这里导入，它们被对应的主 Widget 内部导入
-import {
-  // 大型组件（待拆分迁移）
-  WriteWidget,
-  GrepWidget,
-  WebSearchWidget,
-  WebFetchWidget,
-  MCPWidget,
-  SystemInitializedWidget,
-} from '@/components/ToolWidgets';
-
-// TodoReadWidget 已移除 - 未在任何地方注册使用
+// ✅ 所有活跃组件已完成迁移！
+// Note: TodoReadWidget (502行) 未在注册表使用，已跳过迁移
 
 /**
  * 工具适配器工厂
