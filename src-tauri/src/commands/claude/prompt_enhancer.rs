@@ -1,6 +1,7 @@
 use tauri::AppHandle;
 
 use super::cli_runner::map_model_to_claude_alias;
+use super::platform;
 
 fn truncate_utf8_safe(s: &str, max_bytes: usize) -> &str {
     if s.len() <= max_bytes {
@@ -149,7 +150,7 @@ pub async fn enhance_prompt(
     // 在Windows上隐藏控制台窗口
     #[cfg(target_os = "windows")]
     {
-        command.creation_flags(0x08000000); // CREATE_NO_WINDOW flag
+        platform::apply_no_window_async(&mut command);
     }
 
     // 设置工作目录（如果需要）
@@ -339,7 +340,7 @@ pub async fn enhance_prompt_with_gemini(
     // 在Windows上隐藏控制台窗口
     #[cfg(target_os = "windows")]
     {
-        command.creation_flags(0x08000000); // CREATE_NO_WINDOW flag
+        platform::apply_no_window_async(&mut command);
     }
 
     // 设置工作目录（如果需要）
@@ -469,7 +470,7 @@ async fn find_gemini_executable() -> Result<String, String> {
         // 在Windows上隐藏控制台窗口
         #[cfg(target_os = "windows")]
         {
-            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW flag
+            platform::apply_no_window_async(&mut cmd);
         }
         
         if let Ok(output) = cmd.output().await {
@@ -499,7 +500,7 @@ async fn find_gemini_executable() -> Result<String, String> {
                     // 在Windows上隐藏控制台窗口
                     #[cfg(target_os = "windows")]
                     {
-                        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW flag
+                        platform::apply_no_window_async(&mut cmd);
                     }
                     
                     if let Ok(output) = cmd.output().await {
@@ -520,7 +521,7 @@ async fn find_gemini_executable() -> Result<String, String> {
     // 在Windows上隐藏控制台窗口
     #[cfg(target_os = "windows")]
     {
-        npm_cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW flag
+        platform::apply_no_window_async(&mut npm_cmd);
     }
     
     if let Ok(output) = npm_cmd.output().await {
@@ -557,7 +558,7 @@ async fn find_claude_executable() -> Result<String, String> {
         // 在Windows上隐藏控制台窗口
         #[cfg(target_os = "windows")]
         {
-            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW flag
+            platform::apply_no_window_async(&mut cmd);
         }
         
         if let Ok(output) = cmd.output().await {
@@ -587,7 +588,7 @@ async fn find_claude_executable() -> Result<String, String> {
                     // 在Windows上隐藏控制台窗口
                     #[cfg(target_os = "windows")]
                     {
-                        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW flag
+                        platform::apply_no_window_async(&mut cmd);
                     }
                     
                     if let Ok(output) = cmd.output().await {
@@ -608,7 +609,7 @@ async fn find_claude_executable() -> Result<String, String> {
     // 在Windows上隐藏控制台窗口
     #[cfg(target_os = "windows")]
     {
-        npm_cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW flag
+        platform::apply_no_window_async(&mut npm_cmd);
     }
     
     if let Ok(output) = npm_cmd.output().await

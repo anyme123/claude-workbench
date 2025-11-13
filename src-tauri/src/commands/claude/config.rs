@@ -6,11 +6,10 @@ use tauri::{AppHandle, Manager};
 use tauri_plugin_shell::ShellExt;
 use regex::Regex;
 
-#[cfg(target_os = "windows")]
-use std::os::windows::process::CommandExt;
 
-use super::find_claude_binary;
+
 use super::paths::get_claude_dir;
+use super::platform;
 use crate::commands::permission_config::{
     ClaudeExecutionConfig, ClaudePermissionConfig, PermissionMode,
     DEVELOPMENT_TOOLS, SAFE_TOOLS, ALL_TOOLS
@@ -46,10 +45,10 @@ pub async fn open_new_session(app: AppHandle, path: Option<String>) -> Result<St
     log::info!("Opening new Claude Code session at path: {:?}", path);
 
     #[cfg(not(debug_assertions))]
-    let _claude_path = find_claude_binary(&app)?;
+    let _claude_path = crate::claude_binary::find_claude_binary(&app)?;
 
     #[cfg(debug_assertions)]
-    let claude_path = find_claude_binary(&app)?;
+    let claude_path = crate::claude_binary::find_claude_binary(&app)?;
 
     // In production, we can't use std::process::Command directly
     // The user should launch Claude Code through other means or use the execute_claude_code command
@@ -103,7 +102,7 @@ pub async fn get_system_prompt() -> Result<String, String> {
 pub async fn check_claude_version(app: AppHandle) -> Result<ClaudeVersionStatus, String> {
     log::info!("Checking Claude Code version");
 
-    let claude_path = match find_claude_binary(&app) {
+    let claude_path = match crate::claude_binary::find_claude_binary(&app) {
         Ok(path) => path,
         Err(e) => {
             return Ok(ClaudeVersionStatus {
@@ -209,8 +208,8 @@ pub async fn check_claude_version(app: AppHandle) -> Result<ClaudeVersionStatus,
     // On Windows, ensure the command runs without creating a console window
     #[cfg(target_os = "windows")]
     {
-        use std::os::windows::process::CommandExt;
-        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        platform::apply_no_window(&mut cmd);
+        platform::apply_no_window(&mut cmd);
     }
     
     let output = cmd.output();
@@ -532,7 +531,7 @@ pub async fn set_custom_claude_path(app: AppHandle, custom_path: String) -> Resu
     // Add CREATE_NO_WINDOW flag on Windows to prevent terminal window popup
     #[cfg(target_os = "windows")]
     {
-        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        platform::apply_no_window(&mut cmd);
     }
     
     match cmd.output() {
@@ -607,7 +606,7 @@ pub async fn get_claude_path(app: AppHandle) -> Result<String, String> {
     }
     
     // Fall back to auto-detection
-    match find_claude_binary(&app) {
+    match crate::claude_binary::find_claude_binary(&app) {
         Ok(path) => {
             log::info!("Auto-detected Claude path: {}", path);
             Ok(path)

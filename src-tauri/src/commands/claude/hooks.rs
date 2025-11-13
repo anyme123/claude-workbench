@@ -1,10 +1,10 @@
 use std::fs;
 use std::path::PathBuf;
 
-#[cfg(target_os = "windows")]
-use std::os::windows::process::CommandExt;
+
 
 use super::paths::get_claude_dir;
+use super::platform;
 
 #[tauri::command]
 pub async fn get_hooks_config(scope: String, project_path: Option<String>) -> Result<serde_json::Value, String> {
@@ -107,11 +107,8 @@ pub async fn validate_hook_command(command: String) -> Result<serde_json::Value,
        .arg("-c")
        .arg(&command);
     
-    // Add CREATE_NO_WINDOW flag on Windows to prevent terminal window popup
-    #[cfg(target_os = "windows")]
-    {
-        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
-    }
+    // Apply platform-specific no-window configuration
+    platform::apply_no_window(&mut cmd);
     
     match cmd.output() {
         Ok(output) => {

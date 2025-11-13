@@ -10,9 +10,9 @@ use crate::commands::permission_config::{
     ClaudePermissionConfig, ClaudeExecutionConfig, build_execution_args,
 };
 
-use super::find_claude_binary;
 use super::paths::{encode_project_path, get_claude_dir};
 use super::config::get_claude_execution_config;
+use super::platform;
 
 /// Global state to track current Claude process
 pub struct ClaudeProcessState {
@@ -169,7 +169,7 @@ fn create_command_with_env(program: &str) -> Command {
     let (final_program, extra_args) = {
         if program.ends_with(".cmd") {
             // Use the resolver from claude_binary module
-            if let Some((node_path, script_path)) = resolve_cmd_wrapper_tokio(program) {
+            if let Some((node_path, script_path)) = platform::resolve_cmd_wrapper(program) {
                 log::info!("Resolved .cmd wrapper {} to Node.js script: {}", program, script_path);
                 (node_path, vec![script_path])
             } else {
@@ -265,48 +265,6 @@ fn create_command_with_env(program: &str) -> Command {
     tokio_cmd
 }
 
-/// Windows-specific: Resolve .cmd wrapper to actual Node.js script path (for tokio)
-#[cfg(target_os = "windows")]
-fn resolve_cmd_wrapper_tokio(cmd_path: &str) -> Option<(String, String)> {
-    use std::fs;
-    use std::path::PathBuf;
-
-    log::debug!("Attempting to resolve .cmd wrapper: {}", cmd_path);
-
-    // Read the .cmd file content
-    let content = fs::read_to_string(cmd_path).ok()?;
-
-    // Parse the .cmd file to find the actual Node.js script
-    for line in content.lines() {
-        if line.contains(".js") && (line.contains("node.exe") || line.contains("\"node\"")) {
-            // Extract the script path - look for pattern like "%~dp0\path\to\script.js"
-            if let Some(start) = line.find("\"%~dp0") {
-                if let Some(end) = line[start..].find(".js\"") {
-                    let script_relative = &line[start + 7..start + end + 3];
-
-                    // Convert %~dp0 to absolute path
-                    if let Some(parent) = std::path::Path::new(cmd_path).parent() {
-                        let script_path = parent.join(script_relative).to_string_lossy().to_string();
-
-                        // Verify the script exists
-                        if PathBuf::from(&script_path).exists() {
-                            log::debug!("Resolved .cmd wrapper to script: {}", script_path);
-                            return Some(("node".to_string(), script_path));
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    log::debug!("Failed to resolve .cmd wrapper");
-    None
-}
-
-#[cfg(not(target_os = "windows"))]
-fn resolve_cmd_wrapper_tokio(_cmd_path: &str) -> Option<(String, String)> {
-    None
-}
 
 
 
@@ -350,9 +308,8 @@ fn create_windows_command(
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
 
-    // On Windows, ensure the command runs without creating a console window
-    #[cfg(target_os = "windows")]
-    cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    // Apply platform-specific no-window configuration
+    platform::apply_no_window_async(&mut cmd);
 
     // On Unix-like systems, create a new process group
     // This allows us to kill the entire process tree with a single signal
@@ -385,7 +342,7 @@ pub async fn execute_claude_code(
         plan_mode
     );
 
-    let claude_path = find_claude_binary(&app)?;
+    let claude_path = crate::claude_binary::find_claude_binary(&app)?;
     
     // 获取当前执行配置
     let mut execution_config = get_claude_execution_config(app.clone()).await
@@ -440,7 +397,7 @@ pub async fn continue_claude_code(
         plan_mode
     );
 
-    let claude_path = find_claude_binary(&app)?;
+    let claude_path = crate::claude_binary::find_claude_binary(&app)?;
     
     // 获取当前执行配置
     let mut execution_config = get_claude_execution_config(app.clone()).await
@@ -509,7 +466,7 @@ pub async fn resume_claude_code(
     log::info!("Expected session file directory: {}", session_dir);
     log::info!("Session ID to resume: {}", session_id);
 
-    let claude_path = find_claude_binary(&app)?;
+    let claude_path = crate::claude_binary::find_claude_binary(&app)?;
     
     // 获取当前执行配置
     let mut execution_config = get_claude_execution_config(app.clone()).await
