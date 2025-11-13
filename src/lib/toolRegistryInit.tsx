@@ -8,30 +8,47 @@
 import { toolRegistry, ToolRenderer, ToolRenderProps } from './toolRegistry';
 
 // ✅ 已迁移组件：从新的 widgets 目录导入
-import { SystemReminderWidget } from '@/components/widgets/system/SystemReminderWidget';
-import { CommandWidget } from '@/components/widgets/execution/CommandWidget';
-
-// 未迁移组件：仍从 ToolWidgets.tsx 导入
 import {
-  TodoWidget,
-  LSWidget,
+  // 系统信息类
+  SystemReminderWidget,
+  SummaryWidget,
+  ThinkingWidget,
+
+  // 命令执行类
+  CommandWidget,
+  CommandOutputWidget,
+  BashWidget,
+  BashOutputWidget,
+
+  // 文件操作类
   ReadWidget,
   EditWidget,
-  MultiEditWidget,
-  BashWidget,
-  GrepWidget,
+
+  // 搜索类
+  LSWidget,
   GlobWidget,
+
+  // 任务管理类
+  TodoWidget,
+
+  // 子代理类
+  TaskWidget,
+  MultiEditWidget,
+} from '@/components/widgets';
+
+// 未迁移组件：仍从 ToolWidgets.tsx 导入
+// Note: Result 组件不需要在这里导入，它们被对应的主 Widget 内部导入
+import {
+  // 大型组件（待拆分迁移）
   WriteWidget,
+  GrepWidget,
   WebSearchWidget,
   WebFetchWidget,
-  BashOutputWidget,
   MCPWidget,
-  TaskWidget,
-  CommandOutputWidget,
-  SummaryWidget,
   SystemInitializedWidget,
-  ThinkingWidget,
 } from '@/components/ToolWidgets';
+
+// TodoReadWidget 已移除 - 未在任何地方注册使用
 
 /**
  * 工具适配器工厂

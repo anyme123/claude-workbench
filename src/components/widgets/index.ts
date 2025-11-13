@@ -20,42 +20,71 @@
 // ==================== 通用工具 ====================
 export { WidgetLayout, WidgetSection } from './common/WidgetLayout';
 export { useToolTranslation } from './common/useToolTranslation';
+export { getLanguage } from './common/languageDetector';
 
 // ==================== 系统信息类 ====================
 export { SystemReminderWidget } from './system/SystemReminderWidget';
 export type { SystemReminderWidgetProps } from './system/SystemReminderWidget';
 
+export { SummaryWidget } from './system/SummaryWidget';
+export type { SummaryWidgetProps } from './system/SummaryWidget';
+
+export { ThinkingWidget } from './system/ThinkingWidget';
+export type { ThinkingWidgetProps } from './system/ThinkingWidget';
+
 // ==================== 命令执行类 ====================
 export { CommandWidget } from './execution/CommandWidget';
 export type { CommandWidgetProps } from './execution/CommandWidget';
 
+export { CommandOutputWidget } from './execution/CommandOutputWidget';
+export type { CommandOutputWidgetProps } from './execution/CommandOutputWidget';
+
+export { BashWidget } from './execution/BashWidget';
+export type { BashWidgetProps } from './execution/BashWidget';
+
+export { BashOutputWidget } from './execution/BashOutputWidget';
+export type { BashOutputWidgetProps } from './execution/BashOutputWidget';
+
+// ==================== 文件操作类 ====================
+export { ReadWidget } from './file-operations/ReadWidget';
+export type { ReadWidgetProps } from './file-operations/ReadWidget';
+
+export { EditWidget } from './file-operations/EditWidget';
+export type { EditWidgetProps } from './file-operations/EditWidget';
+
+// ==================== 搜索类 ====================
+export { LSWidget } from './search/LSWidget';
+export type { LSWidgetProps } from './search/LSWidget';
+
+export { GlobWidget } from './search/GlobWidget';
+export type { GlobWidgetProps } from './search/GlobWidget';
+
+// ==================== 任务管理类 ====================
+export { TodoWidget } from './task-management/TodoWidget';
+export type { TodoWidgetProps } from './task-management/TodoWidget';
+
+// ==================== 子代理类 ====================
+export { TaskWidget } from './agent/TaskWidget';
+export type { TaskWidgetProps } from './agent/TaskWidget';
+
+export { MultiEditWidget } from './agent/MultiEditWidget';
+export type { MultiEditWidgetProps } from './agent/MultiEditWidget';
+
 // ==================== 待迁移组件 ====================
-// 以下组件尚未迁移，仍从 ToolWidgets.tsx 导入
-// TODO: 逐步迁移以下组件到新的目录结构
+// ⚠️ 以下组件尚未迁移，仍从 ToolWidgets.tsx 导入
 export {
   // Todo 管理
-  TodoWidget,
   TodoReadWidget,
 
   // 文件操作
-  ReadWidget,
   ReadResultWidget,
   WriteWidget,
-  EditWidget,
   EditResultWidget,
-  MultiEditWidget,
   MultiEditResultWidget,
 
   // 搜索
-  LSWidget,
   LSResultWidget,
   GrepWidget,
-  GlobWidget,
-
-  // 命令执行
-  BashWidget,
-  BashOutputWidget,
-  CommandOutputWidget,
 
   // Web 工具
   WebSearchWidget,
@@ -66,9 +95,4 @@ export {
 
   // 系统信息
   SystemInitializedWidget,
-  SummaryWidget,
-  ThinkingWidget,
-
-  // 子代理
-  TaskWidget,
 } from '../ToolWidgets';
