@@ -23,7 +23,8 @@ const TabSessionWrapperComponent: React.FC<TabSessionWrapperProps> = ({
   onStreamingChange,
   isActive,
 }) => {
-  const { tab, updateStreaming, setCleanup } = useTabSession(tabId);
+  // ✅ FIXED: Removed unused 'tab' variable to fix TS6133
+  const { updateStreaming, setCleanup } = useTabSession(tabId);
   const sessionRef = useRef<{ hasChanges: boolean; sessionId: string | null }>({
     hasChanges: false,
     sessionId: null,

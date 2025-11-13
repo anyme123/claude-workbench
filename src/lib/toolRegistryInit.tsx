@@ -6,6 +6,12 @@
  */
 
 import { toolRegistry, ToolRenderer, ToolRenderProps } from './toolRegistry';
+
+// ✅ 已迁移组件：从新的 widgets 目录导入
+import { SystemReminderWidget } from '@/components/widgets/system/SystemReminderWidget';
+import { CommandWidget } from '@/components/widgets/execution/CommandWidget';
+
+// 未迁移组件：仍从 ToolWidgets.tsx 导入
 import {
   TodoWidget,
   LSWidget,
@@ -21,10 +27,8 @@ import {
   BashOutputWidget,
   MCPWidget,
   TaskWidget,
-  CommandWidget,
   CommandOutputWidget,
   SummaryWidget,
-  SystemReminderWidget,
   SystemInitializedWidget,
   ThinkingWidget,
 } from '@/components/ToolWidgets';
