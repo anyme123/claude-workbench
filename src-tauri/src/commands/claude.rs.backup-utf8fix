@@ -3064,32 +3064,6 @@ pub async fn clear_custom_claude_path(app: AppHandle) -> Result<(), String> {
     }
 }
 
-/// UTF-8 安全的字符串截断函数
-/// 如果 max_bytes 不在字符边界上，会向前寻找最近的边界，防止 panic
-fn truncate_utf8_safe(s: &str, max_bytes: usize) -> &str {
-    if s.len() <= max_bytes {
-        return s;
-    }
-
-    // 从 max_bytes 开始向前查找字符边界
-    let mut index = max_bytes;
-    while index > 0 && !s.is_char_boundary(index) {
-        index -= 1;
-    }
-
-    if index == 0 {
-        // 极端情况：第一个字符就超过 max_bytes
-        // 返回第一个字符的边界
-        s.char_indices()
-            .next()
-            .map(|(_, ch)| &s[..ch.len_utf8()])
-            .unwrap_or("")
-    } else {
-        &s[..index]
-    }
-}
-
-
 
 /// Enhance a prompt using local Claude  Code CLI
 #[tauri::command]
@@ -3116,7 +3090,7 @@ pub async fn enhance_prompt(
         log::warn!("Prompt too long ({} chars), truncating to {} chars",
             trimmed_prompt.len(), MAX_PROMPT_LENGTH);
         let truncated = format!("{}...\n\n[提示词过长，已自动截断]",
-            truncate_utf8_safe(trimmed_prompt, MAX_PROMPT_LENGTH));
+            &trimmed_prompt[..MAX_PROMPT_LENGTH]);
         (truncated, true)
     } else {
         (trimmed_prompt.to_string(), false)
@@ -3133,7 +3107,7 @@ pub async fn enhance_prompt(
                 log::warn!("Context too long ({} chars), truncating to {} chars",
                     context_str.len(), MAX_CONTEXT_LENGTH);
                 let truncated = format!("{}\n\n[上下文过长，已自动截断]",
-                    truncate_utf8_safe(&context_str, MAX_CONTEXT_LENGTH));
+                    &context_str[..MAX_CONTEXT_LENGTH]);
                 (format!("\n\nRecent conversation context:\n{}\n", truncated), true)
             } else {
                 (format!("\n\nRecent conversation context:\n{}\n", context_str), false)

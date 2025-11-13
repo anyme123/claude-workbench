@@ -359,32 +359,6 @@ fn extract_keywords(prompt: &str) -> String {
 // ============================================================================
 
 /// 使用 acemcp 增强提示词，添加项目上下文
-/// UTF-8 安全的字符串截断函数
-/// 如果 max_bytes 不在字符边界上，会向前寻找最近的边界，防止 panic
-fn truncate_utf8_safe(s: &str, max_bytes: usize) -> &str {
-    if s.len() <= max_bytes {
-        return s;
-    }
-
-    // 从 max_bytes 开始向前查找字符边界
-    let mut index = max_bytes;
-    while index > 0 && !s.is_char_boundary(index) {
-        index -= 1;
-    }
-
-    if index == 0 {
-        // 极端情况：第一个字符就超过 max_bytes
-        // 返回第一个字符的边界
-        s.char_indices()
-            .next()
-            .map(|(_, ch)| &s[..ch.len_utf8()])
-            .unwrap_or("")
-    } else {
-        &s[..index]
-    }
-}
-
-
 #[tauri::command]
 pub async fn enhance_prompt_with_context(
     app: AppHandle,
@@ -498,7 +472,7 @@ pub async fn enhance_prompt_with_context(
         warn!("Context too long ({} chars), truncating to {} chars",
             context_result.len(), max_length);
         format!("{}...\n\n[上下文过长，已自动截断。建议在设置中降低 maxContextLength 参数]",
-            truncate_utf8_safe(&context_result, max_length))
+            &context_result[..max_length])
     } else {
         context_result.clone()
     };
@@ -523,7 +497,7 @@ pub async fn enhance_prompt_with_context(
             let available_space = MAX_TOTAL_OUTPUT_LENGTH.saturating_sub(prompt.len() + 100); // 预留100字符给分隔符
             if available_space > 1000 {
                 let adjusted_context = format!("{}...\n\n[上下文已自动调整以适应长度限制]",
-                    truncate_utf8_safe(&trimmed_context, available_space));
+                    &trimmed_context[..available_space]);
                 format!(
                     "{}\n\n--- 项目上下文 (来自 acemcp 语义搜索) ---\n{}",
                     prompt.trim(),
