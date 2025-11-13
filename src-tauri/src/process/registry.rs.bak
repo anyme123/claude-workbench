@@ -626,19 +626,18 @@ impl ProcessRegistry {
         let mut finished_runs = Vec::new();
         let processes_lock = self.processes.clone();
 
-        // First, collect all process IDs (lock released immediately)
-        let run_ids: Vec<i64> = {
+        // First, identify finished processes
+        {
             let processes = processes_lock.lock().map_err(|e| e.to_string())?;
-            processes.keys().cloned().collect()
-        }; // ✅ Lock is released here, before any await points
+            let run_ids: Vec<i64> = processes.keys().cloned().collect();
+            drop(processes);
 
-        // Then check each process (no lock held during async operations)
-        for run_id in run_ids {
-            if !self.is_process_running(run_id).await? {
-                finished_runs.push(run_id);
+            for run_id in run_ids {
+                if !self.is_process_running(run_id).await? {
+                    finished_runs.push(run_id);
+                }
             }
         }
-
 
         // Then remove them from the registry
         {
