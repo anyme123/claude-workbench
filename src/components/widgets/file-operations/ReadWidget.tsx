@@ -7,8 +7,7 @@
 
 import React from "react";
 import { FileText } from "lucide-react";
-// ⚠️ TODO: 迁移 ReadResultWidget 后改为从本目录导入
-import { ReadResultWidget } from '../../ToolWidgets';
+import { ReadResultWidget } from './ReadResultWidget';
 
 export interface ReadWidgetProps {
   /** 文件路径 */

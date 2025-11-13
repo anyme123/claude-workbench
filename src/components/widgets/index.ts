@@ -70,29 +70,29 @@ export type { TaskWidgetProps } from './agent/TaskWidget';
 export { MultiEditWidget } from './agent/MultiEditWidget';
 export type { MultiEditWidgetProps } from './agent/MultiEditWidget';
 
+// ==================== Result 组件 ====================
+// Result 组件用于显示工具执行的结果
+export { ReadResultWidget } from './file-operations/ReadResultWidget';
+export type { ReadResultWidgetProps } from './file-operations/ReadResultWidget';
+
+export { EditResultWidget } from './file-operations/EditResultWidget';
+export type { EditResultWidgetProps } from './file-operations/EditResultWidget';
+
+export { LSResultWidget } from './search/LSResultWidget';
+export type { LSResultWidgetProps } from './search/LSResultWidget';
+
+export { MultiEditResultWidget } from './agent/MultiEditResultWidget';
+export type { MultiEditResultWidgetProps } from './agent/MultiEditResultWidget';
+
 // ==================== 待迁移组件 ====================
-// ⚠️ 以下组件尚未迁移，仍从 ToolWidgets.tsx 导入
+// ⚠️ 以下 6 个大型组件尚未迁移，仍从 ToolWidgets.tsx 导入
 export {
-  // Todo 管理
-  TodoReadWidget,
-
-  // 文件操作
-  ReadResultWidget,
-  WriteWidget,
-  EditResultWidget,
-  MultiEditResultWidget,
-
-  // 搜索
-  LSResultWidget,
-  GrepWidget,
-
-  // Web 工具
-  WebSearchWidget,
-  WebFetchWidget,
-
-  // MCP 工具
-  MCPWidget,
-
-  // 系统信息
-  SystemInitializedWidget,
+  // 大型组件（需要拆分）
+  WriteWidget,           // 250 行
+  GrepWidget,            // 294 行
+  WebSearchWidget,       // 208 行
+  WebFetchWidget,        // 167 行
+  MCPWidget,             // 186 行
+  SystemInitializedWidget, // 228 行
+  TodoReadWidget,        // 502 行
 } from '../ToolWidgets';

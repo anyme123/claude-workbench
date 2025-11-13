@@ -7,8 +7,7 @@
 
 import React from "react";
 import { FolderOpen } from "lucide-react";
-// ⚠️ TODO: 迁移 LSResultWidget 后改为从本目录导入
-import { LSResultWidget } from '../../ToolWidgets';
+import { LSResultWidget } from './LSResultWidget';
 
 export interface LSWidgetProps {
   /** 目录路径 */
