@@ -584,40 +584,13 @@ pub async fn cancel_claude_execution(
                     // Method 3: If we have a PID, try system kill as last resort
                     if let Some(pid) = pid {
                         log::info!("Attempting system kill as last resort for PID: {}", pid);
-                        let kill_result = if cfg!(target_os = "windows") {
-                            #[cfg(target_os = "windows")]
-                            {
-                                use std::os::windows::process::CommandExt;
-                                std::process::Command::new("taskkill")
-                                    .args(["/F", "/T", "/PID", &pid.to_string()]) // Added /T to kill process tree
-                                    .creation_flags(0x08000000) // CREATE_NO_WINDOW
-                                    .output()
-                            }
-                            #[cfg(not(target_os = "windows"))]
-                            {
-                                // This branch will never be reached due to the outer if condition
-                                // but is needed for compilation on non-Windows platforms
-                                std::process::Command::new("kill")
-                                    .args(["-KILL", &pid.to_string()])
-                                    .output()
-                            }
-                        } else {
-                            std::process::Command::new("kill")
-                                .args(["-KILL", &pid.to_string()])
-                                .output()
-                        };
-                        
-                        match kill_result {
-                            Ok(output) if output.status.success() => {
-                                log::info!("Successfully killed process via system command");
+                        match platform::kill_process_tree(pid) {
+                            Ok(_) => {
+                                log::info!("Successfully killed process tree via platform module");
                                 killed = true;
                             }
-                            Ok(output) => {
-                                let stderr = String::from_utf8_lossy(&output.stderr);
-                                log::error!("System kill failed: {}", stderr);
-                            }
                             Err(e) => {
-                                log::error!("Failed to execute system kill command: {}", e);
+                                log::error!("Failed to kill process tree: {}", e);
                             }
                         }
                     }

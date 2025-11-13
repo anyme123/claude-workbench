@@ -105,6 +105,7 @@ pub fn kill_process_tree_impl(pid: u32) -> Result<(), String> {
 ///
 /// Configures PATH and other necessary environment variables to ensure
 /// Node.js and npm packages can be found.
+#[allow(dead_code)]
 pub fn setup_command_environment(cmd: &mut Command, program_path: &str) {
     // Add NVM support if the program is in an NVM directory
     if program_path.contains("\\.nvm\\versions\\node\\") {
@@ -134,6 +135,7 @@ pub fn setup_command_environment(cmd: &mut Command, program_path: &str) {
 
 /// Setup Windows-specific environment variables for a tokio command
 ///
+#[allow(dead_code)]
 /// Async version for use with tokio::process::Command
 pub fn setup_command_environment_async(cmd: &mut tokio::process::Command, program_path: &str) {
     // Add NVM support if the program is in an NVM directory
