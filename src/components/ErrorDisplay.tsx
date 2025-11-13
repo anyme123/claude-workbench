@@ -287,57 +287,15 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
 };
 
 /**
- * Error boundary component that catches React errors
+ * ✅ REMOVED: ClaudeErrorBoundary was a duplicate implementation
+ *
+ * Use ErrorBoundary from './ErrorBoundary' instead, which now includes
+ * all the features of ClaudeErrorBoundary (onError callback, etc.)
+ *
+ * Migration:
+ * - import { ErrorBoundary } from './ErrorBoundary'
+ * - ErrorBoundary now supports onError callback and custom fallback
  */
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error?: Error;
-}
-
-export class ClaudeErrorBoundary extends React.Component<
-  React.PropsWithChildren<{
-    fallback?: React.ComponentType<{ error: Error; retry: () => void }>;
-    onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
-  }>,
-  ErrorBoundaryState
-> {
-  constructor(props: any) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('React Error Boundary caught an error:', error, errorInfo);
-    this.props.onError?.(error, errorInfo);
-  }
-
-  retry = () => {
-    this.setState({ hasError: false, error: undefined });
-  };
-
-  render() {
-    if (this.state.hasError && this.state.error) {
-      if (this.props.fallback) {
-        const FallbackComponent = this.props.fallback;
-        return <FallbackComponent error={this.state.error} retry={this.retry} />;
-      }
-
-      return (
-        <ErrorDisplay
-          error={this.state.error}
-          onRetry={this.retry}
-          variant="inline"
-        />
-      );
-    }
-
-    return this.props.children;
-  }
-}
 
 /**
  * Hook for handling errors in components

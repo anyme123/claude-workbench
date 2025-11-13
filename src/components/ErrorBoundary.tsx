@@ -6,6 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 interface ErrorBoundaryProps {
   children: ReactNode;
   fallback?: (error: Error, reset: () => void) => ReactNode;
+  /** Optional callback when an error is caught */
+  onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
 }
 
 interface ErrorBoundaryState {
@@ -14,7 +16,18 @@ interface ErrorBoundaryState {
 }
 
 /**
- * Error Boundary component to catch and display React rendering errors
+ * ✅ Enhanced Error Boundary component to catch and display React rendering errors
+ *
+ * Features:
+ * - Catches React rendering errors
+ * - Supports custom fallback UI
+ * - Optional error callback for logging/monitoring
+ * - Built-in retry functionality
+ *
+ * @example
+ * <ErrorBoundary onError={(error) => logToMonitoring(error)}>
+ *   <MyComponent />
+ * </ErrorBoundary>
  */
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
@@ -30,6 +43,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     // Log the error to console
     console.error("Error caught by boundary:", error, errorInfo);
+
+    // ✅ NEW: Call optional error handler (e.g., for monitoring/logging)
+    this.props.onError?.(error, errorInfo);
   }
 
   reset = () => {

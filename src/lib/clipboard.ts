@@ -1,6 +1,29 @@
 /**
- * Clipboard helpers that prefer the Tauri plugin and gracefully fall back to browser APIs.
+ * ✅ Unified Clipboard Service - Centralized clipboard operations with automatic fallback
+ *
+ * Provides a singleton service for clipboard operations across the application:
+ * 1. Tauri clipboard plugin (desktop app - most reliable)
+ * 2. Navigator Clipboard API (modern browsers)
+ * 3. execCommand fallback (legacy browsers)
+ *
+ * @example
+ * ```typescript
+ * import { clipboardService } from '@/lib/clipboard';
+ *
+ * // Write text
+ * await clipboardService.writeText('Hello World');
+ *
+ * // Read text (if supported)
+ * const text = await clipboardService.readText();
+ * ```
  */
+
+/**
+ * Tauri Window interface for type safety
+ */
+interface TauriWindow extends Window {
+  __TAURI_INTERNALS__?: unknown;
+}
 
 let tauriInvoke:
   | ((command: string, args?: Record<string, any>) => Promise<any>)
@@ -13,8 +36,8 @@ let tauriInvoke:
 const isTauriEnvironment = (): boolean => {
   return (
     typeof window !== "undefined" &&
-    // Tauri global is injected on the window object.
-    Boolean((window as any)?.__TAURI_INTERNALS__)
+    // ✅ FIXED: Improved type safety
+    Boolean((window as TauriWindow).__TAURI_INTERNALS__)
   );
 };
 
@@ -107,3 +130,79 @@ export async function copyTextToClipboard(text: string): Promise<void> {
 
   throw new Error("Unable to copy text using any available clipboard method");
 }
+
+/**
+ * ✅ Clipboard Service Singleton Class
+ *
+ * Centralized clipboard service with improved error handling and read support.
+ */
+class ClipboardService {
+  private static instance: ClipboardService;
+
+  private constructor() {}
+
+  /**
+   * Get the singleton instance
+   */
+  static getInstance(): ClipboardService {
+    if (!ClipboardService.instance) {
+      ClipboardService.instance = new ClipboardService();
+    }
+    return ClipboardService.instance;
+  }
+
+  /**
+   * Write text to clipboard (delegates to existing copyTextToClipboard)
+   */
+  async writeText(text: string): Promise<void> {
+    return copyTextToClipboard(text);
+  }
+
+  /**
+   * Read text from clipboard
+   * Only works with Tauri plugin or Navigator Clipboard API
+   */
+  async readText(): Promise<string> {
+    // Try Tauri clipboard plugin first
+    if (isTauriEnvironment()) {
+      const invoke = await getTauriInvoke();
+      if (invoke) {
+        try {
+          const text = await invoke("plugin:clipboard-manager|read_text");
+          return text as string;
+        } catch (error) {
+          console.error("[Clipboard] Tauri invoke read failed:", error);
+        }
+      }
+    }
+
+    // Fall back to Navigator clipboard API
+    if (typeof navigator !== "undefined" && navigator.clipboard?.readText) {
+      try {
+        return await navigator.clipboard.readText();
+      } catch (error) {
+        console.error("[Clipboard] Navigator clipboard read failed:", error);
+        throw new Error("Unable to read clipboard: permission denied or not supported");
+      }
+    }
+
+    throw new Error("Clipboard read not supported in this environment");
+  }
+
+  /**
+   * Check if clipboard operations are supported
+   */
+  isSupported(): boolean {
+    return isTauriEnvironment() ||
+           (typeof navigator !== "undefined" && Boolean(navigator.clipboard));
+  }
+}
+
+/**
+ * ✅ Export singleton instance for easy access
+ *
+ * @example
+ * import { clipboardService } from '@/lib/clipboard';
+ * await clipboardService.writeText('Hello');
+ */
+export const clipboardService = ClipboardService.getInstance();

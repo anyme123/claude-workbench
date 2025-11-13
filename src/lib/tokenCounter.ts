@@ -136,7 +136,17 @@ export const MODEL_ALIASES = {
   'haiku-4': 'claude-haiku-4-5',
 } as const;
 
-// Token使用统计接口
+/**
+ * ✅ Token使用统计接口
+ *
+ * @deprecated Consider using StandardizedTokenUsage from tokenExtractor.ts for new code.
+ * This interface is kept for backward compatibility with existing code.
+ *
+ * For new implementations:
+ * - Use `StandardizedTokenUsage` from tokenExtractor.ts (fully normalized with total_tokens)
+ * - Use `RawTokenUsage` from tokenExtractor.ts (for handling various API response formats)
+ * - Use `normalizeRawUsage()` from tokenExtractor.ts to convert raw data to standard format
+ */
 export interface TokenUsage {
   input_tokens?: number;
   output_tokens?: number;
