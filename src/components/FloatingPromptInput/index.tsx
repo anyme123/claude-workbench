@@ -47,6 +47,8 @@ const FloatingPromptInputInner = (
     defaultModel = "sonnet",
     sessionModel,
     projectPath,
+    sessionId,      // 🆕
+    projectId,      // 🆕
     className,
     onCancel,
     getConversationContext,
@@ -173,7 +175,10 @@ const FloatingPromptInputInner = (
     textareaRef,
     expandedTextareaRef,
     projectPath,
+    sessionId,          // 🆕 传递会话 ID
+    projectId,          // 🆕 传递项目 ID
     enableProjectContext,
+    enableMultiRound: true, // 🆕 启用多轮搜索
   });
 
   // 持久化项目上下文开关状态

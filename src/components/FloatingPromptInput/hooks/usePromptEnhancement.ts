@@ -12,7 +12,10 @@ export interface UsePromptEnhancementOptions {
   textareaRef: React.RefObject<HTMLTextAreaElement>;
   expandedTextareaRef: React.RefObject<HTMLTextAreaElement>;
   projectPath?: string;
+  sessionId?: string;      // 🆕 会话 ID（用于历史上下文）
+  projectId?: string;      // 🆕 项目 ID（用于历史上下文）
   enableProjectContext: boolean;
+  enableMultiRound?: boolean; // 🆕 启用多轮搜索
 }
 
 /**
@@ -64,12 +67,16 @@ export function usePromptEnhancement({
   textareaRef,
   expandedTextareaRef,
   projectPath,
+  sessionId,      // 🆕
+  projectId,      // 🆕
   enableProjectContext,
+  enableMultiRound = true, // 🆕 默认启用多轮搜索
 }: UsePromptEnhancementOptions) {
   const [isEnhancing, setIsEnhancing] = useState(false);
 
   /**
    * 获取项目上下文（如果启用）
+   * 🆕 v2: 支持历史上下文感知和多轮搜索
    */
   const getProjectContext = async (): Promise<string | null> => {
     if (!enableProjectContext || !projectPath) {
@@ -78,7 +85,17 @@ export function usePromptEnhancement({
 
     try {
       console.log('[getProjectContext] Fetching project context from acemcp...');
-      const result = await api.enhancePromptWithContext(prompt.trim(), projectPath, 3000);
+      console.log('[getProjectContext] Has session info:', { sessionId, projectId });
+
+      // 🆕 传递会话信息以启用历史上下文感知
+      const result = await api.enhancePromptWithContext(
+        prompt.trim(),
+        projectPath,
+        sessionId,        // 🆕 传递会话 ID
+        projectId,        // 🆕 传递项目 ID
+        3000,
+        enableMultiRound  // 🆕 启用多轮搜索
+      );
 
       if (result.acemcpUsed && result.contextCount > 0) {
         console.log('[getProjectContext] Found context:', result.contextCount, 'items');

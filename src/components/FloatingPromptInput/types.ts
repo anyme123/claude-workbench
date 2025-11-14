@@ -72,6 +72,14 @@ export interface FloatingPromptInputProps {
    */
   projectPath?: string;
   /**
+   * 🆕 Session ID (for history-aware context search)
+   */
+  sessionId?: string;
+  /**
+   * 🆕 Project ID (for history-aware context search)
+   */
+  projectId?: string;
+  /**
    * Optional className for styling
    */
   className?: string;

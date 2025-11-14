@@ -1606,15 +1606,23 @@ export const api = {
 
   /**
    * Enhances a prompt by adding project context from acemcp semantic search
+   * 🆕 v2: 支持历史上下文感知和多轮搜索
+   *
    * @param prompt - The original prompt to enhance
    * @param projectPath - Path to the project directory
+   * @param sessionId - 🆕 Optional session ID for history-aware search
+   * @param projectId - 🆕 Optional project ID for history-aware search
    * @param maxContextLength - Maximum length of context to include (default: 3000)
+   * @param enableMultiRound - 🆕 Enable multi-round search for better coverage (default: true)
    * @returns Promise resolving to enhancement result
    */
   async enhancePromptWithContext(
     prompt: string,
     projectPath: string,
-    maxContextLength?: number
+    sessionId?: string,
+    projectId?: string,
+    maxContextLength?: number,
+    enableMultiRound?: boolean
   ): Promise<{
     originalPrompt: string;
     enhancedPrompt: string;
@@ -1626,7 +1634,10 @@ export const api = {
       return await invoke("enhance_prompt_with_context", {
         prompt,
         projectPath,
+        sessionId,
+        projectId,
         maxContextLength,
+        enableMultiRound,
       });
     } catch (error) {
       console.error("Failed to enhance prompt with context:", error);
