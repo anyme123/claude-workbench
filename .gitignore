@@ -14,7 +14,12 @@ dist-ssr
 *.bun-build
 
 # Tauri binaries (built executables)
-src-tauri/binaries/
+src-tauri/binaries/*.exe
+src-tauri/binaries/*.dll
+src-tauri/binaries/*.so
+src-tauri/binaries/*.dylib
+# Allow source files like .cjs for Node.js sidecar
+!src-tauri/binaries/*.cjs
 
 # Editor directories and files
 .vscode/*
