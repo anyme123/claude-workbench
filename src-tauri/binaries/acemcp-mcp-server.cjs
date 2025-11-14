@@ -1643,20 +1643,20 @@ var require_parse_async = __commonJS({
       const index = 0;
       const blocksize = opts.blocksize || 40960;
       const parser = new TOMLParser();
-      return new Promise((resolve, reject) => {
-        setImmediate(parseAsyncNext, index, blocksize, resolve, reject);
+      return new Promise((resolve2, reject) => {
+        setImmediate(parseAsyncNext, index, blocksize, resolve2, reject);
       });
-      function parseAsyncNext(index2, blocksize2, resolve, reject) {
+      function parseAsyncNext(index2, blocksize2, resolve2, reject) {
         if (index2 >= str.length) {
           try {
-            return resolve(parser.finish());
+            return resolve2(parser.finish());
           } catch (err) {
             return reject(prettyError(err, str));
           }
         }
         try {
           parser.parse(str.slice(index2, index2 + blocksize2));
-          setImmediate(parseAsyncNext, index2 + blocksize2, blocksize2, resolve, reject);
+          setImmediate(parseAsyncNext, index2 + blocksize2, blocksize2, resolve2, reject);
         } catch (err) {
           reject(prettyError(err, str));
         }
@@ -1682,7 +1682,7 @@ var require_parse_stream = __commonJS({
     function parseReadable(stm) {
       const parser = new TOMLParser();
       stm.setEncoding("utf8");
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve2, reject) => {
         let readable;
         let ended = false;
         let errored = false;
@@ -1690,7 +1690,7 @@ var require_parse_stream = __commonJS({
           ended = true;
           if (readable) return;
           try {
-            resolve(parser.finish());
+            resolve2(parser.finish());
           } catch (err) {
             reject(err);
           }
@@ -9258,7 +9258,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve.call(this, root, ref);
+      let _sch = resolve2.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a = root.localRefs) === null || _a === void 0 ? void 0 : _a[ref];
         const { schemaId } = this.opts;
@@ -9285,7 +9285,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve(root, ref) {
+    function resolve2(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -9860,7 +9860,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve(baseURI, relativeURI, options) {
+    function resolve2(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const resolved = resolveComponent(parse2(baseURI, schemelessOptions), parse2(relativeURI, schemelessOptions), schemelessOptions, true);
       schemelessOptions.skipEscape = true;
@@ -10087,7 +10087,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve,
+      resolve: resolve2,
       resolveComponent,
       equal,
       serialize,
@@ -28978,44 +28978,54 @@ var DEFAULT_CONFIG = {
   ],
   EXCLUDE_PATTERNS: [
     // Node.js / JavaScript
-    "node_modules/**",
-    "*.min.js",
-    "*.min.css",
-    "dist/**",
-    "build/**",
+    "**/node_modules/**",
+    // Match node_modules at any depth
+    "**/*.min.js",
+    // Match minified JS files anywhere
+    "**/*.min.css",
+    // Match minified CSS files anywhere
+    "**/dist/**",
+    // Match dist directory at any depth
+    "**/build/**",
+    // Match build directory at any depth
+    "**/coverage/**",
+    // Match coverage directory
     // Python
-    "__pycache__/**",
-    "*.pyc",
-    "*.pyo",
-    "*.pyd",
-    "venv/**",
-    ".venv/**",
-    "env/**",
-    ".env/**",
-    "*.egg-info/**",
-    ".eggs/**",
-    ".pytest_cache/**",
-    ".mypy_cache/**",
-    ".tox/**",
-    "htmlcov/**",
-    ".coverage",
+    "**/__pycache__/**",
+    // Match __pycache__ at any depth
+    "**/*.pyc",
+    "**/*.pyo",
+    "**/*.pyd",
+    "**/venv/**",
+    "**/.venv/**",
+    "**/env/**",
+    "**/.env/**",
+    "**/*.egg-info/**",
+    "**/.eggs/**",
+    "**/.pytest_cache/**",
+    "**/.mypy_cache/**",
+    "**/.tox/**",
+    "**/htmlcov/**",
+    "**/.coverage",
     // Version Control
-    ".git/**",
-    ".svn/**",
-    ".hg/**",
+    "**/.git/**",
+    "**/.svn/**",
+    "**/.hg/**",
     // IDEs and Editors
-    ".idea/**",
-    ".vscode/**",
-    ".DS_Store",
+    "**/.idea/**",
+    "**/.vscode/**",
+    "**/.DS_Store",
     // Build Systems
-    ".gradle/**",
-    "target/**",
-    "bin/**",
-    "obj/**",
+    "**/.gradle/**",
+    "**/target/**",
+    "**/bin/**",
+    "**/obj/**",
     // Logs and temporary files
-    "*.log",
-    "pip-log.txt",
-    "pip-delete-this-directory.txt"
+    "**/*.log",
+    "**/pip-log.txt",
+    "**/pip-delete-this-directory.txt",
+    "**/*.tmp",
+    "**/*.temp"
   ]
 };
 
@@ -29026,10 +29036,44 @@ var import_os2 = require("os");
 var import_fs = require("fs");
 var logDir = (0, import_path2.join)((0, import_os2.homedir)(), ".acemcp", "log");
 var logFile = (0, import_path2.join)(logDir, "acemcp.log");
+var MAX_LOG_SIZE = 5 * 1024 * 1024;
+var MAX_LOG_FILES = 10;
 if (!(0, import_fs.existsSync)(logDir)) {
   (0, import_fs.mkdirSync)(logDir, { recursive: true });
 }
-var logger = (0, import_pino.default)(
+function checkAndRotateLog() {
+  if (!(0, import_fs.existsSync)(logFile)) {
+    return;
+  }
+  try {
+    const stats = (0, import_fs.statSync)(logFile);
+    if (stats.size >= MAX_LOG_SIZE) {
+      rotateLog();
+    }
+  } catch (error) {
+  }
+}
+function rotateLog() {
+  try {
+    for (let i = MAX_LOG_FILES - 1; i >= 1; i--) {
+      const oldFile = `${logFile}.${i}`;
+      const newFile = `${logFile}.${i + 1}`;
+      if ((0, import_fs.existsSync)(oldFile)) {
+        if (i === MAX_LOG_FILES - 1) {
+          (0, import_fs.unlinkSync)(oldFile);
+        } else {
+          (0, import_fs.renameSync)(oldFile, newFile);
+        }
+      }
+    }
+    if ((0, import_fs.existsSync)(logFile)) {
+      (0, import_fs.renameSync)(logFile, `${logFile}.1`);
+    }
+  } catch (error) {
+  }
+}
+checkAndRotateLog();
+var baseLogger = (0, import_pino.default)(
   {
     level: process.env.LOG_LEVEL || "info",
     timestamp: import_pino.default.stdTimeFunctions.isoTime
@@ -29041,6 +29085,36 @@ var logger = (0, import_pino.default)(
     mkdir: true
   })
 );
+var logger = baseLogger;
+logger.exception = (message, error, context) => {
+  const errorObj = error instanceof Error ? error : new Error(String(error));
+  const errorMessage = `${message}: ${errorObj.message}`;
+  const stackTrace = errorObj.stack || "No stack trace available";
+  logger.error(
+    {
+      ...context,
+      error: errorObj.message,
+      stack: stackTrace
+    },
+    errorMessage
+  );
+  checkAndRotateLog();
+};
+var originalError = logger.error.bind(logger);
+var originalWarn = logger.warn.bind(logger);
+var originalInfo = logger.info.bind(logger);
+logger.error = ((...args) => {
+  originalError(...args);
+  checkAndRotateLog();
+});
+logger.warn = ((...args) => {
+  originalWarn(...args);
+  checkAndRotateLog();
+});
+logger.info = ((...args) => {
+  originalInfo(...args);
+  checkAndRotateLog();
+});
 
 // src/config/index.ts
 var configInstance = null;
@@ -34384,7 +34458,7 @@ var Protocol = class {
    */
   request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken } = options !== null && options !== void 0 ? options : {};
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve2, reject) => {
       var _a, _b, _c, _d, _e, _f;
       if (!this._transport) {
         reject(new Error("Not connected"));
@@ -34435,7 +34509,7 @@ var Protocol = class {
         }
         try {
           const result = resultSchema.parse(response.result);
-          resolve(result);
+          resolve2(result);
         } catch (error) {
           reject(error);
         }
@@ -34915,12 +34989,12 @@ var StdioServerTransport = class {
     (_a = this.onclose) === null || _a === void 0 ? void 0 : _a.call(this);
   }
   send(message) {
-    return new Promise((resolve) => {
+    return new Promise((resolve2) => {
       const json = serializeMessage(message);
       if (this._stdout.write(json)) {
-        resolve();
+        resolve2();
       } else {
-        this._stdout.once("drain", resolve);
+        this._stdout.once("drain", resolve2);
       }
     });
   }
@@ -36191,10 +36265,10 @@ utils_default.inherits(CanceledError, AxiosError_default, {
 var CanceledError_default = CanceledError;
 
 // node_modules/.pnpm/axios@1.13.2/node_modules/axios/lib/core/settle.js
-function settle(resolve, reject, response) {
+function settle(resolve2, reject, response) {
   const validateStatus2 = response.config.validateStatus;
   if (!response.status || !validateStatus2 || validateStatus2(response.status)) {
-    resolve(response);
+    resolve2(response);
   } else {
     reject(new AxiosError_default(
       "Request failed with status code " + response.status,
@@ -36817,7 +36891,7 @@ function setProxy(options, configProxy, location) {
 }
 var isHttpAdapterSupported = typeof process !== "undefined" && utils_default.kindOf(process) === "process";
 var wrapAsync = (asyncExecutor) => {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve2, reject) => {
     let onDone;
     let isDone;
     const done = (value, isRejected) => {
@@ -36827,7 +36901,7 @@ var wrapAsync = (asyncExecutor) => {
     };
     const _resolve = (value) => {
       done(value);
-      resolve(value);
+      resolve2(value);
     };
     const _reject = (reason) => {
       done(reason, true);
@@ -36879,7 +36953,7 @@ var http2Transport = {
   }
 };
 var http_default = isHttpAdapterSupported && function httpAdapter(config) {
-  return wrapAsync(async function dispatchHttpRequest(resolve, reject, onDone) {
+  return wrapAsync(async function dispatchHttpRequest(resolve2, reject, onDone) {
     let { data, lookup, family, httpVersion = 1, http2Options } = config;
     const { responseType, responseEncoding } = config;
     const method = config.method.toUpperCase();
@@ -36964,7 +37038,7 @@ var http_default = isHttpAdapterSupported && function httpAdapter(config) {
       }
       let convertedData;
       if (method !== "GET") {
-        return settle(resolve, reject, {
+        return settle(resolve2, reject, {
           status: 405,
           statusText: "method not allowed",
           headers: {},
@@ -36986,7 +37060,7 @@ var http_default = isHttpAdapterSupported && function httpAdapter(config) {
       } else if (responseType === "stream") {
         convertedData = import_stream4.default.Readable.from(convertedData);
       }
-      return settle(resolve, reject, {
+      return settle(resolve2, reject, {
         data: convertedData,
         status: 200,
         statusText: "OK",
@@ -37205,7 +37279,7 @@ var http_default = isHttpAdapterSupported && function httpAdapter(config) {
       };
       if (responseType === "stream") {
         response.data = responseStream;
-        settle(resolve, reject, response);
+        settle(resolve2, reject, response);
       } else {
         const responseBuffer = [];
         let totalResponseBytes = 0;
@@ -37253,7 +37327,7 @@ var http_default = isHttpAdapterSupported && function httpAdapter(config) {
           } catch (err) {
             return reject(AxiosError_default.from(err, null, config, response.request, response));
           }
-          settle(resolve, reject, response);
+          settle(resolve2, reject, response);
         });
       }
       abortEmitter.once("abort", (err) => {
@@ -37502,7 +37576,7 @@ var resolveConfig_default = (config) => {
 // node_modules/.pnpm/axios@1.13.2/node_modules/axios/lib/adapters/xhr.js
 var isXHRAdapterSupported = typeof XMLHttpRequest !== "undefined";
 var xhr_default = isXHRAdapterSupported && function(config) {
-  return new Promise(function dispatchXhrRequest(resolve, reject) {
+  return new Promise(function dispatchXhrRequest(resolve2, reject) {
     const _config = resolveConfig_default(config);
     let requestData = _config.data;
     const requestHeaders = AxiosHeaders_default.from(_config.headers).normalize();
@@ -37536,7 +37610,7 @@ var xhr_default = isXHRAdapterSupported && function(config) {
         request
       };
       settle(function _resolve(value) {
-        resolve(value);
+        resolve2(value);
         done();
       }, function _reject(err) {
         reject(err);
@@ -37907,8 +37981,8 @@ var factory = (env) => {
       responseType = responseType || "text";
       let responseData = await resolvers[utils_default.findKey(resolvers, responseType) || "text"](response, config);
       !isStreamResponse && unsubscribe && unsubscribe();
-      return await new Promise((resolve, reject) => {
-        settle(resolve, reject, {
+      return await new Promise((resolve2, reject) => {
+        settle(resolve2, reject, {
           data: responseData,
           headers: AxiosHeaders_default.from(response.headers),
           status: response.status,
@@ -38304,8 +38378,8 @@ var CancelToken = class _CancelToken {
       throw new TypeError("executor must be a function.");
     }
     let resolvePromise;
-    this.promise = new Promise(function promiseExecutor(resolve) {
-      resolvePromise = resolve;
+    this.promise = new Promise(function promiseExecutor(resolve2) {
+      resolvePromise = resolve2;
     });
     const token = this;
     this.promise.then((cancel) => {
@@ -38318,9 +38392,9 @@ var CancelToken = class _CancelToken {
     });
     this.promise.then = (onfulfilled) => {
       let _resolve;
-      const promise = new Promise((resolve) => {
-        token.subscribe(resolve);
-        _resolve = resolve;
+      const promise = new Promise((resolve2) => {
+        token.subscribe(resolve2);
+        _resolve = resolve2;
       }).then(onfulfilled);
       promise.cancel = function reject() {
         token.unsubscribe(_resolve);
@@ -38548,14 +38622,67 @@ var import_iconv_lite = __toESM(require_lib(), 1);
 function normalizePath(path) {
   return path.split(import_path3.sep).join(import_path3.posix.sep);
 }
+function normalizeProjectPath(filePath) {
+  if (!filePath || typeof filePath !== "string") {
+    throw new Error("Path cannot be null or undefined");
+  }
+  const trimmedPath = filePath.trim();
+  if (trimmedPath === "") {
+    throw new Error("Path cannot be empty");
+  }
+  if (trimmedPath.startsWith("\\\\wsl$\\") || trimmedPath.startsWith("//wsl$/")) {
+    const parts = trimmedPath.replace(/\\/g, "/").split("/").filter(Boolean);
+    if (parts.length < 3 || parts[0] !== "wsl$") {
+      logger.warn(`Incomplete WSL UNC path: ${filePath}, falling back to standard resolution`);
+      return (0, import_path3.resolve)(trimmedPath).replace(/\\/g, "/");
+    }
+    const wslPath = "/" + parts.slice(2).join("/");
+    logger.info(`Converted Windows WSL UNC path: ${filePath} -> ${wslPath}`);
+    return wslPath;
+  }
+  if (trimmedPath.startsWith("/")) {
+    if (process.platform === "win32" && trimmedPath.startsWith("/mnt/")) {
+      const match = trimmedPath.match(/^\/mnt\/([a-z])\/(.*)/);
+      if (match) {
+        const drive = match[1].toUpperCase();
+        const rest = match[2];
+        const windowsPath = `${drive}:/${rest}`;
+        logger.info(`Auto-converted WSL path to Windows: ${trimmedPath} -> ${windowsPath}`);
+        let normalized3 = windowsPath;
+        if (normalized3.length > 3 && normalized3.endsWith("/")) {
+          normalized3 = normalized3.slice(0, -1);
+        }
+        return normalized3;
+      }
+    }
+    let normalized2 = trimmedPath.replace(/\\/g, "/");
+    if (normalized2.length > 1 && normalized2.endsWith("/")) {
+      normalized2 = normalized2.slice(0, -1);
+    }
+    return normalized2;
+  }
+  let normalized = (0, import_path3.resolve)(trimmedPath).replace(/\\/g, "/");
+  if (normalized.length > 3 && normalized.endsWith("/")) {
+    normalized = normalized.slice(0, -1);
+  }
+  return normalized;
+}
 function getRelativePath(base, target) {
   return normalizePath((0, import_path3.relative)(base, target));
 }
 var ENCODINGS = ["utf-8", "gbk", "gb2312", "latin1"];
 function isValidText(text) {
   const replacementChars = (text.match(/�/g) || []).length;
-  if (replacementChars > text.length * 0.1) {
-    return false;
+  if (text.length > 0) {
+    if (text.length < 100) {
+      if (replacementChars > 5) {
+        return false;
+      }
+    } else {
+      if (replacementChars / text.length > 0.05) {
+        return false;
+      }
+    }
   }
   const invalidChars = /[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(text);
   if (invalidChars) {
@@ -38628,13 +38755,56 @@ function shouldExclude(filePath, relativePath, ig) {
   if (ig.ignores(normalizedRelPath)) {
     return true;
   }
+  let isDirectory = false;
   try {
     const stats = (0, import_fs3.statSync)(filePath);
-    if (stats.isDirectory()) {
-      return ig.ignores(normalizedRelPath + "/");
+    isDirectory = stats.isDirectory();
+    if (isDirectory) {
+      if (ig.ignores(normalizedRelPath + "/")) {
+        return true;
+      }
     }
   } catch {
-    return true;
+    isDirectory = !/\.[^/]+$/.test(normalizedRelPath);
+  }
+  const segments = normalizedRelPath.split("/");
+  const commonExcludeDirs = [
+    "node_modules",
+    "__pycache__",
+    ".git",
+    ".svn",
+    ".hg",
+    "venv",
+    ".venv",
+    "env",
+    ".env",
+    "dist",
+    "build",
+    "coverage",
+    ".idea",
+    ".vscode",
+    ".gradle",
+    "target",
+    "bin",
+    "obj",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".tox",
+    ".eggs",
+    "htmlcov"
+  ];
+  for (let i = 0; i < segments.length - 1; i++) {
+    if (commonExcludeDirs.includes(segments[i])) {
+      logger.debug(`Excluded by segment match: ${normalizedRelPath} (matched: ${segments[i]})`);
+      return true;
+    }
+  }
+  if (isDirectory && segments.length > 0) {
+    const lastSegment = segments[segments.length - 1];
+    if (commonExcludeDirs.includes(lastSegment)) {
+      logger.debug(`Excluded by segment match: ${normalizedRelPath} (matched: ${lastSegment})`);
+      return true;
+    }
   }
   return false;
 }
@@ -38645,8 +38815,13 @@ function collectFiles(rootPath, textExtensions, excludePatterns) {
   if ((0, import_fs3.existsSync)(gitignorePath)) {
     try {
       const gitignoreContent = (0, import_fs3.readFileSync)(gitignorePath, "utf-8");
-      const gitignorePatterns = gitignoreContent.split("\n").map((line) => line.trim()).filter((line) => line && !line.startsWith("#"));
-      ig.add(gitignorePatterns);
+      const gitignorePatterns = gitignoreContent.split("\n").map((line) => line.trim()).filter((line) => {
+        return line && !line.startsWith("#") && !line.startsWith("!");
+      });
+      if (gitignorePatterns.length > 0) {
+        ig.add(gitignorePatterns);
+        logger.debug(`Loaded ${gitignorePatterns.length} patterns from .gitignore`);
+      }
     } catch (error) {
       logger.warn(`Failed to read .gitignore: ${String(error)}`);
     }
@@ -38713,7 +38888,7 @@ async function retryRequest(fn, options, context) {
   throw lastError || new Error("Unknown error during retry");
 }
 function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise((resolve2) => setTimeout(resolve2, ms));
 }
 async function executeBatchesConcurrent(items, _batchSize, maxConcurrency, executor) {
   const results = [];
@@ -38740,7 +38915,12 @@ var IndexManager = class {
   httpClient;
   constructor(storagePath, baseUrl, token, textExtensions, batchSize, maxLinesPerBlob, excludePatterns, enableConcurrentUpload, maxConcurrentBatches) {
     this.storagePath = storagePath;
-    this.baseUrl = baseUrl.replace(/\/$/, "");
+    if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
+      this.baseUrl = `https://${baseUrl}`.replace(/\/$/, "");
+      logger.info(`Auto-added https:// protocol to base_url: ${this.baseUrl}`);
+    } else {
+      this.baseUrl = baseUrl.replace(/\/$/, "");
+    }
     this.token = token;
     this.textExtensions = textExtensions;
     this.batchSize = batchSize;
@@ -38756,12 +38936,15 @@ var IndexManager = class {
       },
       timeout: 6e4
     });
+    logger.info(
+      `IndexManager initialized: storage_path=${storagePath}, batch_size=${batchSize}, max_lines_per_blob=${maxLinesPerBlob}, exclude_patterns=${excludePatterns.length} patterns, concurrent_upload=${enableConcurrentUpload}, max_concurrent_batches=${maxConcurrentBatches}`
+    );
   }
   /**
-   * Normalize project path
+   * Normalize project path with WSL support
    */
-  normalizePath(path) {
-    return normalizePath(path);
+  normalizeProjectPathInternal(path) {
+    return normalizeProjectPath(path);
   }
   /**
    * Get projects file path
@@ -38782,24 +38965,59 @@ var IndexManager = class {
     writeJsonFile(this.getProjectsFilePath(), projects);
   }
   /**
+   * Split lines preserving original newline characters
+   * Mimics Python's splitlines(keepends=True) to ensure hash consistency
+   * Handles \n (Unix), \r\n (Windows), and \r (old Mac) line endings
+   */
+  splitLinesPreservingNewlines(content) {
+    const lines = [];
+    let start = 0;
+    for (let i = 0; i < content.length; i++) {
+      if (content[i] === "\n") {
+        lines.push(content.substring(start, i + 1));
+        start = i + 1;
+      } else if (content[i] === "\r") {
+        if (i + 1 < content.length && content[i + 1] === "\n") {
+          lines.push(content.substring(start, i + 2));
+          start = i + 2;
+          i++;
+        } else {
+          lines.push(content.substring(start, i + 1));
+          start = i + 1;
+        }
+      }
+    }
+    if (start < content.length) {
+      lines.push(content.substring(start));
+    }
+    return lines;
+  }
+  /**
    * Split file content into chunks if it exceeds max lines
+   * Preserves original newline characters for hash consistency
    */
   splitBlob(blob) {
-    const lines = blob.content.split("\n");
-    if (lines.length <= this.maxLinesPerBlob) {
+    const lines = this.splitLinesPreservingNewlines(blob.content);
+    const totalLines = lines.length;
+    if (totalLines <= this.maxLinesPerBlob) {
       return [blob];
     }
     const chunks = [];
-    for (let i = 0; i < lines.length; i += this.maxLinesPerBlob) {
-      const chunkLines = lines.slice(i, Math.min(i + this.maxLinesPerBlob, lines.length));
+    const numChunks = Math.ceil(totalLines / this.maxLinesPerBlob);
+    for (let chunkIdx = 0; chunkIdx < numChunks; chunkIdx++) {
+      const startLine = chunkIdx * this.maxLinesPerBlob;
+      const endLine = Math.min(startLine + this.maxLinesPerBlob, totalLines);
+      const chunkLines = lines.slice(startLine, endLine);
+      const chunkContent = chunkLines.join("");
+      const chunkPath = `${blob.path}#chunk${chunkIdx + 1}of${numChunks}`;
       chunks.push({
-        path: blob.path,
-        content: chunkLines.join("\n"),
-        startLine: i + 1,
-        endLine: i + chunkLines.length
+        path: chunkPath,
+        content: chunkContent,
+        startLine: startLine + 1,
+        endLine
       });
     }
-    logger.info(`Split ${blob.path} into ${chunks.length} chunks (${lines.length} total lines)`);
+    logger.info(`Split ${blob.path} (${totalLines} lines) into ${numChunks} chunks`);
     return chunks;
   }
   /**
@@ -38896,10 +39114,10 @@ var IndexManager = class {
    * Index a code project with incremental indexing support
    */
   async indexProject(projectRootPath) {
-    const normalizedPath = this.normalizePath(projectRootPath);
-    logger.info(`Indexing project from ${normalizedPath}`);
+    const normalizedPath = this.normalizeProjectPathInternal(projectRootPath);
+    logger.info(`Indexing project from ${normalizedPath} (original: ${projectRootPath})`);
     try {
-      const blobs = this.collectFilesFromProject(projectRootPath);
+      const blobs = this.collectFilesFromProject(normalizedPath);
       if (blobs.length === 0) {
         return {
           status: "error",
@@ -38991,8 +39209,8 @@ var IndexManager = class {
    * Delete a project from index
    */
   async deleteProject(projectRootPath) {
-    const normalizedPath = this.normalizePath(projectRootPath);
-    logger.info(`Deleting project ${normalizedPath}`);
+    const normalizedPath = this.normalizeProjectPathInternal(projectRootPath);
+    logger.info(`Deleting project ${normalizedPath} (original: ${projectRootPath})`);
     const projects = this.loadProjects();
     delete projects[normalizedPath];
     this.saveProjects(projects);
@@ -39031,7 +39249,9 @@ var SearchService = class {
   async searchContext(projectRootPath, query) {
     logger.info(`Searching context in project ${projectRootPath} with query: ${query}`);
     try {
-      logger.info(`Auto-indexing project ${projectRootPath} before search...`);
+      const normalizedPath = normalizeProjectPath(projectRootPath);
+      logger.info(`Normalized project path: ${normalizedPath} (original: ${projectRootPath})`);
+      logger.info(`Auto-indexing project ${normalizedPath} before search...`);
       const indexResult = await this.indexManager.indexProject(projectRootPath);
       if (indexResult.status === "error") {
         return `Error: Failed to index project before search. ${indexResult.message}`;
@@ -39042,7 +39262,6 @@ var SearchService = class {
         );
       }
       const projects = this.indexManager.getProjects();
-      const normalizedPath = projectRootPath.split("\\").join("/");
       const blobNames = projects[normalizedPath] || [];
       if (blobNames.length === 0) {
         return `Error: No blobs found for project ${normalizedPath} after indexing.`;
@@ -39155,13 +39374,13 @@ function createMcpServer() {
     const tools = [
       {
         name: "search_context",
-        description: "Search for relevant code context based on a query within a specific project. This tool automatically performs incremental indexing before searching, ensuring results are always up-to-date. Returns formatted text snippets from the codebase that are semantically related to your query. IMPORTANT: Use forward slashes (/) as path separators in project_root_path, even on Windows.",
+        description: "Search for relevant code context based on a query within a specific project. This tool automatically performs incremental indexing before searching, ensuring results are always up-to-date. Returns formatted text snippets from the codebase that are semantically related to your query. Supports cross-platform paths including Windows WSL.",
         inputSchema: {
           type: "object",
           properties: {
             project_root_path: {
               type: "string",
-              description: "Absolute path to the project root directory. Use forward slashes (/) as separators. Example: C:/Users/username/projects/myproject"
+              description: "Absolute path to the project root directory. Supports cross-platform paths: Windows (C:/Users/...), WSL UNC (\\\\wsl$\\Ubuntu\\home\\...), Unix (/home/...), WSL-to-Windows (/mnt/c/...). Paths are automatically normalized."
             },
             query: {
               type: "string",
