@@ -22,6 +22,11 @@ use tokio::process::Command;
 use log::{debug, error, info, warn};
 use regex::Regex;
 
+// Windows: 导入 CommandExt trait 以使用 creation_flags
+#[cfg(target_os = "windows")]
+#[allow(unused_imports)]
+use std::os::windows::process::CommandExt;
+
 // 嵌入 sidecar 可执行文件作为编译时资源（Node.js 版本）
 #[cfg(target_os = "windows")]
 const ACEMCP_SIDECAR_BYTES: &[u8] = include_bytes!("../../binaries/acemcp-mcp-server.cjs");
@@ -358,10 +363,17 @@ impl AcemcpClient {
 
         // Node.js 版本：通过 node 运行 .cjs 文件
         // 首先检查 node 是否可用
-        let node_check = Command::new("node")
-            .arg("--version")
-            .output()
-            .await;
+        let mut node_check_cmd = Command::new("node");
+        node_check_cmd.arg("--version");
+
+        // Windows: 隐藏检查命令的控制台窗口
+        #[cfg(target_os = "windows")]
+        {
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            node_check_cmd.creation_flags(CREATE_NO_WINDOW);
+        }
+
+        let node_check = node_check_cmd.output().await;
 
         if node_check.is_err() {
             return Err(anyhow::anyhow!(
