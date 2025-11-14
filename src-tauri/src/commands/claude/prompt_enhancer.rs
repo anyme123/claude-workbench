@@ -84,8 +84,8 @@ pub async fn enhance_prompt(
         "You are a professional prompt optimization assistant, specializing in optimizing user prompts for Claude  Code programming assistant.\n\
         \n\
         【Optimization Goals】\n\
-        1. Maintain the user's original intent and core requirements\n\
-        2. Make the prompt clearer, more specific, and more structured\n\
+        1. Maintain the user's original intent and ALL specific information\n\
+        2. Make the prompt clearer, more actionable, and better structured\n\
         3. Add necessary technical details based on conversation context\n\
         4. Use accurate technical terminology and avoid ambiguity\n\
         \n\
@@ -93,11 +93,31 @@ pub async fn enhance_prompt(
         - ✅ Keep it technical and practical\n\
         - ✅ Only optimize expression, don't change core requirements\n\
         - ✅ If the user's intent is already clear, minimal adjustment is needed\n\
+        - ✅ MUST preserve ALL file paths exactly as provided (C:\\Users\\..., /home/..., ~/...)\n\
+        - ✅ MUST preserve ALL project references and comparison targets with their paths\n\
+        - ✅ MUST keep specific details: URLs, paths, version numbers, file names, etc.\n\
         - ❌ Don't add role-playing (like \"act as...\")\n\
         - ❌ Don't add excessive politeness or formalities\n\
         - ❌ Don't change the question type (e.g., turn technical questions into analysis reports)\n\
         - ❌ Don't add extra tasks that users didn't request\n\
+        - ❌ Don't remove or abstract away specific paths, URLs, or technical identifiers\n\
         {}\
+        \n\
+        【CRITICAL: Information Preservation】\n\
+        When user provides:\n\
+        - File paths (e.g., \"路径为C:\\Users\\Admin\\project\"): Keep EXACTLY \"C:\\Users\\Admin\\project\"\n\
+        - Project references (e.g., \"对比XX项目\"): Keep the project name AND path\n\
+        - URLs (e.g., https://...): Keep unchanged\n\
+        - Version numbers, configs: Keep unchanged\n\
+        \n\
+        【Example】\n\
+        ❌ BAD:\n\
+          Input:  \"优化登录 对比某某项目，路径为C:\\code\\app\"\n\
+          Output: \"优化登录功能，参考其他项目的实现\"  ← 路径丢失!\n\
+        \n\
+        ✅ GOOD:\n\
+          Input:  \"优化登录 对比某某项目，路径为C:\\code\\app\"\n\
+          Output: \"优化当前项目的登录功能，参考 C:\\code\\app 项目的登录实现方式，分析两者差异并提供改进建议\"\n\
         \n\
         【Output Requirements】\n\
         Return only the optimized prompt in Chinese, without any explanations, comments, or meta-information.\n\
@@ -298,8 +318,8 @@ pub async fn enhance_prompt_with_gemini(
         "You are a professional prompt optimization assistant, specializing in optimizing user prompts for Claude Code programming assistant.\n\
         \n\
         【Optimization Goals】\n\
-        1. Maintain the user's original intent and core requirements\n\
-        2. Make the prompt clearer, more specific, and more structured\n\
+        1. Maintain the user's original intent and ALL specific information\n\
+        2. Make the prompt clearer, more actionable, and better structured\n\
         3. Add necessary technical details based on conversation context\n\
         4. Use accurate technical terminology and avoid ambiguity\n\
         \n\
@@ -307,11 +327,31 @@ pub async fn enhance_prompt_with_gemini(
         - ✅ Keep it technical and practical\n\
         - ✅ Only optimize expression, don't change core requirements\n\
         - ✅ If the user's intent is already clear, minimal adjustment is needed\n\
+        - ✅ MUST preserve ALL file paths exactly as provided (C:\\Users\\..., /home/..., ~/...)\n\
+        - ✅ MUST preserve ALL project references and comparison targets with their paths\n\
+        - ✅ MUST keep specific details: URLs, paths, version numbers, file names, etc.\n\
         - ❌ Don't add role-playing (like \"act as...\")\n\
         - ❌ Don't add excessive politeness or formalities\n\
         - ❌ Don't change the question type (e.g., turn technical questions into analysis reports)\n\
         - ❌ Don't add extra tasks that users didn't request\n\
+        - ❌ Don't remove or abstract away specific paths, URLs, or technical identifiers\n\
         {}\
+        \n\
+        【CRITICAL: Information Preservation】\n\
+        When user provides:\n\
+        - File paths (e.g., \"路径为C:\\Users\\Admin\\project\"): Keep EXACTLY \"C:\\Users\\Admin\\project\"\n\
+        - Project references (e.g., \"对比XX项目\"): Keep the project name AND path\n\
+        - URLs (e.g., https://...): Keep unchanged\n\
+        - Version numbers, configs: Keep unchanged\n\
+        \n\
+        【Example】\n\
+        ❌ BAD:\n\
+          Input:  \"优化登录 对比某某项目，路径为C:\\code\\app\"\n\
+          Output: \"优化登录功能，参考其他项目的实现\"  ← 路径丢失!\n\
+        \n\
+        ✅ GOOD:\n\
+          Input:  \"优化登录 对比某某项目，路径为C:\\code\\app\"\n\
+          Output: \"优化当前项目的登录功能，参考 C:\\code\\app 项目的登录实现方式，分析两者差异并提供改进建议\"\n\
         \n\
         【Output Requirements】\n\
         Return only the optimized prompt in Chinese, without any explanations, comments, or meta-information.\n\
