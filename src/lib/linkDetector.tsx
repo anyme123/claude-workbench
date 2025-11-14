@@ -121,8 +121,11 @@ export function makeLinksClickable(
       <a
         key={`link-${index}`}
         href={link.fullUrl}
+        target="_blank"
+        rel="noopener noreferrer"
         onClick={(e) => {
-          e.preventDefault();
+          // 不阻止默认行为，让链接在新标签页打开
+          // 同时触发回调，支持应用内预览等功能
           onLinkClick(link.fullUrl);
         }}
         className="text-primary underline hover:text-primary/80 cursor-pointer"
