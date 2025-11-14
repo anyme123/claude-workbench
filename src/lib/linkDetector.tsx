@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { open } from '@tauri-apps/plugin-shell';
 
 // URL regex pattern that matches:
 // - http:// and https:// URLs
@@ -120,11 +121,13 @@ export function makeLinksClickable(
     elements.push(
       <a
         key={`link-${index}`}
-        href={link.fullUrl}
-        target="_blank"
-        rel="noopener noreferrer"
+        href="#"
         onClick={(e) => {
-          // 不阻止默认行为，让链接在新标签页打开
+          e.preventDefault();
+          // 使用 Tauri shell.open 在外部浏览器中打开链接
+          open(link.fullUrl).catch((err) => {
+            console.error('Failed to open URL:', err);
+          });
           // 同时触发回调，支持应用内预览等功能
           onLinkClick(link.fullUrl);
         }}

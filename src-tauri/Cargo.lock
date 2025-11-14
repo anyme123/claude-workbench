@@ -677,7 +677,7 @@ dependencies = [
 
 [[package]]
 name = "claude-workbench"
-version = "4.1.3"
+version = "4.2.0"
 dependencies = [
  "anyhow",
  "arboard",

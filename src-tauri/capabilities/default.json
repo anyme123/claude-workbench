@@ -10,6 +10,8 @@
     "dialog:allow-message",
     "dialog:allow-ask",
     "dialog:allow-confirm",
+    "shell:default",
+    "shell:allow-open",
     {
       "identifier": "http:default",
       "allow": [
