@@ -1004,10 +1004,19 @@ pub async fn save_acemcp_config(
         .ok_or("Cannot find home directory")?
         .join(".acemcp");
 
-    fs::create_dir_all(&config_dir)
-        .map_err(|e| format!("Failed to create config dir: {}", e))?;
-
     let config_file = config_dir.join("config.toml");
+
+    // 注意：不再主动创建 .acemcp 目录
+    // acemcp 核心进程首次运行时会自动创建此目录和配置文件
+    // 如果目录不存在，说明 acemcp 尚未运行，提示用户先测试连接
+    if !config_dir.exists() {
+        return Err(format!(
+            "配置目录不存在：{:?}\n\n\
+            这是因为 acemcp 尚未运行。请先点击「测试连接」按钮，\n\
+            这会触发 acemcp 启动并自动创建配置目录。",
+            config_dir
+        ));
+    }
 
     // 读取现有配置（如果存在）
     let mut existing_lines: HashMap<String, String> = HashMap::new();
