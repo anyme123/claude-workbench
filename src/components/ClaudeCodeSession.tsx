@@ -1080,6 +1080,7 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
               projectId={effectiveSession?.project_id} // 🆕 传递项目 ID
               sessionModel={session?.model}
               getConversationContext={getConversationContext}
+              messages={messages}                      // 🆕 传递完整消息列表
               isPlanMode={isPlanMode}
               onTogglePlanMode={handleTogglePlanMode}
               sessionCost={formatCost(costStats.totalCost)}

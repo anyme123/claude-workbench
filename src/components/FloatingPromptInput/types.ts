@@ -92,6 +92,10 @@ export interface FloatingPromptInputProps {
    */
   getConversationContext?: () => string[];
   /**
+   * 🆕 Complete message list (for dual API context extraction)
+   */
+  messages?: import("@/types/claude").ClaudeStreamMessage[];
+  /**
    * Whether Plan Mode is enabled
    */
   isPlanMode?: boolean;

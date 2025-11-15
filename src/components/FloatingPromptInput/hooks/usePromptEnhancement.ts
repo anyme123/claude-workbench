@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { callEnhancementAPI, getProvider } from "@/lib/promptEnhancementService";
+import { enhancePromptWithDualAPI } from "@/lib/dualAPIEnhancement";
+import { ClaudeStreamMessage } from "@/types/claude";
 
 export interface UsePromptEnhancementOptions {
   prompt: string;
   isExpanded: boolean;
   onPromptChange: (newPrompt: string) => void;
   getConversationContext?: () => string[];
+  messages?: ClaudeStreamMessage[];  // 🆕 完整的消息列表（用于双 API）
   textareaRef: React.RefObject<HTMLTextAreaElement>;
   expandedTextareaRef: React.RefObject<HTMLTextAreaElement>;
   projectPath?: string;
@@ -61,6 +64,7 @@ export function usePromptEnhancement({
   isExpanded,
   onPromptChange,
   getConversationContext,
+  messages,       // 🆕 完整消息列表
   textareaRef,
   expandedTextareaRef,
   projectPath,
@@ -70,6 +74,12 @@ export function usePromptEnhancement({
   enableMultiRound = true, // 🆕 默认启用多轮搜索
 }: UsePromptEnhancementOptions) {
   const [isEnhancing, setIsEnhancing] = useState(false);
+
+  // 🆕 智能上下文提取开关（默认启用）
+  const [enableDualAPI, setEnableDualAPI] = useState(() => {
+    const saved = localStorage.getItem('enable_dual_api_enhancement');
+    return saved !== null ? saved === 'true' : true;  // 默认启用
+  });
 
   /**
    * 获取项目上下文（如果启用）
@@ -147,16 +157,36 @@ export function usePromptEnhancement({
       // 获取项目上下文（如果启用）
       const projectContext = await getProjectContext();
 
-      // 获取对话上下文
-      let context = getConversationContext ? getConversationContext() : undefined;
+      let result: string;
 
-      // 如果有项目上下文，附加到 context 数组
-      if (projectContext) {
-        console.log('[handleEnhancePromptWithAPI] Adding project context to conversation context');
-        context = context ? [...context, projectContext] : [projectContext];
+      // 🆕 判断是否使用双 API 方案
+      if (enableDualAPI && messages && messages.length > 15) {
+        // ✨ 使用双 API 方案（智能上下文提取）
+        console.log('[handleEnhancePromptWithAPI] Using dual API approach');
+        console.log('[handleEnhancePromptWithAPI] Analyzing', messages.length, 'messages for context extraction');
+
+        result = await enhancePromptWithDualAPI(
+          messages,
+          trimmedPrompt,
+          provider,      // 🔑 使用同一个提供商调用两次
+          projectContext || undefined
+        );
+
+      } else {
+        // 使用传统单次调用方案
+        console.log('[handleEnhancePromptWithAPI] Using single API approach');
+
+        // 获取对话上下文
+        let context = getConversationContext ? getConversationContext() : undefined;
+
+        // 如果有项目上下文，附加到 context 数组
+        if (projectContext) {
+          console.log('[handleEnhancePromptWithAPI] Adding project context to conversation context');
+          context = context ? [...context, projectContext] : [projectContext];
+        }
+
+        result = await callEnhancementAPI(provider, trimmedPrompt, context);
       }
-
-      const result = await callEnhancementAPI(provider, trimmedPrompt, context);
       
       if (result && result.trim()) {
         // 使用可撤销的方式更新文本
@@ -192,5 +222,7 @@ export function usePromptEnhancement({
   return {
     isEnhancing,
     handleEnhancePromptWithAPI,
+    enableDualAPI,       // 🆕 暴露智能上下文开关状态
+    setEnableDualAPI,    // 🆕 暴露开关控制函数
   };
 }
