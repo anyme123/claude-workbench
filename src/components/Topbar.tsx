@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { motion } from "framer-motion";
-import { FileText, Settings, BarChart3, Network, Eye, Package, Info } from "lucide-react";
+import { FileText, Settings, BarChart3, Network, Eye, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ClaudeStatusIndicator } from "@/components/ClaudeStatusIndicator";
@@ -92,10 +92,11 @@ export const Topbar: React.FC<TopbarProps> = ({
   const statusIndicator = useMemo(
     () => <ClaudeStatusIndicator
       onSettingsClick={onSettingsClick}
+      onAboutClick={onAboutClick}
       messages={messages}
       sessionId={sessionId}
     />,
-    [onSettingsClick, messages, sessionId]
+    [onSettingsClick, onAboutClick, messages, sessionId]
   );
   
   return (
@@ -225,20 +226,6 @@ export const Topbar: React.FC<TopbarProps> = ({
         {/* Update Badge */}
         {onUpdateClick && (
           <UpdateBadge onClick={onUpdateClick} aria-label="查看可用更新" />
-        )}
-
-        {/* About Button */}
-        {onAboutClick && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onAboutClick}
-            className="text-xs font-medium px-2 py-1 h-7 hover:bg-muted/70 transition-all rounded-md gap-0 border border-border/40 shadow-sm hover:shadow"
-            aria-label="关于应用"
-          >
-            <Info className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
-            关于
-          </Button>
         )}
 
         <Button

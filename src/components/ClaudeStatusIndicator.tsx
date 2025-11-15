@@ -81,6 +81,7 @@ const saveCachedStatus = (statusInfo: StatusInfo) => {
 interface ClaudeStatusIndicatorProps {
   className?: string;
   onSettingsClick?: () => void;
+  onAboutClick?: () => void;
   messages?: ClaudeStreamMessage[];
   sessionId?: string;
 }
@@ -97,6 +98,7 @@ interface StatusInfo {
 export const ClaudeStatusIndicator: React.FC<ClaudeStatusIndicatorProps> = ({
   className,
   onSettingsClick,
+  onAboutClick,
   messages = [],
   sessionId
 }) => {
@@ -297,7 +299,7 @@ export const ClaudeStatusIndicator: React.FC<ClaudeStatusIndicatorProps> = ({
   };
 
   return (
-    <div className={cn("flex items-center gap-2", className)}>
+    <div className={cn("flex items-center gap-1.5", className)}>
       <TooltipProvider>
         <Popover
           trigger={
@@ -313,7 +315,6 @@ export const ClaudeStatusIndicator: React.FC<ClaudeStatusIndicatorProps> = ({
                 className="flex items-center gap-2"
               >
                 {getStatusIcon()}
-                <span className="hidden sm:inline">{getStatusText()}</span>
                 {statusInfo.version && (
                   <Badge variant="secondary" className={cn("text-xs", getStatusColor())}>
                     v{statusInfo.version}
@@ -458,6 +459,25 @@ export const ClaudeStatusIndicator: React.FC<ClaudeStatusIndicatorProps> = ({
           align="start"
           className="w-80 p-4"
         />
+
+        {/* About Button */}
+        {onAboutClick && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onAboutClick}
+                className="h-8 w-8 p-0"
+              >
+                <Info className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>关于应用</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
       </TooltipProvider>
     </div>
   );
