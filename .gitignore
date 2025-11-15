@@ -50,6 +50,9 @@ src-tauri/Cargo.lock
 
 # Temporary files
 nul
+*.bak
+*.tmp
+*.old
 
 # Environment files
 .env
