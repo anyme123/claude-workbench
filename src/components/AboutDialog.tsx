@@ -1,5 +1,7 @@
+import { useState, useEffect } from "react";
 import { X, Info, RefreshCw, ExternalLink } from "lucide-react";
 import { open as openUrl } from "@tauri-apps/plugin-shell";
+import { getVersion } from "@tauri-apps/api/app";
 
 interface AboutDialogProps {
   open: boolean;
@@ -8,9 +10,25 @@ interface AboutDialogProps {
 }
 
 export function AboutDialog({ open, onClose, onCheckUpdate }: AboutDialogProps) {
-  // 从 package.json 读取版本号
-  const APP_VERSION = "4.2.1";
+  const [appVersion, setAppVersion] = useState<string>("加载中...");
   const PROJECT_URL = "https://github.com/anyme123/claude-workbench";
+
+  // 动态获取应用版本号
+  useEffect(() => {
+    const fetchVersion = async () => {
+      try {
+        const version = await getVersion();
+        setAppVersion(version);
+      } catch (err) {
+        console.error("获取版本号失败:", err);
+        setAppVersion("未知");
+      }
+    };
+
+    if (open) {
+      fetchVersion();
+    }
+  }, [open]);
 
   if (!open) {
     return null;
@@ -63,7 +81,7 @@ export function AboutDialog({ open, onClose, onCheckUpdate }: AboutDialogProps) 
             <div className="flex items-center justify-center gap-2">
               <span className="text-sm text-muted-foreground">版本:</span>
               <span className="text-base font-mono font-semibold text-primary">
-                v{APP_VERSION}
+                v{appVersion}
               </span>
             </div>
           </div>

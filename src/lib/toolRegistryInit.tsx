@@ -126,17 +126,29 @@ export function initializeToolRegistry(): void {
     {
       name: 'todowrite',
       render: createToolAdapter(TodoWidget, (props) => ({
-        todos: props.input?.todos || [],
+        todos: Array.isArray(props.input?.todos) ? props.input.todos : [],
         result: props.result,
       })),
       description: 'Todo 列表管理工具',
     },
     {
       name: 'todoread',
-      render: createToolAdapter(TodoWidget, (props) => ({
-        todos: props.input?.todos || props.result?.content || [],
-        result: props.result,
-      })),
+      render: createToolAdapter(TodoWidget, (props) => {
+        // 确保 todos 始终是数组
+        let todos: any[] = [];
+        if (Array.isArray(props.input?.todos)) {
+          todos = props.input.todos;
+        } else if (Array.isArray(props.result?.content)) {
+          todos = props.result.content;
+        } else if (Array.isArray(props.result?.content?.todos)) {
+          todos = props.result.content.todos;
+        }
+
+        return {
+          todos,
+          result: props.result,
+        };
+      }),
       description: 'Todo 列表读取工具',
     },
 
