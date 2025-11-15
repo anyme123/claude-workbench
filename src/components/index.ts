@@ -8,7 +8,6 @@ export * from "./MCPManager";
 export * from "./MCPServerList";
 export * from "./MCPAddServer";
 export * from "./MCPImportExport";
-export * from "./ClaudeVersionSelector";
 export * from "./ui/badge";
 export * from "./ui/button";
 export * from "./ui/card";

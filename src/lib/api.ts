@@ -139,19 +139,6 @@ export interface PromptRecord {
   source: string;
 }
 
-/**
- * Represents a Claude installation found on the system
- */
-export interface ClaudeInstallation {
-  /** Full path to the Claude binary (or "claude-code" for sidecar) */
-  path: string;
-  /** Version string if available */
-  version?: string;
-  /** Source of discovery (e.g., "nvm", "system", "homebrew", "which", "bundled") */
-  source: string;
-  /** Type of installation */
-  installation_type: "Bundled" | "System" | "Custom";
-}
 
 // Usage Dashboard types
 export interface UsageEntry {
@@ -1074,18 +1061,6 @@ export const api = {
     }
   },
 
-  /**
-   * List all available Claude installations on the system
-   * @returns Promise resolving to an array of Claude installations
-   */
-  async listClaudeInstallations(): Promise<ClaudeInstallation[]> {
-    try {
-      return await invoke<ClaudeInstallation[]>("list_claude_installations");
-    } catch (error) {
-      console.error("Failed to list Claude installations:", error);
-      throw error;
-    }
-  },
 
   // Storage API methods
 

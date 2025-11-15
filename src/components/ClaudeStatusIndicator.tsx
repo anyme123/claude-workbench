@@ -23,7 +23,6 @@ import {
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { tokenExtractor } from "@/lib/tokenExtractor";
-import { useTranslation } from "@/hooks/useTranslation";
 import { useSessionActivityStatus } from "@/hooks/useSessionActivityStatus";
 
 import type { ClaudeStreamMessage } from '@/types/claude';
@@ -102,7 +101,6 @@ export const ClaudeStatusIndicator: React.FC<ClaudeStatusIndicatorProps> = ({
   messages = [],
   sessionId
 }) => {
-  const { t } = useTranslation();
   const [statusInfo, setStatusInfo] = useState<StatusInfo>({
     status: 'checking'
   });

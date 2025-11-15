@@ -14,14 +14,12 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { 
-  api, 
-  type ClaudeSettings,
-  type ClaudeInstallation
+import {
+  api,
+  type ClaudeSettings
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Toast, ToastContainer } from "@/components/ui/toast";
-// import { ClaudeVersionSelector } from "./ClaudeVersionSelector"; // 暂时禁用
 import { StorageTab } from "./StorageTab";
 import { PromptEnhancementSettings } from "./PromptEnhancementSettings";
 import { HooksEditor } from "./HooksEditor";
@@ -83,9 +81,6 @@ export const Settings: React.FC<SettingsProps> = ({
     window.addEventListener('switch-to-prompt-api-tab', handleSwitchTab);
     return () => window.removeEventListener('switch-to-prompt-api-tab', handleSwitchTab);
   }, []);
-  const [currentBinaryPath, setCurrentBinaryPath] = useState<string | null>(null);
-  const [selectedInstallation, setSelectedInstallation] = useState<ClaudeInstallation | null>(null);
-  const [binaryPathChanged, setBinaryPathChanged] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   
   // Custom Claude path state
@@ -109,21 +104,8 @@ export const Settings: React.FC<SettingsProps> = ({
   // Load settings on mount
   useEffect(() => {
     loadSettings();
-    loadClaudeBinaryPath();
   }, []);
 
-  /**
-   * 加载当前 Claude 二进制文件路径
-   * Loads the current Claude binary path
-   */
-  const loadClaudeBinaryPath = async () => {
-    try {
-      const path = await api.getClaudeBinaryPath();
-      setCurrentBinaryPath(path);
-    } catch (err) {
-      console.error("Failed to load Claude binary path:", err);
-    }
-  };
 
   /**
    * Handle setting custom Claude CLI path
@@ -139,7 +121,6 @@ export const Settings: React.FC<SettingsProps> = ({
       await api.setCustomClaudePath(customClaudePath.trim());
       
       // Reload the current path to reflect changes
-      await loadClaudeBinaryPath();
       
       // Clear the custom path field and exit custom mode
       setCustomClaudePath("");
@@ -162,10 +143,7 @@ export const Settings: React.FC<SettingsProps> = ({
   const handleClearCustomPath = async () => {
     try {
       await api.clearCustomClaudePath();
-      
-      // Reload the current path to reflect changes
-      await loadClaudeBinaryPath();
-      
+
       // Exit custom mode
       setIsCustomPathMode(false);
       setCustomClaudePath("");
@@ -275,13 +253,6 @@ export const Settings: React.FC<SettingsProps> = ({
       await api.saveClaudeSettings(updatedSettings);
       setSettings(updatedSettings);
 
-      // Save Claude binary path if changed
-      if (binaryPathChanged && selectedInstallation) {
-        await api.setClaudeBinaryPath(selectedInstallation.path);
-        setCurrentBinaryPath(selectedInstallation.path);
-        setBinaryPathChanged(false);
-      }
-
       // Save user hooks if changed
       if (userHooksChanged && getUserHooks.current) {
         const hooks = getUserHooks.current();
@@ -375,14 +346,6 @@ export const Settings: React.FC<SettingsProps> = ({
    */
   const removeEnvVar = (id: string) => {
     setEnvVars(prev => prev.filter(envVar => envVar.id !== id));
-  };
-
-  /**
-   * Handle Claude installation selection
-   */
-  const handleClaudeInstallationSelect = (installation: ClaudeInstallation) => {
-    setSelectedInstallation(installation);
-    setBinaryPathChanged(installation.path !== currentBinaryPath);
   };
 
   return (
@@ -583,32 +546,6 @@ export const Settings: React.FC<SettingsProps> = ({
                       </p>
                     </div>
                     
-                    {/* Claude Binary Path Selector */}
-                    <div className="space-y-4">
-                      <div>
-                        <Label className="text-sm font-medium mb-2 block">Claude Code 安装</Label>
-                        <p className="text-xs text-muted-foreground mb-4">
-                          选择要使用的 Claude Code 安装版本。建议使用捆绑版本以获得最佳兼容性。
-                        </p>
-                      </div>
-                      {/* ClaudeVersionSelector 暂时禁用 - 后端功能未实现 */}
-                      <div className="p-4 bg-muted rounded-lg">
-                        <p className="text-sm text-muted-foreground">
-                          Claude  Code 安装选择器暂时不可用。此功能需要后端支持，目前正在开发中。
-                        </p>
-                      </div>
-                      {/*
-                      <ClaudeVersionSelector
-                        selectedPath={currentBinaryPath}
-                        onSelect={handleClaudeInstallationSelect}
-                      />
-                      */}
-                      {binaryPathChanged && (
-                        <p className="text-xs text-amber-600 dark:text-amber-400">
-                          ⚠️ Claude 二进制文件路径已更改。请记住保存您的设置。
-                        </p>
-                      )}
-                    </div>
 
                     {/* Custom Claude Path Configuration */}
                     <div className="space-y-4">
@@ -678,7 +615,7 @@ export const Settings: React.FC<SettingsProps> = ({
                                   <AlertCircle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                                   <div className="flex-1">
                                     <p className="text-xs text-muted-foreground">
-                                      <strong>当前路径:</strong> {currentBinaryPath || "未检测到"}
+                                      <strong>当前路径:</strong> 未设置
                                     </p>
                                     <p className="text-xs text-muted-foreground mt-1">
                                       自定义路径在保存前会进行验证。请确保文件存在且为有效的 Claude CLI 可执行文件。
