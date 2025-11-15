@@ -21,7 +21,7 @@ import {
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Toast, ToastContainer } from "@/components/ui/toast";
-import { ClaudeVersionSelector } from "./ClaudeVersionSelector";
+// import { ClaudeVersionSelector } from "./ClaudeVersionSelector"; // 暂时禁用
 import { StorageTab } from "./StorageTab";
 import { PromptEnhancementSettings } from "./PromptEnhancementSettings";
 import { HooksEditor } from "./HooksEditor";
@@ -591,10 +591,18 @@ export const Settings: React.FC<SettingsProps> = ({
                           选择要使用的 Claude Code 安装版本。建议使用捆绑版本以获得最佳兼容性。
                         </p>
                       </div>
+                      {/* ClaudeVersionSelector 暂时禁用 - 后端功能未实现 */}
+                      <div className="p-4 bg-muted rounded-lg">
+                        <p className="text-sm text-muted-foreground">
+                          Claude  Code 安装选择器暂时不可用。此功能需要后端支持，目前正在开发中。
+                        </p>
+                      </div>
+                      {/*
                       <ClaudeVersionSelector
                         selectedPath={currentBinaryPath}
                         onSelect={handleClaudeInstallationSelect}
                       />
+                      */}
                       {binaryPathChanged && (
                         <p className="text-xs text-amber-600 dark:text-amber-400">
                           ⚠️ Claude 二进制文件路径已更改。请记住保存您的设置。
