@@ -166,7 +166,6 @@ const FloatingPromptInputInner = (
     handleEnhancePromptWithAPI,
   } = usePromptEnhancement({
     prompt,
-    selectedModel,
     isExpanded,
     onPromptChange: setPrompt,
     getConversationContext,
@@ -870,13 +869,6 @@ const FloatingPromptInputInner = (
                     <DropdownMenuSeparator />
                   </>
                 )}
-
-                <DropdownMenuItem onClick={handleEnhancePrompt}>
-                  使用 Claude (本地CLI)
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleEnhancePromptWithGemini}>
-                  使用 Gemini (本地CLI)
-                </DropdownMenuItem>
 
                 {/* 第三方API提供商 */}
                 {(() => {

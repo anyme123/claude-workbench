@@ -1,11 +1,9 @@
 import { useState } from "react";
 import { api } from "@/lib/api";
-import { ModelType } from "../types";
 import { callEnhancementAPI, getProvider } from "@/lib/promptEnhancementService";
 
 export interface UsePromptEnhancementOptions {
   prompt: string;
-  selectedModel: ModelType;
   isExpanded: boolean;
   onPromptChange: (newPrompt: string) => void;
   getConversationContext?: () => string[];
@@ -60,7 +58,6 @@ function updateTextareaWithUndo(textarea: HTMLTextAreaElement, newText: string) 
 
 export function usePromptEnhancement({
   prompt,
-  selectedModel,
   isExpanded,
   onPromptChange,
   getConversationContext,
