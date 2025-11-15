@@ -15,7 +15,7 @@ use commands::acemcp::{
 use commands::claude::{
     cancel_claude_execution, check_claude_version, clear_custom_claude_path, continue_claude_code,
     delete_project, delete_project_permanently, delete_session, delete_sessions_batch,
-    enhance_prompt, enhance_prompt_with_gemini, execute_claude_code, find_claude_md_files,
+    execute_claude_code, find_claude_md_files,
     get_available_tools, get_claude_execution_config, get_claude_path, get_claude_permission_config,
     get_claude_session_output, get_claude_settings, get_hooks_config, get_permission_presets,
     get_project_sessions, get_system_prompt, list_directory_contents, list_hidden_projects,
@@ -169,8 +169,6 @@ fn main() {
             set_custom_claude_path,
             get_claude_path,
             clear_custom_claude_path,
-            enhance_prompt,
-            enhance_prompt_with_gemini,
             // Acemcp Integration
             enhance_prompt_with_context,
             test_acemcp_availability,

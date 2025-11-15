@@ -1569,36 +1569,6 @@ export const api = {
     }
   },
 
-  /**
-   * Enhances a prompt using Claude Code SDK
-   * @param prompt - The original prompt to enhance
-   * @param model - The model to use for enhancement (string to support custom models)
-   * @param context - Optional conversation context (recent messages)
-   * @returns Promise resolving to the enhanced prompt
-   */
-  async enhancePrompt(prompt: string, model: string, context?: string[]): Promise<string> {
-    try {
-      return await invoke<string>("enhance_prompt", { prompt, model, context });
-    } catch (error) {
-      console.error("Failed to enhance prompt:", error);
-      throw error;
-    }
-  },
-
-  /**
-   * Enhances a prompt using Gemini CLI with gemini-2.5-pro model
-   * @param prompt - The original prompt to enhance
-   * @param context - Optional conversation context (recent messages)
-   * @returns Promise resolving to the enhanced prompt
-   */
-  async enhancePromptWithGemini(prompt: string, context?: string[]): Promise<string> {
-    try {
-      return await invoke<string>("enhance_prompt_with_gemini", { prompt, context });
-    } catch (error) {
-      console.error("Failed to enhance prompt with Gemini:", error);
-      throw error;
-    }
-  },
 
   // ============================================================================
   // ACEMCP INTEGRATION

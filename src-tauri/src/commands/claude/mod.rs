@@ -4,7 +4,6 @@ mod hooks;
 mod models;
 mod paths;
 mod project_store;
-mod prompt_enhancer;
 mod session_history;
 mod platform;
 mod file_ops;
@@ -47,10 +46,6 @@ pub use self::hooks::{
     get_hooks_config,
     update_hooks_config,
     validate_hook_command,
-};
-pub use self::prompt_enhancer::{
-    enhance_prompt,
-    enhance_prompt_with_gemini,
 };
 use self::project_store::ProjectStore;
 pub use file_ops::{list_directory_contents, search_files};
