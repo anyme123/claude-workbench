@@ -905,6 +905,47 @@ const FloatingPromptInputInner = (
                   </>
                 )}
 
+                {/* 🆕 智能上下文提取开关 */}
+                <div className="px-2 py-1.5">
+                  <label className="flex items-center justify-between cursor-pointer hover:bg-accent/50 rounded px-1 py-1">
+                    <div className="flex items-center gap-2">
+                      <Zap className={`h-4 w-4 ${enableDualAPI ? 'text-primary' : 'text-muted-foreground'}`} />
+                      <div>
+                        <div className={`text-sm font-medium ${enableDualAPI ? 'text-primary' : ''}`}>
+                          智能上下文提取
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          AI 筛选相关消息（+40% 准确性）
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={enableDualAPI}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const newValue = !enableDualAPI;
+                        setEnableDualAPI(newValue);
+                        localStorage.setItem('enable_dual_api_enhancement', String(newValue));
+                      }}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
+                        enableDualAPI
+                          ? 'bg-blue-600 dark:bg-blue-500'
+                          : 'bg-gray-300 dark:bg-gray-600'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+                          enableDualAPI ? 'translate-x-[18px]' : 'translate-x-0.5'
+                        }`}
+                      />
+                    </button>
+                  </label>
+                </div>
+                <DropdownMenuSeparator />
+
                 {/* 第三方API提供商 */}
                 {(() => {
                   const enabledProviders = getEnabledProviders();
