@@ -25,6 +25,7 @@ import { ClaudeExtensionsManager } from '@/components/ClaudeExtensionsManager';
 import { useTranslation } from '@/hooks/useTranslation';
 import { UpdateProvider } from '@/contexts/UpdateContext';
 import { UpdateDialog } from '@/components/UpdateDialog';
+import { AboutDialog } from '@/components/AboutDialog';
 import { useGlobalKeyboardShortcuts } from '@/hooks/useGlobalKeyboardShortcuts';
 import { Breadcrumbs, BreadcrumbItem } from '@/components/ui/breadcrumb';
 
@@ -79,6 +80,7 @@ function AppContent() {
   const [pendingView, setPendingView] = useState<View | null>(null);
   const [newSessionProjectPath, setNewSessionProjectPath] = useState<string>("");
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
+  const [showAboutDialog, setShowAboutDialog] = useState(false);
 
   // 🔧 NEW: Navigation history stack for smart back functionality
   const [navigationHistory, setNavigationHistory] = useState<View[]>(["projects"]);
@@ -785,6 +787,7 @@ function AppContent() {
               onExtensionsClick={() => handleViewChange("claude-extensions")}
               onTabsClick={() => handleViewChange("claude-tab-manager")}
               onUpdateClick={() => setShowUpdateDialog(true)}
+              onAboutClick={() => setShowAboutDialog(true)}
               tabsCount={getTabStats().total}
             />
           )}
@@ -843,9 +846,19 @@ function AppContent() {
           </ToastContainer>
 
           {/* Update Dialog */}
-          <UpdateDialog 
-            open={showUpdateDialog} 
+          <UpdateDialog
+            open={showUpdateDialog}
             onClose={() => setShowUpdateDialog(false)}
+          />
+
+          {/* About Dialog */}
+          <AboutDialog
+            open={showAboutDialog}
+            onClose={() => setShowAboutDialog(false)}
+            onCheckUpdate={() => {
+              setShowAboutDialog(false);
+              setShowUpdateDialog(true);
+            }}
           />
         </div>
       </OutputCacheProvider>
