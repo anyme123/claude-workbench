@@ -15,6 +15,7 @@ import { ClaudeStreamMessage } from '@/types/claude';
 import { extractTextFromContent } from './sessionHelpers';
 import { PromptEnhancementProvider, callEnhancementAPI } from './promptEnhancementService';
 import { loadContextConfig } from './promptContextConfig';
+import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 
 /**
  * 第一次 API 调用的系统提示词（专门用于上下文提取）
@@ -240,8 +241,6 @@ async function callOpenAIFormatRaw(
   systemPrompt: string,
   userPrompt: string
 ): Promise<string> {
-  const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http');
-
   const requestBody: any = {
     model: provider.model,
     messages: [
@@ -292,8 +291,6 @@ async function callGeminiFormatRaw(
   systemPrompt: string,
   userPrompt: string
 ): Promise<string> {
-  const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http');
-
   const requestBody: any = {
     contents: [
       {
