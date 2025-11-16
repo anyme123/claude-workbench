@@ -144,29 +144,31 @@ export const PromptNavigator: React.FC<PromptNavigatorProps> = ({
                 className={cn(
                   "p-3 rounded-lg border cursor-pointer transition-all",
                   "hover:bg-accent hover:border-primary hover:shadow-sm",
-                  "active:scale-[0.98]"
+                  "active:scale-[0.98]",
+                  "space-y-2"
                 )}
               >
-                <div className="flex items-start gap-2 mb-2">
-                  <div className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-medium">
+                {/* 索引号 */}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-medium">
                     #{prompt.promptIndex + 1}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium line-clamp-2">
-                      {truncateText(prompt.content, 60)}
+                  {prompt.timestamp && (
+                    <div className="text-xs text-muted-foreground">
+                      {new Date(prompt.timestamp).toLocaleString('zh-CN', {
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
                     </div>
-                  </div>
+                  )}
                 </div>
-                {prompt.timestamp && (
-                  <div className="text-xs text-muted-foreground ml-8">
-                    {new Date(prompt.timestamp).toLocaleString('zh-CN', {
-                      month: '2-digit',
-                      day: '2-digit',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </div>
-                )}
+
+                {/* 内容摘要 */}
+                <div className="text-sm leading-relaxed line-clamp-3">
+                  {truncateText(prompt.content, 80)}
+                </div>
               </div>
             ))
           )}
