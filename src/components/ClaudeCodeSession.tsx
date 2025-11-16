@@ -610,7 +610,7 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
 
     for (let i = 0; i < displayableMessages.length; i++) {
       const message = displayableMessages[i];
-      const messageType = (message as any).type || message.message?.role;
+      const messageType = (message as any).type || (message.message as any)?.role;
 
       if (messageType === 'user') {
         if (currentPromptIndex === promptIndex) {

@@ -83,7 +83,7 @@ export const PromptNavigator: React.FC<PromptNavigatorProps> = ({
     const items: PromptItem[] = [];
 
     for (const message of messages) {
-      const messageType = (message as any).type || message.message?.role;
+      const messageType = (message as any).type || (message.message as any)?.role;
 
       if (messageType === 'user') {
         const text = extractUserText(message);
