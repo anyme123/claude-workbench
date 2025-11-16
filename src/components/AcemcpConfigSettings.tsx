@@ -312,7 +312,7 @@ export function AcemcpConfigSettings({ className }: AcemcpConfigSettingsProps) {
                     onClick={handleExportSidecar}
                     size="sm"
                     variant="outline"
-                    className="bg-amber-100 hover:bg-amber-200 dark:bg-amber-500 dark:hover:bg-amber-400 border-amber-300 dark:border-amber-400 text-amber-950 dark:text-white"
+                    className="bg-amber-100 hover:bg-amber-200 dark:bg-amber-500 dark:hover:bg-amber-400 border-amber-300 dark:border-amber-400 text-amber-950 dark:text-gray-900"
                   >
                     <Download className="h-3 w-3 mr-1" />
                     导出
@@ -321,7 +321,7 @@ export function AcemcpConfigSettings({ className }: AcemcpConfigSettingsProps) {
                     onClick={handleCopyCliConfig}
                     size="sm"
                     variant="outline"
-                    className="bg-amber-100 hover:bg-amber-200 dark:bg-amber-500 dark:hover:bg-amber-400 border-amber-300 dark:border-amber-400 text-amber-950 dark:text-white"
+                    className="bg-amber-100 hover:bg-amber-200 dark:bg-amber-500 dark:hover:bg-amber-400 border-amber-300 dark:border-amber-400 text-amber-950 dark:text-gray-900"
                   >
                     <Copy className="h-3 w-3 mr-1" />
                     复制配置
