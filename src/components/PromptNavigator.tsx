@@ -101,17 +101,20 @@ export const PromptNavigator: React.FC<PromptNavigatorProps> = ({
     return items;
   }, [messages]);
 
-  if (!isOpen) return null;
-
   return (
     <div
       className={cn(
-        "fixed right-0 top-0 bottom-0 w-80 bg-background border-l shadow-lg z-50",
-        "flex flex-col"
+        "h-full bg-background flex flex-col transition-all duration-300 ease-in-out",
+        isOpen ? "w-80 border-l shadow-lg" : "w-0"
       )}
+      style={{
+        overflow: 'hidden',
+      }}
     >
+      {isOpen && (
+        <>
       {/* 头部 */}
-      <div className="flex items-center justify-between p-4 border-b">
+      <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
         <div className="flex items-center gap-2">
           <List className="h-5 w-5" />
           <h3 className="font-semibold">提示词导航</h3>
@@ -171,11 +174,13 @@ export const PromptNavigator: React.FC<PromptNavigatorProps> = ({
       </ScrollArea>
 
       {/* 底部统计 */}
-      <div className="p-4 border-t bg-muted/30">
+      <div className="p-4 border-t bg-muted/30 flex-shrink-0">
         <div className="text-sm text-muted-foreground text-center">
           共 {prompts.length} 个提示词
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };

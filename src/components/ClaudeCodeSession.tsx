@@ -604,13 +604,47 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
   // 🆕 撤回处理函数 - 支持三种撤回模式
   // Handle prompt navigation - scroll to specific prompt
   const handlePromptNavigation = useCallback((promptIndex: number) => {
-    const element = document.getElementById(`prompt-${promptIndex}`);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      // Close navigator after navigation
-      setShowPromptNavigator(false);
+    // 找到 promptIndex 对应的消息在 displayableMessages 中的索引
+    let currentPromptIndex = 0;
+    let targetMessageIndex = -1;
+
+    for (let i = 0; i < displayableMessages.length; i++) {
+      const message = displayableMessages[i];
+      const messageType = (message as any).type || message.message?.role;
+
+      if (messageType === 'user') {
+        if (currentPromptIndex === promptIndex) {
+          targetMessageIndex = i;
+          break;
+        }
+        currentPromptIndex++;
+      }
     }
-  }, []);
+
+    if (targetMessageIndex === -1) {
+      console.warn(`[Prompt Navigation] Prompt #${promptIndex} not found`);
+      return;
+    }
+
+    console.log(`[Prompt Navigation] Navigating to prompt #${promptIndex}, message index: ${targetMessageIndex}`);
+
+    // 先使用虚拟列表滚动到该索引（让元素渲染出来）
+    rowVirtualizer.scrollToIndex(targetMessageIndex, {
+      align: 'center',
+      behavior: 'smooth',
+    });
+
+    // 等待虚拟列表渲染完成后，再进行精确定位
+    setTimeout(() => {
+      const element = document.getElementById(`prompt-${promptIndex}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 300);
+
+    // Close navigator after navigation
+    setShowPromptNavigator(false);
+  }, [displayableMessages, rowVirtualizer]);
 
   const handleRevert = useCallback(async (promptIndex: number, mode: import('@/lib/api').RewindMode = 'both') => {
     if (!effectiveSession) return;
@@ -700,7 +734,7 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
       }}
     >
       {/* Prompt Navigator Button - Fixed position */}
-      {displayableMessages.length > 0 && (
+      {displayableMessages.length > 0 && !showPromptNavigator && (
         <Button
           onClick={() => setShowPromptNavigator(true)}
           variant="outline"
@@ -708,7 +742,8 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
           className={cn(
             "fixed top-24 right-6 z-40 shadow-lg",
             "flex items-center gap-2",
-            "bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+            "bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
+            "transition-all duration-300"
           )}
         >
           <List className="h-4 w-4" />
@@ -901,10 +936,9 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
   }
 
   return (
-    <div className={cn("flex flex-col h-full bg-background", className)}>
-      <div className="w-full h-full flex flex-col">
-
-        {/* Main Content Area */}
+    <div className={cn("flex h-full bg-background", className)}>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col overflow-hidden">
         <div className={cn(
           "flex-1 overflow-hidden transition-all duration-300"
         )}>
@@ -1121,34 +1155,34 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
           </div>
 
         </ErrorBoundary>
+
+        {/* Slash Commands Settings Dialog */}
+        {showSlashCommandsSettings && (
+          <Dialog open={showSlashCommandsSettings} onOpenChange={setShowSlashCommandsSettings}>
+            <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
+              <DialogHeader>
+                <DialogTitle>Slash Commands</DialogTitle>
+                <DialogDescription>
+                  Manage project-specific slash commands for {projectPath}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex-1 overflow-y-auto">
+                <SlashCommandsManager projectPath={projectPath} />
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {/* Revert Prompt Picker - Shows when double ESC is pressed */}
+        {showRevertPicker && effectiveSession && (
+          <RevertPromptPicker
+            sessionId={effectiveSession.id}
+            projectId={effectiveSession.project_id}
+            onSelect={handleRevert}
+            onClose={() => setShowRevertPicker(false)}
+          />
+        )}
       </div>
-
-      {/* Slash Commands Settings Dialog */}
-      {showSlashCommandsSettings && (
-        <Dialog open={showSlashCommandsSettings} onOpenChange={setShowSlashCommandsSettings}>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
-            <DialogHeader>
-              <DialogTitle>Slash Commands</DialogTitle>
-              <DialogDescription>
-                Manage project-specific slash commands for {projectPath}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex-1 overflow-y-auto">
-              <SlashCommandsManager projectPath={projectPath} />
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* Revert Prompt Picker - Shows when double ESC is pressed */}
-      {showRevertPicker && effectiveSession && (
-        <RevertPromptPicker
-          sessionId={effectiveSession.id}
-          projectId={effectiveSession.project_id}
-          onSelect={handleRevert}
-          onClose={() => setShowRevertPicker(false)}
-        />
-      )}
 
       {/* Prompt Navigator - Quick navigation to any user prompt */}
       <PromptNavigator
