@@ -308,11 +308,21 @@ export function AcemcpConfigSettings({ className }: AcemcpConfigSettingsProps) {
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  <Button onClick={handleExportSidecar} size="sm" variant="outline">
+                  <Button
+                    onClick={handleExportSidecar}
+                    size="sm"
+                    variant="outline"
+                    className="bg-amber-100 hover:bg-amber-200 dark:bg-amber-800 dark:hover:bg-amber-700 border-amber-300 dark:border-amber-600 text-amber-900 dark:text-amber-50"
+                  >
                     <Download className="h-3 w-3 mr-1" />
                     导出
                   </Button>
-                  <Button onClick={handleCopyCliConfig} size="sm" variant="outline">
+                  <Button
+                    onClick={handleCopyCliConfig}
+                    size="sm"
+                    variant="outline"
+                    className="bg-amber-100 hover:bg-amber-200 dark:bg-amber-800 dark:hover:bg-amber-700 border-amber-300 dark:border-amber-600 text-amber-900 dark:text-amber-50"
+                  >
                     <Copy className="h-3 w-3 mr-1" />
                     复制配置
                   </Button>
