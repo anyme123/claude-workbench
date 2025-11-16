@@ -391,22 +391,22 @@ fn validate_third_party_config(config: &ProviderConfig) -> Result<(), String> {
             return Err("第三方API需要设置认证令牌或API密钥".to_string());
         }
 
-        // 确保模型名称兼容
+        // 检查模型名称（可选，但建议填写）
         if let Some(model) = &config.model {
             if model.is_empty() {
-                return Err("第三方API需要指定模型名称".to_string());
-            }
-
-            // 检查常见的模型名称格式
-            if !model.contains("claude")
-                && !model.contains("gpt")
-                && !model.contains("gemini")
-                && !model.contains("deepseek")
-            {
-                log::warn!("模型名称格式可能不兼容: {}", model);
+                log::warn!("第三方API建议指定模型名称");
+            } else {
+                // 检查常见的模型名称格式
+                if !model.contains("claude")
+                    && !model.contains("gpt")
+                    && !model.contains("gemini")
+                    && !model.contains("deepseek")
+                {
+                    log::warn!("模型名称格式可能不兼容: {}", model);
+                }
             }
         } else {
-            return Err("第三方API必须指定模型名称".to_string());
+            log::warn!("第三方API未指定模型名称，部分功能可能受限");
         }
 
         log::info!(
