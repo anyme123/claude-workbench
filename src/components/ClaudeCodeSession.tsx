@@ -734,7 +734,7 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
       }}
     >
       <div
-        className="relative w-full max-w-5xl mx-auto px-4 pt-8 pb-4"
+        className="relative w-full max-w-5xl lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[85%] mx-auto px-4 pt-8 pb-4"
         style={{
           height: `${Math.max(rowVirtualizer.getTotalSize(), 100)}px`,
           minHeight: '100px',
@@ -951,7 +951,7 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
             />
           ) : (
             // Original layout when no preview
-            <div className="h-full flex flex-col max-w-5xl mx-auto">
+            <div className="h-full flex flex-col max-w-5xl lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[85%] mx-auto">
               {projectPathInput}
               {messagesList}
 
