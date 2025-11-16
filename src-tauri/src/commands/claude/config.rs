@@ -368,7 +368,7 @@ pub async fn update_thinking_mode(enabled: bool, tokens: Option<u32>) -> Result<
 
     // Update MAX_THINKING_TOKENS
     if enabled {
-        let token_value = tokens.unwrap_or(10000);
+        let token_value = tokens.unwrap_or(31999);
         env_obj.insert("MAX_THINKING_TOKENS".to_string(), serde_json::json!(token_value.to_string()));
         log::info!("Set MAX_THINKING_TOKENS to {}", token_value);
     } else {
