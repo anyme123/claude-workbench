@@ -137,8 +137,8 @@ export function AcemcpConfigSettings({ className }: AcemcpConfigSettingsProps) {
     const cliConfig = `{
   "mcpServers": {
     "acemcp": {
-      "command": "${sidecarPath.replace(/\\/g, '\\\\')}",
-      "args": []
+      "command": "node",
+      "args": ["${sidecarPath.replace(/\\/g, '\\\\')}"]
     }
   }
 }`;
