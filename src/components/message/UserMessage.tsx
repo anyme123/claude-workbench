@@ -182,7 +182,10 @@ export const UserMessage: React.FC<UserMessageProps> = ({
 
   return (
     <>
-    <div className={cn("group relative", className)}>
+    <div
+      id={promptIndex !== undefined ? `prompt-${promptIndex}` : undefined}
+      className={cn("group relative", className)}
+    >
       <MessageBubble variant="user">
           <div className="relative">
         {/* 消息头部 */}

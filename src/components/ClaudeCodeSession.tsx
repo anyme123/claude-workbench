@@ -5,7 +5,8 @@ import {
   ChevronDown,
   ChevronUp,
   X,
-  Clock
+  Clock,
+  List
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ import { FloatingPromptInput, type FloatingPromptInputRef, type ModelType } from
 import { ErrorBoundary } from "./ErrorBoundary";
 import { SlashCommandsManager } from "./SlashCommandsManager";
 import { RevertPromptPicker } from "./RevertPromptPicker";
+import { PromptNavigator } from "./PromptNavigator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { SplitPane } from "@/components/ui/split-pane";
 import { WebviewPreview } from "./WebviewPreview";
@@ -99,6 +101,9 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
 
   // State for revert prompt picker (defined early for useKeyboardShortcuts)
   const [showRevertPicker, setShowRevertPicker] = useState(false);
+
+  // State for prompt navigator
+  const [showPromptNavigator, setShowPromptNavigator] = useState(false);
 
   // Settings state to avoid repeated loading in StreamMessage components
   const [claudeSettings, setClaudeSettings] = useState<{ 
@@ -597,6 +602,16 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
 
 
   // 🆕 撤回处理函数 - 支持三种撤回模式
+  // Handle prompt navigation - scroll to specific prompt
+  const handlePromptNavigation = useCallback((promptIndex: number) => {
+    const element = document.getElementById(`prompt-${promptIndex}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Close navigator after navigation
+      setShowPromptNavigator(false);
+    }
+  }, []);
+
   const handleRevert = useCallback(async (promptIndex: number, mode: import('@/lib/api').RewindMode = 'both') => {
     if (!effectiveSession) return;
 
@@ -684,6 +699,22 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
         paddingTop: '20px',
       }}
     >
+      {/* Prompt Navigator Button - Fixed position */}
+      {displayableMessages.length > 0 && (
+        <Button
+          onClick={() => setShowPromptNavigator(true)}
+          variant="outline"
+          size="sm"
+          className={cn(
+            "fixed top-24 right-6 z-40 shadow-lg",
+            "flex items-center gap-2",
+            "bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+          )}
+        >
+          <List className="h-4 w-4" />
+          <span className="hidden sm:inline">提示词导航</span>
+        </Button>
+      )}
       <div
         className="relative w-full max-w-5xl mx-auto px-4 pt-8 pb-4"
         style={{
@@ -1118,6 +1149,14 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
           onClose={() => setShowRevertPicker(false)}
         />
       )}
+
+      {/* Prompt Navigator - Quick navigation to any user prompt */}
+      <PromptNavigator
+        messages={messages}
+        isOpen={showPromptNavigator}
+        onClose={() => setShowPromptNavigator(false)}
+        onPromptClick={handlePromptNavigation}
+      />
 
     </div>
   );
