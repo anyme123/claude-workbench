@@ -733,23 +733,6 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
         paddingTop: '20px',
       }}
     >
-      {/* Prompt Navigator Button - Fixed position */}
-      {displayableMessages.length > 0 && !showPromptNavigator && (
-        <Button
-          onClick={() => setShowPromptNavigator(true)}
-          variant="outline"
-          size="sm"
-          className={cn(
-            "fixed top-24 right-6 z-40 shadow-lg",
-            "flex items-center gap-2",
-            "bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
-            "transition-all duration-300"
-          )}
-        >
-          <List className="h-4 w-4" />
-          <span className="hidden sm:inline">提示词导航</span>
-        </Button>
-      )}
       <div
         className="relative w-full max-w-5xl mx-auto px-4 pt-8 pb-4"
         style={{
@@ -1056,6 +1039,24 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
               }}
             >
               <div className="flex flex-col gap-1.5">
+                {/* Prompt Navigator Button */}
+                {!showPromptNavigator && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex flex-col items-center gap-1 bg-background/60 backdrop-blur-md border border-border/50 rounded-xl px-1.5 py-2 cursor-pointer hover:bg-accent/80 shadow-sm"
+                    onClick={() => setShowPromptNavigator(true)}
+                    title="提示词导航 - 快速跳转到任意提示词"
+                  >
+                    <List className="h-4 w-4" />
+                    <div className="flex flex-col items-center text-[10px] leading-tight tracking-wider">
+                      <span>提</span>
+                      <span>示</span>
+                      <span>词</span>
+                    </div>
+                  </motion.div>
+                )}
+
                 {/* New message indicator - only show when user scrolled away */}
                 <AnimatePresence>
                   {userScrolled && (
