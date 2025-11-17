@@ -155,11 +155,14 @@ export const SessionList: React.FC<SessionListProps> = ({
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const currentSessions = sortedSessions.slice(startIndex, endIndex);
-  
-  // Reset to page 1 if sessions change
+
+  // Smart pagination adjustment: if current page becomes empty after deletion, go to previous page
   React.useEffect(() => {
-    setCurrentPage(1);
-  }, [sortedSessions.length]);
+    if (sortedSessions.length > 0 && currentSessions.length === 0 && currentPage > 1) {
+      // Current page is empty but not the first page, go to previous page
+      setCurrentPage(currentPage - 1);
+    }
+  }, [sortedSessions.length, currentSessions.length, currentPage]);
 
   // Handle delete button click
   const handleDeleteClick = (e: React.MouseEvent, session: Session) => {

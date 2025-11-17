@@ -141,24 +141,24 @@ export const DeletedProjects: React.FC<DeletedProjectsProps> = ({
   // Permanently delete a project (remove from file system)
   const handlePermanentDelete = async () => {
     if (!permanentDeleteDialog.projectId) return;
-    
+
     try {
       setLoading(true);
-      
+
       // Permanently delete the project files
       await api.api.deleteProjectPermanently(permanentDeleteDialog.projectId);
-      
+
       // Show success message
       setSuccessMessage(`项目已永久删除`);
       setTimeout(() => setSuccessMessage(null), 3000);
-      
+
       setPermanentDeleteDialog({ open: false, projectId: null });
       await loadDeletedProjects();
-      
-      // Notify parent component
-      if (onProjectRestored) {
-        onProjectRestored();
-      }
+
+      // Note: We don't call onProjectRestored() here because:
+      // 1. The project is permanently deleted, not restored
+      // 2. Calling it would trigger unnecessary parent re-renders
+      // 3. The deleted projects list is already updated via loadDeletedProjects()
     } catch (error) {
       console.error("Failed to permanently delete project:", error);
       setSuccessMessage(`删除失败: ${error}`);
