@@ -478,14 +478,18 @@ export const AutoCompactSettings: React.FC<AutoCompactSettingsProps> = ({
               <Button
                 onClick={handleSave}
                 disabled={!hasChanges || isSaving}
-                className="bg-blue-600 hover:bg-blue-700"
+                className={cn(
+                  "bg-blue-600 hover:bg-blue-700",
+                  "transition-all duration-200",
+                  isSaving && "scale-95 opacity-80"
+                )}
               >
                 {isSaving ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
                 ) : (
-                  <Save className="h-4 w-4 mr-2" />
+                  <Save className="h-4 w-4 mr-2" aria-hidden="true" />
                 )}
-                保存设置
+                {isSaving ? "保存中..." : "保存设置"}
               </Button>
             </div>
           </TabsContent>

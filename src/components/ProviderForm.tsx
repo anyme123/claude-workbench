@@ -4,15 +4,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { 
-  Save, 
-  X, 
+import {
+  Save,
+  X,
   Eye,
   EyeOff,
-  Info
+  Info,
+  Loader2
 } from 'lucide-react';
 import { type ProviderConfig } from '@/lib/api';
 import { Toast } from '@/components/ui/toast';
+import { cn } from '@/lib/utils';
 
 interface ProviderFormProps {
   initialData?: ProviderConfig;
@@ -282,21 +284,25 @@ export default function ProviderForm({
               onClick={handleClose}
               disabled={loading}
             >
-              <X className="h-4 w-4 mr-2" />
+              <X className="h-4 w-4 mr-2" aria-hidden="true" />
               取消
             </Button>
             <Button
               type="submit"
               disabled={loading}
+              className={cn(
+                "transition-all duration-200",
+                loading && "scale-95 opacity-80"
+              )}
             >
               {loading ? (
-                <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
                   {isEditing ? '更新中...' : '添加中...'}
-                </div>
+                </>
               ) : (
                 <>
-                  <Save className="h-4 w-4 mr-2" />
+                  <Save className="h-4 w-4 mr-2" aria-hidden="true" />
                   {isEditing ? '更新配置' : '添加配置'}
                 </>
               )}

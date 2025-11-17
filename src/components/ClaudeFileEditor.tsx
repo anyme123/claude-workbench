@@ -108,8 +108,9 @@ export const ClaudeFileEditor: React.FC<ClaudeFileEditorProps> = ({
               size="icon"
               onClick={handleBack}
               className="h-8 w-8"
+              aria-label="返回"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             </Button>
             <div className="min-w-0 flex-1">
               <h2 className="text-lg font-semibold truncate">{file.relative_path}</h2>
@@ -123,13 +124,17 @@ export const ClaudeFileEditor: React.FC<ClaudeFileEditorProps> = ({
             onClick={handleSave}
             disabled={!hasChanges || saving}
             size="sm"
+            className={cn(
+              "transition-all duration-200",
+              saving && "scale-95 opacity-80"
+            )}
           >
             {saving ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
             ) : (
-              <Save className="mr-2 h-4 w-4" />
+              <Save className="mr-2 h-4 w-4" aria-hidden="true" />
             )}
-            {saving ? "Saving..." : "Save"}
+            {saving ? "保存中..." : "保存"}
           </Button>
         </motion.div>
         

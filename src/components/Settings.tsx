@@ -364,8 +364,9 @@ export const Settings: React.FC<SettingsProps> = ({
           size="icon"
           onClick={onBack}
           className="h-8 w-8"
+          aria-label="返回"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         </Button>
         <div>
           <h2 className="text-lg font-semibold">{t('settings.title')}</h2>
@@ -379,16 +380,20 @@ export const Settings: React.FC<SettingsProps> = ({
           onClick={saveSettings}
           disabled={saving || loading}
           size="sm"
-          className="gap-2 bg-primary hover:bg-primary/90"
+          className={cn(
+            "gap-2 bg-primary hover:bg-primary/90",
+            "transition-all duration-200",
+            saving && "scale-95 opacity-80"
+          )}
         >
           {saving ? (
             <>
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               {t('common.savingSettings')}
             </>
           ) : (
             <>
-              <Save className="h-4 w-4" />
+              <Save className="h-4 w-4" aria-hidden="true" />
               {t('common.saveSettings')}
             </>
           )}
@@ -654,7 +659,7 @@ export const Settings: React.FC<SettingsProps> = ({
                         onClick={() => addPermissionRule("allow")}
                         className="gap-2 hover:border-green-500/50 hover:text-green-500"
                       >
-                        <Plus className="h-3 w-3" />
+                        <Plus className="h-3 w-3" aria-hidden="true" />
                         添加规则
                       </Button>
                     </div>
@@ -682,8 +687,9 @@ export const Settings: React.FC<SettingsProps> = ({
                               size="icon"
                               onClick={() => removePermissionRule("allow", rule.id)}
                               className="h-8 w-8"
+                              aria-label="删除规则"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4" aria-hidden="true" />
                             </Button>
                           </motion.div>
                         ))
@@ -701,7 +707,7 @@ export const Settings: React.FC<SettingsProps> = ({
                         onClick={() => addPermissionRule("deny")}
                         className="gap-2 hover:border-red-500/50 hover:text-red-500"
                       >
-                        <Plus className="h-3 w-3" />
+                        <Plus className="h-3 w-3" aria-hidden="true" />
                         添加规则
                       </Button>
                     </div>
@@ -729,8 +735,9 @@ export const Settings: React.FC<SettingsProps> = ({
                               size="icon"
                               onClick={() => removePermissionRule("deny", rule.id)}
                               className="h-8 w-8"
+                              aria-label="删除规则"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4" aria-hidden="true" />
                             </Button>
                           </motion.div>
                         ))
@@ -771,7 +778,7 @@ export const Settings: React.FC<SettingsProps> = ({
                       onClick={addEnvVar}
                       className="gap-2"
                     >
-                      <Plus className="h-3 w-3" />
+                      <Plus className="h-3 w-3" aria-hidden="true" />
                       添加变量
                     </Button>
                   </div>
@@ -823,8 +830,9 @@ export const Settings: React.FC<SettingsProps> = ({
                               size="icon"
                               onClick={() => removeEnvVar(envVar.id)}
                               className="h-8 w-8 hover:text-destructive"
+                              aria-label="删除环境变量"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4" aria-hidden="true" />
                             </Button>
                           </motion.div>
                         ))}
