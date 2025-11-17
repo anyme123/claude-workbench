@@ -691,8 +691,9 @@ const FloatingPromptInputInner = (
               onClick={() => setIsExpanded(true)}
               disabled={disabled}
               className="absolute right-1 bottom-1 h-8 w-8"
+              aria-label="展开输入框"
             >
-              <Maximize2 className="h-4 w-4" />
+              <Maximize2 className="h-4 w-4" aria-hidden="true" />
             </Button>
 
             {/* File Picker */}

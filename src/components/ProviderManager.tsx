@@ -206,8 +206,8 @@ export default function ProviderManager({ onBack }: ProviderManagerProps) {
       {/* Header */}
       <div className="flex items-center justify-between p-6 border-b">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8">
-            <Settings2 className="h-4 w-4" />
+          <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8" aria-label="返回设置">
+            <Settings2 className="h-4 w-4" aria-hidden="true" />
           </Button>
           <div>
             <h1 className="text-lg font-semibold">代理商管理</h1>
@@ -224,7 +224,7 @@ export default function ProviderManager({ onBack }: ProviderManagerProps) {
             onClick={handleAddProvider}
             className="text-xs"
           >
-            <Plus className="h-3 w-3 mr-1" />
+            <Plus className="h-3 w-3 mr-1" aria-hidden="true" />
             添加代理商
           </Button>
           <Button
@@ -233,7 +233,7 @@ export default function ProviderManager({ onBack }: ProviderManagerProps) {
             onClick={() => setShowCurrentConfig(true)}
             className="text-xs"
           >
-            <Eye className="h-3 w-3 mr-1" />
+            <Eye className="h-3 w-3 mr-1" aria-hidden="true" />
             查看当前配置
           </Button>
           <Button
@@ -244,9 +244,9 @@ export default function ProviderManager({ onBack }: ProviderManagerProps) {
             className="text-xs"
           >
             {switching === 'clear' ? (
-              <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+              <RefreshCw className="h-3 w-3 mr-1 animate-spin" aria-hidden="true" />
             ) : (
-              <Trash2 className="h-3 w-3 mr-1" />
+              <Trash2 className="h-3 w-3 mr-1" aria-hidden="true" />
             )}
             清理配置
           </Button>
@@ -320,11 +320,12 @@ export default function ProviderManager({ onBack }: ProviderManagerProps) {
                     onClick={() => testConnection(config)}
                     disabled={testing === config.id}
                     className="text-xs"
+                    aria-label="测试连接"
                   >
                     {testing === config.id ? (
-                      <RefreshCw className="h-3 w-3 animate-spin" />
+                      <RefreshCw className="h-3 w-3 animate-spin" aria-hidden="true" />
                     ) : (
-                      <TestTube className="h-3 w-3" />
+                      <TestTube className="h-3 w-3" aria-hidden="true" />
                     )}
                   </Button>
                   
@@ -333,8 +334,9 @@ export default function ProviderManager({ onBack }: ProviderManagerProps) {
                     size="sm"
                     onClick={() => handleEditProvider(config)}
                     className="text-xs"
+                    aria-label="编辑代理商"
                   >
-                    <Edit className="h-3 w-3" />
+                    <Edit className="h-3 w-3" aria-hidden="true" />
                   </Button>
 
                   <Button
@@ -343,11 +345,12 @@ export default function ProviderManager({ onBack }: ProviderManagerProps) {
                     onClick={() => handleDeleteProvider(config)}
                     disabled={deleting === config.id}
                     className="text-xs text-red-600 hover:text-red-700"
+                    aria-label="删除代理商"
                   >
                     {deleting === config.id ? (
-                      <RefreshCw className="h-3 w-3 animate-spin" />
+                      <RefreshCw className="h-3 w-3 animate-spin" aria-hidden="true" />
                     ) : (
-                      <Trash className="h-3 w-3" />
+                      <Trash className="h-3 w-3" aria-hidden="true" />
                     )}
                   </Button>
                   
@@ -358,9 +361,9 @@ export default function ProviderManager({ onBack }: ProviderManagerProps) {
                     className="text-xs"
                   >
                     {switching === config.id ? (
-                      <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                      <RefreshCw className="h-3 w-3 mr-1 animate-spin" aria-hidden="true" />
                     ) : (
-                      <Check className="h-3 w-3 mr-1" />
+                      <Check className="h-3 w-3 mr-1" aria-hidden="true" />
                     )}
                     {isCurrentProvider(config) ? '已选择' : '切换到此配置'}
                   </Button>
@@ -380,9 +383,9 @@ export default function ProviderManager({ onBack }: ProviderManagerProps) {
               className="text-xs"
             >
               {showTokens ? (
-                <EyeOff className="h-3 w-3 mr-1" />
+                <EyeOff className="h-3 w-3 mr-1" aria-hidden="true" />
               ) : (
-                <Eye className="h-3 w-3 mr-1" />
+                <Eye className="h-3 w-3 mr-1" aria-hidden="true" />
               )}
               {showTokens ? '隐藏' : '显示'}Token
             </Button>
@@ -454,9 +457,9 @@ export default function ProviderManager({ onBack }: ProviderManagerProps) {
                     className="text-xs"
                   >
                     {showTokens ? (
-                      <EyeOff className="h-3 w-3 mr-1" />
+                      <EyeOff className="h-3 w-3 mr-1" aria-hidden="true" />
                     ) : (
-                      <Eye className="h-3 w-3 mr-1" />
+                      <Eye className="h-3 w-3 mr-1" aria-hidden="true" />
                     )}
                     {showTokens ? '隐藏' : '显示'}Token
                   </Button>

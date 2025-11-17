@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { api, type Project, type Session, type ClaudeMdFile } from "@/lib/api";
 import { OutputCacheProvider } from "@/lib/outputCache";
@@ -28,6 +28,7 @@ import { UpdateDialog } from '@/components/UpdateDialog';
 import { AboutDialog } from '@/components/AboutDialog';
 import { useGlobalKeyboardShortcuts } from '@/hooks/useGlobalKeyboardShortcuts';
 import { Breadcrumbs, BreadcrumbItem } from '@/components/ui/breadcrumb';
+import { ProjectCardSkeleton, SessionListItemSkeleton } from '@/components/ui/skeleton';
 
 type View =
   | "projects"
@@ -618,11 +619,25 @@ function AppContent() {
                 </div>
               )}
 
-              {/* Loading state */}
+              {/* Loading state with skeleton */}
               {loading && (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
+                <>
+                  {selectedProject ? (
+                    // Session list skeleton
+                    <div className="border border-border rounded-lg overflow-hidden divide-y divide-border">
+                      {[...Array(8)].map((_, i) => (
+                        <SessionListItemSkeleton key={i} />
+                      ))}
+                    </div>
+                  ) : (
+                    // Project list skeleton
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
+                      {[...Array(6)].map((_, i) => (
+                        <ProjectCardSkeleton key={i} />
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
 
               {/* Content - 移除动画避免重复触发 */}

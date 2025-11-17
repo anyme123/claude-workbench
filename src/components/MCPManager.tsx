@@ -124,8 +124,9 @@ export const MCPManager: React.FC<MCPManagerProps> = ({
               size="icon"
               onClick={onBack}
               className="h-8 w-8"
+              aria-label="返回"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             </Button>
             <div>
               <h2 className="text-lg font-semibold flex items-center gap-2">
