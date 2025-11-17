@@ -56,6 +56,10 @@ interface ClaudeCodeSessionProps {
    */
   onStreamingChange?: (isStreaming: boolean, sessionId: string | null) => void;
   /**
+   * Callback when project path changes (for updating tab title)
+   */
+  onProjectPathChange?: (newPath: string) => void;
+  /**
    * Whether this session is currently active (for event listener management)
    */
   isActive?: boolean;
@@ -72,6 +76,7 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
   initialProjectPath = "",
   className,
   onStreamingChange,
+  onProjectPathChange,
   isActive = true, // 默认为活跃状态，保持向后兼容
 }) => {
   const [projectPath, setProjectPath] = useState(initialProjectPath || session?.project_path || "");
@@ -216,6 +221,15 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
   useEffect(() => {
     queuedPromptsRef.current = queuedPrompts;
   }, [queuedPrompts]);
+
+  // 🔧 NEW: Notify parent when project path changes (for tab title update)
+  useEffect(() => {
+    // Only notify if projectPath is valid and not the initial placeholder
+    if (projectPath && projectPath !== initialProjectPath && onProjectPathChange) {
+      console.log('[ClaudeCodeSession] Project path changed, notifying parent:', projectPath);
+      onProjectPathChange(projectPath);
+    }
+  }, [projectPath, initialProjectPath, onProjectPathChange]);
 
   // ⚡ PERFORMANCE FIX: Git 初始化延迟到真正需要时
   // 原问题：每次加载会话都立即执行 git init + git add + git commit

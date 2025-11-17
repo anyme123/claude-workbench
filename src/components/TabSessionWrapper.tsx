@@ -24,7 +24,7 @@ const TabSessionWrapperComponent: React.FC<TabSessionWrapperProps> = ({
   isActive,
 }) => {
   // ✅ FIXED: Removed unused 'tab' variable to fix TS6133
-  const { updateStreaming, setCleanup } = useTabSession(tabId);
+  const { updateStreaming, setCleanup, updateTitle } = useTabSession(tabId);
   const sessionRef = useRef<{ hasChanges: boolean; sessionId: string | null }>({
     hasChanges: false,
     sessionId: null,
@@ -40,6 +40,37 @@ const TabSessionWrapperComponent: React.FC<TabSessionWrapperProps> = ({
 
     setCleanup(cleanup);
   }, [tabId, setCleanup]);
+
+  // 🔧 NEW: Helper function to extract project name from path
+  const extractProjectName = useCallback((path: string): string => {
+    if (!path) return '';
+
+    // 判断是 Windows 路径还是 Unix 路径
+    const isWindowsPath = path.includes('\\');
+    const separator = isWindowsPath ? '\\' : '/';
+
+    // 分割路径并获取最后一个片段
+    const segments = path.split(separator);
+    const projectName = segments[segments.length - 1] || '';
+
+    // 格式化项目名：移除常见前缀，替换分隔符为空格
+    const formattedName = projectName
+      .replace(/^(my-|test-|demo-)/, '')
+      .replace(/[-_]/g, ' ')
+      .trim();
+
+    return formattedName;
+  }, []);
+
+  // 🔧 NEW: Handle project path change and update tab title
+  const handleProjectPathChange = useCallback((newPath: string) => {
+    if (newPath && newPath !== '__NEW_PROJECT__') {
+      const projectName = extractProjectName(newPath);
+      if (projectName) {
+        updateTitle(projectName);
+      }
+    }
+  }, [extractProjectName, updateTitle]);
 
   // 包装 onStreamingChange 以更新标签页状态
   // 🔧 性能修复：使用 useCallback 避免无限渲染循环（从 1236 renders/s 降至 1 render/s）
@@ -78,6 +109,7 @@ const TabSessionWrapperComponent: React.FC<TabSessionWrapperProps> = ({
         session={session}
         initialProjectPath={initialProjectPath}
         onStreamingChange={handleStreamingChange}
+        onProjectPathChange={handleProjectPathChange}
         isActive={isActive}
       />
     </div>
