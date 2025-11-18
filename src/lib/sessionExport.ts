@@ -67,33 +67,50 @@ export function exportAsMarkdown(
   markdown += '## 对话内容\n\n';
 
   // 添加消息内容
-  messages
-    .filter(msg => msg.type === 'user' || msg.type === 'assistant')
-    .forEach((msg, index) => {
-      if (msg.type === 'user') {
-        markdown += `### 👤 用户\n\n`;
-        const content = extractMessageContent(msg);
-        markdown += `${content}\n\n`;
-      } else if (msg.type === 'assistant') {
-        markdown += `### 🤖 Assistant\n\n`;
-        const content = extractMessageContent(msg);
-        markdown += `${content}\n\n`;
-      }
+  messages.forEach((msg) => {
+    // 检查是否是工具结果消息（type 为 user 但内容包含 tool_result）
+    const isToolResultMessage = msg.type === 'user' && Array.isArray(msg.message?.content) && 
+      msg.message.content.some((item: any) => item.type === 'tool_result');
+    
+    // 检查是否是纯用户消息（type 为 user 且不包含 tool_result）
+    const isPureUserMessage = msg.type === 'user' && !isToolResultMessage;
 
-      // 添加分隔线（除了最后一条消息）
-      if (index < messages.length - 1) {
-        markdown += '---\n\n';
-      }
-    });
+    if (isPureUserMessage) {
+      markdown += `### 👤 用户\n\n`;
+      const content = extractMessageContent(msg);
+      markdown += `${content}\n\n`;
+      markdown += '---\n\n';
+    } else if (msg.type === 'assistant') {
+      markdown += `### 🤖 Assistant\n\n`;
+      const content = extractMessageContent(msg);
+      markdown += `${content}\n\n`;
+      markdown += '---\n\n';
+    } else if (isToolResultMessage) {
+      // 工具结果作为独立部分显示
+      markdown += `### 🔧 工具执行结果\n\n`;
+      const content = extractToolResultContent(msg);
+      markdown += `${content}\n\n`;
+      markdown += '---\n\n';
+    }
+  });
 
   // 添加统计信息
-  const userMessages = messages.filter(m => m.type === 'user').length;
+  const userMessages = messages.filter(m => {
+    const isToolResult = m.type === 'user' && Array.isArray(m.message?.content) && 
+      m.message.content.some((item: any) => item.type === 'tool_result');
+    return m.type === 'user' && !isToolResult;
+  }).length;
   const assistantMessages = messages.filter(m => m.type === 'assistant').length;
+  const toolResultMessages = messages.filter(m => {
+    return m.type === 'user' && Array.isArray(m.message?.content) && 
+      m.message.content.some((item: any) => item.type === 'tool_result');
+  }).length;
   
   markdown += '\n---\n\n';
   markdown += '## 统计信息\n\n';
   markdown += `- 用户消息: ${userMessages}\n`;
   markdown += `- AI 回复: ${assistantMessages}\n`;
+  markdown += `- 工具执行: ${toolResultMessages}\n`;
   markdown += `- 总消息数: ${messages.length}\n`;
   markdown += `\n*导出时间: ${new Date().toLocaleString('zh-CN')}*\n`;
 
@@ -101,7 +118,41 @@ export function exportAsMarkdown(
 }
 
 /**
+ * 从工具结果消息中提取工具结果内容
+ */
+function extractToolResultContent(msg: ClaudeStreamMessage): string {
+  const content = msg.message?.content;
+  
+  if (!Array.isArray(content)) {
+    return '';
+  }
+
+  const results: string[] = [];
+  
+  content.forEach((item: any) => {
+    if (item.type === 'tool_result') {
+      const toolId = item.tool_use_id ? ` (ID: ${item.tool_use_id.slice(0, 8)}...)` : '';
+      const isError = item.is_error || false;
+      const status = isError ? '❌ 失败' : '✅ 成功';
+      
+      results.push(`**状态**: ${status}${toolId}\n`);
+      
+      if (item.content) {
+        const resultContent = typeof item.content === 'string' 
+          ? item.content 
+          : JSON.stringify(item.content, null, 2);
+        
+        results.push(`\`\`\`\n${resultContent}\n\`\`\`\n`);
+      }
+    }
+  });
+
+  return results.join('\n');
+}
+
+/**
  * 从消息对象中提取可读的文本内容（包括思考过程）
+ * 注意：工具结果不在这里处理，而是通过 extractToolResultContent 单独处理
  */
 function extractMessageContent(msg: ClaudeStreamMessage): string {
   const content = msg.message?.content;
@@ -126,7 +177,7 @@ function extractMessageContent(msg: ClaudeStreamMessage): string {
       }
     }
     
-    // 然后提取其他内容块
+    // 然后提取其他内容块（注意：tool_result 不在这里处理）
     const otherContent = content
       .map((item: any) => {
         if (typeof item === 'string') return item;
@@ -136,8 +187,8 @@ function extractMessageContent(msg: ClaudeStreamMessage): string {
           return `\n**🔧 工具调用: ${item.name}**\n\n\`\`\`json\n${JSON.stringify(item.input, null, 2)}\n\`\`\`\n`;
         }
         if (item.type === 'tool_result') {
-          const result = typeof item.content === 'string' ? item.content : JSON.stringify(item.content);
-          return `\n**📋 工具结果**\n\n\`\`\`\n${result}\n\`\`\`\n`;
+          // tool_result 不在这里处理，由 extractToolResultContent 专门处理
+          return '';
         }
         // 其他未知类型也导出
         return `\n**⚙️ ${item.type || 'unknown'}**\n\n\`\`\`json\n${JSON.stringify(item, null, 2)}\n\`\`\`\n`;
