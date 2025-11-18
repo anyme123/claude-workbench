@@ -123,6 +123,10 @@ export interface FloatingPromptInputProps {
    * Whether there are messages (to show cost display)
    */
   hasMessages?: boolean;
+  /**
+   * 🆕 Complete session information (for export)
+   */
+  session?: import("@/lib/api").Session;
 }
 
 /**

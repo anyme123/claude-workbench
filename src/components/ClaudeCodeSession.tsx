@@ -1166,6 +1166,7 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
               sessionCost={formatCost(costStats.totalCost)}
               sessionStats={costStats}
               hasMessages={messages.length > 0}
+              session={effectiveSession || undefined}  // 🆕 传递完整会话信息用于导出
             />
           </div>
 

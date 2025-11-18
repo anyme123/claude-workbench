@@ -22,6 +22,7 @@ import { useSlashCommands } from "./hooks/useSlashCommands";
 import { usePromptEnhancement } from "./hooks/usePromptEnhancement";
 import { api } from "@/lib/api";
 import { getEnabledProviders } from "@/lib/promptEnhancementService";
+import { SessionToolbar } from "@/components/SessionToolbar";
 
 // Re-export types for external use
 export type { FloatingPromptInputRef, FloatingPromptInputProps, ThinkingMode, ModelType } from "./types";
@@ -58,6 +59,7 @@ const FloatingPromptInputInner = (
     sessionCost,
   sessionStats,
     hasMessages = false,
+    session,
   }: FloatingPromptInputProps,
   ref: React.Ref<FloatingPromptInputRef>,
 ) => {
@@ -847,6 +849,15 @@ const FloatingPromptInputInner = (
 
             {/* Spacer */}
             <div className="flex-1" />
+
+            {/* Session Export Toolbar */}
+            {messages && messages.length > 0 && (
+              <SessionToolbar
+                messages={messages}
+                session={session}
+                isStreaming={isLoading}
+              />
+            )}
 
             {/* Enhance Button */}
             <DropdownMenu>
