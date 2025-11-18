@@ -45,24 +45,6 @@
       "dialog": false,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEY0MjRBOENBQTI1MEM1NDEKUldSSQnhWQ2l5cWdrOU1FZWROVlJzQWpoTE9VRGxCT0Rkc2VTcFpFM3dzYnV5aXVFVkRwbkhzMm4K"
     },
-    "fs": {
-      "scope": [
-        "$HOME/**",
-        "$TEMP/**",
-        "$TMP/**"
-      ],
-      "allow": [
-        "readFile",
-        "writeFile",
-        "readDir",
-        "copyFile",
-        "createDir",
-        "removeDir",
-        "removeFile",
-        "renameFile",
-        "exists"
-      ]
-    },
     "shell": {
       "open": true
     }
