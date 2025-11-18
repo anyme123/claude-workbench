@@ -3,6 +3,8 @@
  * 提供会话记录导出功能，支持多种格式
  */
 
+import { save } from '@tauri-apps/plugin-dialog';
+import { writeTextFile } from '@tauri-apps/plugin-fs';
 import type { ClaudeStreamMessage } from '@/types/claude';
 import type { Session } from '@/lib/api';
 
@@ -99,7 +101,7 @@ export function exportAsMarkdown(
 }
 
 /**
- * 从消息对象中提取可读的文本内容
+ * 从消息对象中提取可读的文本内容（包括思考过程）
  */
 function extractMessageContent(msg: ClaudeStreamMessage): string {
   const content = msg.message?.content;
@@ -109,42 +111,77 @@ function extractMessageContent(msg: ClaudeStreamMessage): string {
   }
 
   if (Array.isArray(content)) {
-    return content
+    const parts: string[] = [];
+    
+    // 首先提取思考块（如果有）
+    const thinkingBlocks = content.filter((item: any) => item.type === 'thinking');
+    if (thinkingBlocks.length > 0) {
+      const thinkingContent = thinkingBlocks
+        .map((item: any) => item.thinking || '')
+        .filter(Boolean)
+        .join('\n\n');
+      
+      if (thinkingContent) {
+        parts.push(`\n**💭 思考过程:**\n\n\`\`\`\n${thinkingContent}\n\`\`\`\n`);
+      }
+    }
+    
+    // 然后提取其他内容块
+    const otherContent = content
       .map((item: any) => {
         if (typeof item === 'string') return item;
         if (item.type === 'text') return item.text || '';
+        if (item.type === 'thinking') return ''; // 已在上面处理
         if (item.type === 'tool_use') {
-          return `\n\`\`\`json\n[工具调用: ${item.name}]\n${JSON.stringify(item.input, null, 2)}\n\`\`\`\n`;
+          return `\n**🔧 工具调用: ${item.name}**\n\n\`\`\`json\n${JSON.stringify(item.input, null, 2)}\n\`\`\`\n`;
         }
         if (item.type === 'tool_result') {
           const result = typeof item.content === 'string' ? item.content : JSON.stringify(item.content);
-          return `\n\`\`\`\n[工具结果]\n${result}\n\`\`\`\n`;
+          return `\n**📋 工具结果**\n\n\`\`\`\n${result}\n\`\`\`\n`;
         }
-        return '';
+        // 其他未知类型也导出
+        return `\n**⚙️ ${item.type || 'unknown'}**\n\n\`\`\`json\n${JSON.stringify(item, null, 2)}\n\`\`\`\n`;
       })
-      .filter(Boolean)
-      .join('\n');
+      .filter(Boolean);
+    
+    parts.push(...otherContent);
+    
+    return parts.join('\n');
   }
 
   return '';
 }
 
 /**
- * 下载文件到本地
+ * 保存文件到用户选择的路径（使用 Tauri 文件对话框）
+ * @returns 保存的文件路径，如果用户取消则返回 null
  */
-export function downloadFile(content: string, filename: string, mimeType: string = 'text/plain'): void {
-  const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
-  const url = URL.createObjectURL(blob);
-  
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  
-  // 清理 URL 对象
-  URL.revokeObjectURL(url);
+export async function saveFileWithDialog(
+  content: string,
+  defaultFilename: string,
+  filters?: { name: string; extensions: string[] }[]
+): Promise<string | null> {
+  try {
+    const filePath = await save({
+      defaultPath: defaultFilename,
+      filters: filters || [
+        {
+          name: 'All Files',
+          extensions: ['*']
+        }
+      ]
+    });
+    
+    if (filePath) {
+      await writeTextFile(filePath, content);
+      return filePath;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('保存文件失败:', error);
+    throw error;
+  }
 }
 
 /**
@@ -159,35 +196,36 @@ export function generateExportFilename(session: Session | undefined, format: Exp
 }
 
 /**
- * 导出会话记录（完整流程：生成内容 + 下载文件）
+ * 导出会话记录（完整流程：生成内容 + 用户选择保存路径）
+ * @returns 保存的文件路径，如果用户取消则返回 null
  */
-export function exportSession(
+export async function exportSession(
   messages: ClaudeStreamMessage[],
   format: ExportFormat,
   session?: Session
-): void {
+): Promise<string | null> {
   let content: string;
-  let mimeType: string;
+  let filters: { name: string; extensions: string[] }[];
 
   switch (format) {
     case 'jsonl':
       content = exportAsJsonl(messages);
-      mimeType = 'application/x-ndjson';
+      filters = [{ name: 'JSONL Files', extensions: ['jsonl'] }];
       break;
     case 'json':
       content = exportAsJson(messages, session);
-      mimeType = 'application/json';
+      filters = [{ name: 'JSON Files', extensions: ['json'] }];
       break;
     case 'markdown':
       content = exportAsMarkdown(messages, session);
-      mimeType = 'text/markdown';
+      filters = [{ name: 'Markdown Files', extensions: ['md'] }];
       break;
     default:
       throw new Error(`不支持的导出格式: ${format}`);
   }
 
   const filename = generateExportFilename(session, format);
-  downloadFile(content, filename, mimeType);
+  return await saveFileWithDialog(content, filename, filters);
 }
 
 /**
