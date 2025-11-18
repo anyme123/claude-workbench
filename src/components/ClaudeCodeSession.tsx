@@ -27,6 +27,7 @@ import { type TranslationResult } from '@/lib/translationMiddleware';
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useSessionCostCalculation } from '@/hooks/useSessionCostCalculation';
 import { useDisplayableMessages } from '@/hooks/useDisplayableMessages';
+import { useGroupedMessages } from '@/hooks/useGroupedMessages';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useSmartAutoScroll } from '@/hooks/useSmartAutoScroll';
 import { useMessageTranslation } from '@/hooks/useMessageTranslation';
@@ -135,6 +136,11 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
 
   const displayableMessages = useDisplayableMessages(messages, {
     hideWarmupMessages: filterConfig.hideWarmupMessages
+  });
+
+  // 🆕 将消息分组（处理子代理消息）
+  const messageGroups = useGroupedMessages(displayableMessages, {
+    enableSubagentGrouping: true
   });
 
   // Stable callback for toggling plan mode (prevents unnecessary event listener re-registration)
@@ -756,9 +762,11 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
       >
         <AnimatePresence>
           {rowVirtualizer.getVirtualItems().map((virtualItem) => {
-            const message = displayableMessages[virtualItem.index];
-            const promptIndex = message.type === 'user' 
-              ? getPromptIndexForMessage(virtualItem.index) 
+            const messageGroup = messageGroups[virtualItem.index];
+            const message = messageGroup.type === 'normal' ? messageGroup.message : null;
+            const originalIndex = messageGroup.type === 'normal' ? messageGroup.index : undefined;
+            const promptIndex = message && message.type === 'user' && originalIndex !== undefined
+              ? getPromptIndexForMessage(originalIndex) 
               : undefined;
             
             return (
@@ -776,10 +784,10 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
                 }}
               >
                 <StreamMessageV2
-                  message={message}
+                  messageGroup={messageGroup}
                   onLinkDetected={handleLinkDetected}
                   claudeSettings={claudeSettings}
-                  isStreaming={virtualItem.index === displayableMessages.length - 1 && isLoading}
+                  isStreaming={virtualItem.index === messageGroups.length - 1 && isLoading}
                   promptIndex={promptIndex}
                   sessionId={effectiveSession?.id}
                   projectId={effectiveSession?.project_id}
