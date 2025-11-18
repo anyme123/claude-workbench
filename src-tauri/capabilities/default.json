@@ -12,6 +12,8 @@
     "dialog:allow-confirm",
     "shell:default",
     "shell:allow-open",
+    "fs:allow-write-text-file",
+    "fs:allow-read-text-file",
     {
       "identifier": "http:default",
       "allow": [
