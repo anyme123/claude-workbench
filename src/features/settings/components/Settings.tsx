@@ -16,7 +16,8 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   api,
-  type ClaudeSettings
+  type ClaudeSettings,
+  type ClaudeExecutionConfig
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Toast, ToastContainer } from "@/components/ui/toast";
@@ -95,6 +96,9 @@ export const Settings: React.FC<SettingsProps> = ({
   // Environment variables state
   const [envVars, setEnvVars] = useState<EnvironmentVariable[]>([]);
   
+  // Execution config state
+  const [executionConfig, setExecutionConfig] = useState<ClaudeExecutionConfig | null>(null);
+  const [disableRewindGitOps, setDisableRewindGitOps] = useState(false);
   
   // Hooks state
   const [userHooksChanged, setUserHooksChanged] = useState(false);
@@ -178,6 +182,16 @@ export const Settings: React.FC<SettingsProps> = ({
       
       setSettings(loadedSettings);
 
+      // Load execution config
+      try {
+        const execConfig = await api.getClaudeExecutionConfig();
+        setExecutionConfig(execConfig);
+        setDisableRewindGitOps(execConfig.disable_rewind_git_operations || false);
+      } catch (err) {
+        console.error("Failed to load execution config:", err);
+        // Continue with default values
+      }
+
       // Parse permissions
       if (loadedSettings.permissions && typeof loadedSettings.permissions === 'object') {
         if (Array.isArray(loadedSettings.permissions.allow)) {
@@ -252,6 +266,16 @@ export const Settings: React.FC<SettingsProps> = ({
 
       await api.saveClaudeSettings(updatedSettings);
       setSettings(updatedSettings);
+
+      // Save execution config if changed
+      if (executionConfig) {
+        const updatedExecConfig = {
+          ...executionConfig,
+          disable_rewind_git_operations: disableRewindGitOps,
+        };
+        await api.updateClaudeExecutionConfig(updatedExecConfig);
+        setExecutionConfig(updatedExecConfig);
+      }
 
       // Save user hooks if changed
       if (userHooksChanged && getUserHooks.current) {
@@ -529,6 +553,21 @@ export const Settings: React.FC<SettingsProps> = ({
                         id="verbose"
                         checked={settings?.verbose === true}
                         onCheckedChange={(checked) => updateSetting("verbose", checked)}
+                      />
+                    </div>
+
+                    {/* Disable Rewind Git Operations */}
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5 flex-1">
+                        <Label htmlFor="disableRewindGitOps">禁用撤回中的 Git 操作</Label>
+                        <p className="text-xs text-muted-foreground">
+                          启用后，撤回功能只能删除对话历史，无法回滚代码变更（适用于多人协作或生产环境）
+                        </p>
+                      </div>
+                      <Switch
+                        id="disableRewindGitOps"
+                        checked={disableRewindGitOps}
+                        onCheckedChange={setDisableRewindGitOps}
                       />
                     </div>
                     

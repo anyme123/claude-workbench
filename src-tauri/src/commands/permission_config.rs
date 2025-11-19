@@ -68,6 +68,8 @@ pub struct ClaudeExecutionConfig {
     pub max_thinking_tokens: Option<u32>,
     pub verbose: bool,
     pub permissions: ClaudePermissionConfig,
+    #[serde(default)]
+    pub disable_rewind_git_operations: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -86,6 +88,7 @@ impl Default for ClaudeExecutionConfig {
             max_thinking_tokens: None,
             verbose: true,
             permissions: ClaudePermissionConfig::default(),
+            disable_rewind_git_operations: false,
         }
     }
 }

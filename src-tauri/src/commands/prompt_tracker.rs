@@ -8,6 +8,7 @@ use log;
 
 use super::simple_git;
 use super::claude::get_claude_dir;
+use super::permission_config::ClaudeExecutionConfig;
 
 /// Rewind mode for reverting prompts
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -67,6 +68,23 @@ pub struct GitRecord {
     pub timestamp: i64,
 }
 
+
+/// Load execution config from file
+fn load_execution_config() -> Result<ClaudeExecutionConfig> {
+    let claude_dir = get_claude_dir().context("Failed to get claude dir")?;
+    let config_file = claude_dir.join("execution_config.json");
+    
+    if config_file.exists() {
+        let content = fs::read_to_string(&config_file)
+            .context("Failed to read execution config file")?;
+        let config = serde_json::from_str::<ClaudeExecutionConfig>(&content)
+            .context("Failed to parse execution config")?;
+        Ok(config)
+    } else {
+        // Return default config if file doesn't exist
+        Ok(ClaudeExecutionConfig::default())
+    }
+}
 
 /// Get path to git records file
 fn get_git_records_path(session_id: &str, project_id: &str) -> Result<PathBuf> {
@@ -484,6 +502,16 @@ pub async fn revert_to_prompt(
     log::info!("Reverting to prompt #{} in session: {} with mode: {:?}",
         prompt_index, session_id, mode);
 
+    // Load execution config to check if Git operations are disabled
+    let execution_config = load_execution_config()
+        .map_err(|e| format!("Failed to load execution config: {}", e))?;
+    
+    let git_operations_disabled = execution_config.disable_rewind_git_operations;
+    
+    if git_operations_disabled {
+        log::warn!("Git operations are disabled in rewind config");
+    }
+
     // Get prompts from JSONL (single source of truth)
     let prompts = extract_prompts_from_jsonl(&session_id, &project_id)
         .map_err(|e| format!("Failed to extract prompts: {}", e))?;
@@ -498,6 +526,11 @@ pub async fn revert_to_prompt(
     // Validate mode compatibility
     match mode {
         RewindMode::CodeOnly | RewindMode::Both => {
+            if git_operations_disabled {
+                return Err(format!(
+                    "无法回滚代码：Git 操作已在配置中禁用。只能撤回对话历史，无法回滚代码变更。"
+                ));
+            }
             if git_record.is_none() {
                 return Err(format!(
                     "无法回滚代码：提示词 #{} 没有关联的 Git 记录（可能来自 CLI 终端）",
@@ -518,8 +551,13 @@ pub async fn revert_to_prompt(
                 .map_err(|e| format!("Failed to truncate session: {}", e))?;
 
             // Truncate git records (remove records for prompts after this index)
-            truncate_git_records(&session_id, &project_id, &prompts, prompt_index)
-                .map_err(|e| format!("Failed to truncate git records: {}", e))?;
+            // Skip if Git operations are disabled
+            if !git_operations_disabled {
+                truncate_git_records(&session_id, &project_id, &prompts, prompt_index)
+                    .map_err(|e| format!("Failed to truncate git records: {}", e))?;
+            } else {
+                log::info!("Skipping git records truncation (Git operations disabled)");
+            }
 
             log::info!("Successfully reverted conversation to prompt #{}", prompt_index);
         }
@@ -560,8 +598,13 @@ pub async fn revert_to_prompt(
                 .map_err(|e| format!("Failed to truncate session: {}", e))?;
 
             // 4. Truncate git records
-            truncate_git_records(&session_id, &project_id, &prompts, prompt_index)
-                .map_err(|e| format!("Failed to truncate git records: {}", e))?;
+            // Skip if Git operations are disabled
+            if !git_operations_disabled {
+                truncate_git_records(&session_id, &project_id, &prompts, prompt_index)
+                    .map_err(|e| format!("Failed to truncate git records: {}", e))?;
+            } else {
+                log::info!("Skipping git records truncation (Git operations disabled)");
+            }
 
             log::info!("Successfully reverted both conversation and code to prompt #{}", prompt_index);
         }
@@ -591,6 +634,12 @@ pub async fn check_rewind_capabilities(
 ) -> Result<RewindCapabilities, String> {
     log::info!("Checking rewind capabilities for prompt #{} in session: {}", prompt_index, session_id);
 
+    // Load execution config to check if Git operations are disabled
+    let execution_config = load_execution_config()
+        .map_err(|e| format!("Failed to load execution config: {}", e))?;
+    
+    let git_operations_disabled = execution_config.disable_rewind_git_operations;
+
     // Extract prompts from JSONL (single source of truth)
     let prompts = extract_prompts_from_jsonl(&session_id, &project_id)
         .map_err(|e| format!("Failed to extract prompts from JSONL: {}", e))?;
@@ -602,6 +651,18 @@ pub async fn check_rewind_capabilities(
     // 🔧 FIX: Use prompt.source field (from queue-operation detection) instead of hash matching
     // This is more reliable as hash matching is fragile (affected by string escaping, encoding, etc.)
     log::info!("[Rewind Check] Prompt #{} source: {}", prompt_index, prompt.source);
+
+    // If Git operations are disabled, always return conversation-only capability with warning
+    if git_operations_disabled {
+        log::info!("[Rewind Check] Git operations disabled - conversation only");
+        return Ok(RewindCapabilities {
+            conversation: true,
+            code: false,
+            both: false,
+            warning: Some("Git 操作已在配置中禁用。只能撤回对话历史，无法回滚代码变更。".to_string()),
+            source: prompt.source.clone(),
+        });
+    }
 
     if prompt.source == "project" {
         // This prompt was sent from project interface (has queue-operation marker)

@@ -64,6 +64,49 @@ export interface ClaudeSettings {
 }
 
 /**
+ * Permission mode for Claude execution
+ */
+export enum PermissionMode {
+  Interactive = "Interactive",
+  AcceptEdits = "AcceptEdits",
+  ReadOnly = "ReadOnly",
+  Plan = "Plan",
+}
+
+/**
+ * Permission configuration for Claude execution
+ */
+export interface ClaudePermissionConfig {
+  allowed_tools: string[];
+  disallowed_tools: string[];
+  permission_mode: PermissionMode;
+  auto_approve_edits: boolean;
+  enable_dangerous_skip: boolean;
+}
+
+/**
+ * Output format for Claude execution
+ */
+export enum OutputFormat {
+  StreamJson = "StreamJson",
+  Json = "Json",
+  Text = "Text",
+}
+
+/**
+ * Claude execution configuration
+ */
+export interface ClaudeExecutionConfig {
+  output_format: OutputFormat;
+  timeout_seconds: number | null;
+  max_tokens: number | null;
+  max_thinking_tokens: number | null;
+  verbose: boolean;
+  permissions: ClaudePermissionConfig;
+  disable_rewind_git_operations: boolean;
+}
+
+/**
  * Represents the Claude Code version status
  */
 export interface ClaudeVersionStatus {
@@ -667,6 +710,34 @@ export const api = {
       return await invoke<string>("update_thinking_mode", { enabled, tokens });
     } catch (error) {
       console.error("Failed to update thinking mode:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get Claude execution configuration
+   * @returns Promise resolving to the current execution config
+   */
+  async getClaudeExecutionConfig(): Promise<ClaudeExecutionConfig> {
+    try {
+      return await invoke<ClaudeExecutionConfig>("get_claude_execution_config");
+    } catch (error) {
+      console.error("Failed to get Claude execution config:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update Claude execution configuration
+   * @param config - The new execution configuration
+   * @returns Promise resolving when the config is saved
+   */
+  async updateClaudeExecutionConfig(config: ClaudeExecutionConfig): Promise<void> {
+    try {
+      console.log("Updating Claude execution config:", config);
+      return await invoke<void>("update_claude_execution_config", { config });
+    } catch (error) {
+      console.error("Failed to update Claude execution config:", error);
       throw error;
     }
   },
