@@ -1001,7 +1001,7 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 20 }}
-                className="fixed left-1/2 -translate-x-1/2 z-30 w-full max-w-3xl px-4"
+                className="fixed left-[calc(50%+2rem)] -translate-x-1/2 z-30 w-full max-w-3xl px-4"
                 style={{
                   bottom: 'calc(140px + env(safe-area-inset-bottom))', // 在输入区域上方
                 }}
@@ -1155,9 +1155,10 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
           )}
 
           <div className={cn(
-            "fixed bottom-0 left-0 right-0 transition-all duration-300 z-50"
+            "fixed bottom-0 left-16 right-0 transition-all duration-300 z-50"
           )}>
             <FloatingPromptInput
+              className="left-16"
               ref={floatingPromptRef}
               onSend={handleSendPrompt}
               onCancel={handleCancelExecution}
