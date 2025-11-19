@@ -3,7 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { useNavigation } from '@/contexts/NavigationContext';
 import { Breadcrumbs, BreadcrumbItem } from '@/components/ui/breadcrumb';
 
-export const AppBreadcrumbs: React.FC = () => {
+import { cn } from '@/lib/utils';
+
+export const AppBreadcrumbs: React.FC<{ className?: string }> = ({ className }) => {
   const { t } = useTranslation();
   const { currentView, navigateTo, viewParams } = useNavigation();
 
@@ -111,11 +113,8 @@ export const AppBreadcrumbs: React.FC = () => {
   if (breadcrumbs.length === 0) return null;
 
   return (
-    // ✨ Updated styling: Removed bg-muted/20 border, added subtle transparency to blend with AppLayout glassmorphism
-    <div className="px-4 py-2 border-b border-border/40 bg-background/40 backdrop-blur-sm">
-      <div className="container mx-auto">
-        <Breadcrumbs>{breadcrumbs}</Breadcrumbs>
-      </div>
+    <div className={cn("flex items-center", className)}>
+      <Breadcrumbs>{breadcrumbs}</Breadcrumbs>
     </div>
   );
 };

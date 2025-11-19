@@ -5,7 +5,9 @@ import {
   BarChart2, 
   Terminal,
   Layers,
-  Zap
+  Zap,
+  FileText,
+  Package
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { View } from '@/types/navigation';
@@ -41,8 +43,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const mainNavItems: NavItem[] = [
     { view: 'projects', icon: FolderOpen, label: t('common.ccProjectsTitle') },
     { view: 'claude-tab-manager', icon: Terminal, label: '会话管理' },
+    { view: 'editor', icon: FileText, label: '系统提示词' },
     { view: 'usage-dashboard', icon: BarChart2, label: '使用统计' },
     { view: 'mcp', icon: Layers, label: 'MCP 工具' },
+    { view: 'claude-extensions', icon: Package, label: '扩展' },
   ];
 
   const bottomNavItems: NavItem[] = [
