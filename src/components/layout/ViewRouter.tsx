@@ -215,7 +215,7 @@ export const ViewRouter: React.FC = () => {
                   <Button
                     onClick={() => navigateTo("claude-tab-manager", { initialProjectPath: "__NEW_PROJECT__" })}
                     size="default"
-                    className="flex-shrink-0"
+                    className="flex-shrink-0 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-sm transition-all duration-200 hover:shadow-md"
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     {t('common.newProject')}

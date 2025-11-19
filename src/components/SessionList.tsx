@@ -251,7 +251,7 @@ export const SessionList: React.FC<SessionListProps> = ({
             variant="default"
             size="default"
             onClick={onBack}
-            className="h-10 px-4 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all duration-200 shadow-md flex-shrink-0"
+            className="h-10 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-sm transition-all duration-200 hover:shadow-md flex-shrink-0"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             <span>返回项目列表</span>
@@ -355,6 +355,7 @@ export const SessionList: React.FC<SessionListProps> = ({
             <Button
               onClick={() => onNewSession(projectPath)}
               size="sm"
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-sm transition-all duration-200"
             >
               <Plus className="mr-2 h-4 w-4" />
               {t('claude.newSession')}

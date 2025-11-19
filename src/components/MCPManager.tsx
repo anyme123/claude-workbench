@@ -123,7 +123,7 @@ export const MCPManager: React.FC<MCPManagerProps> = ({
               variant="ghost"
               size="icon"
               onClick={onBack}
-              className="h-8 w-8"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
               aria-label="返回"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />

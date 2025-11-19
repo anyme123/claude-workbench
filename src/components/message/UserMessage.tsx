@@ -186,7 +186,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
       id={promptIndex !== undefined ? `prompt-${promptIndex}` : undefined}
       className={cn("group relative", className)}
     >
-      <MessageBubble variant="user">
+      <MessageBubble variant="user" className="bg-gradient-to-br from-blue-50/80 to-indigo-50/80 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-100/50 dark:border-blue-900/30 shadow-sm">
           <div className="relative">
         {/* 消息头部 */}
         <MessageHeader

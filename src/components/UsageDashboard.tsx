@@ -340,7 +340,7 @@ export const UsageDashboard: React.FC<UsageDashboardProps> = ({ onBack }) => {
               variant="ghost"
               size="sm"
               onClick={onBack}
-              className="text-muted-foreground hover:text-foreground"
+              className="text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               返回主页

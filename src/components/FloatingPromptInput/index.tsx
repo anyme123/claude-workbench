@@ -1003,7 +1003,7 @@ const FloatingPromptInputInner = (
                 onClick={handleSend}
                 disabled={!prompt.trim() || disabled}
                 size="default"
-                className="h-8"
+                className="h-8 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-sm transition-all duration-200"
               >
                 发送
               </Button>
