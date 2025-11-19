@@ -8,7 +8,8 @@ import { ClaudeStatusIndicator } from "@/components/ClaudeStatusIndicator";
 import { UpdateBadge } from "@/components/common/UpdateBadge";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { HelpCircle } from "lucide-react";
+import { HelpCircle, Menu } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -18,9 +19,15 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const { currentView, navigateTo } = useNavigation();
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
   const [showAboutDialog, setShowAboutDialog] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  const sidebarWidth = isSidebarOpen ? "4rem" : "0px";
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-background flex text-foreground selection:bg-primary/20 selection:text-primary relative">
+    <div 
+      className="h-screen w-screen overflow-hidden bg-background flex text-foreground selection:bg-primary/20 selection:text-primary relative"
+      style={{ "--sidebar-width": sidebarWidth } as React.CSSProperties}
+    >
       {/* ✨ Subtle background pattern mesh - Global Background */}
       <div className="absolute inset-0 pointer-events-none z-0 opacity-[0.03] dark:opacity-[0.02]"
         style={{
@@ -30,18 +37,32 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       />
 
       {/* Sidebar */}
-      <Sidebar
-        currentView={currentView}
-        onNavigate={navigateTo}
-        className="z-50 flex-shrink-0"
-      />
+      <div className={cn(
+        "z-50 flex-shrink-0 transition-all duration-300 overflow-hidden",
+        isSidebarOpen ? "w-16 opacity-100 translate-x-0" : "w-0 opacity-0 -translate-x-full"
+      )}>
+        <Sidebar
+          currentView={currentView}
+          onNavigate={navigateTo}
+          className="w-16"
+        />
+      </div>
 
       {/* Main Content Area */}
-      <main className="flex-1 relative flex flex-col min-w-0 overflow-hidden z-10">
+      <main className="flex-1 relative flex flex-col min-w-0 overflow-hidden z-10 transition-all duration-300">
         {/* Header */}
         <header className="flex items-center justify-between px-6 py-3 border-b border-border/40 bg-background/40 backdrop-blur-md sticky top-0 z-40 h-14">
-            {/* Left: Breadcrumbs */}
+            {/* Left: Toggle & Breadcrumbs */}
             <div className="flex items-center gap-4">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                  title={isSidebarOpen ? "收起侧边栏" : "展开侧边栏"}
+                >
+                  <Menu className="h-4 w-4" />
+                </Button>
                 <AppBreadcrumbs /> 
             </div>
 
