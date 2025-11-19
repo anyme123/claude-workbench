@@ -743,6 +743,38 @@ code::-webkit-scrollbar-thumb:hover,
   scrollbar-color: rgba(107, 114, 128, 0.4) rgba(0, 0, 0, 0.2);
 }
 
+/* Thin, elegant scrollbar for chat messages */
+.scrollbar-thin-transparent::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thin-transparent::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin-transparent::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+  transition: background-color 0.3s ease;
+}
+
+.scrollbar-thin-transparent:hover::-webkit-scrollbar-thumb {
+  background-color: var(--color-muted-foreground);
+  opacity: 0.5;
+}
+
+/* Firefox support */
+.scrollbar-thin-transparent {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.3s ease;
+}
+
+.scrollbar-thin-transparent:hover {
+  scrollbar-color: var(--color-muted-foreground) transparent;
+}
+
 /* Layout improvements for better UI separation */
 .chat-container {
   /* Ensure proper spacing for floating input */

@@ -747,7 +747,7 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
   const messagesList = (
     <div
       ref={parentRef}
-      className="flex-1 overflow-y-auto relative"
+      className="flex-1 overflow-y-auto relative scrollbar-thin-transparent"
       style={{
         paddingBottom: 'calc(140px + env(safe-area-inset-bottom))', // 增加底部空间，避免与输入框重叠
         paddingTop: '20px',
