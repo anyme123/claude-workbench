@@ -15,6 +15,14 @@ import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   api,
   type ClaudeSettings,
   type ClaudeExecutionConfig
@@ -99,6 +107,7 @@ export const Settings: React.FC<SettingsProps> = ({
   // Execution config state
   const [executionConfig, setExecutionConfig] = useState<ClaudeExecutionConfig | null>(null);
   const [disableRewindGitOps, setDisableRewindGitOps] = useState(false);
+  const [showRewindGitConfirmDialog, setShowRewindGitConfirmDialog] = useState(false);
   
   // Hooks state
   const [userHooksChanged, setUserHooksChanged] = useState(false);
@@ -299,6 +308,34 @@ export const Settings: React.FC<SettingsProps> = ({
    */
   const updateSetting = (key: string, value: any) => {
     setSettings(prev => ({ ...prev, [key]: value }));
+  };
+
+  /**
+   * Handle rewind git operations toggle with confirmation
+   */
+  const handleRewindGitOpsToggle = (checked: boolean) => {
+    if (checked) {
+      // Show confirmation dialog when enabling
+      setShowRewindGitConfirmDialog(true);
+    } else {
+      // Directly disable without confirmation
+      setDisableRewindGitOps(false);
+    }
+  };
+
+  /**
+   * Confirm enabling disable rewind git operations
+   */
+  const confirmEnableRewindGitOpsDisable = () => {
+    setDisableRewindGitOps(true);
+    setShowRewindGitConfirmDialog(false);
+  };
+
+  /**
+   * Cancel enabling disable rewind git operations
+   */
+  const cancelEnableRewindGitOpsDisable = () => {
+    setShowRewindGitConfirmDialog(false);
   };
 
   /**
@@ -567,7 +604,7 @@ export const Settings: React.FC<SettingsProps> = ({
                       <Switch
                         id="disableRewindGitOps"
                         checked={disableRewindGitOps}
-                        onCheckedChange={setDisableRewindGitOps}
+                        onCheckedChange={handleRewindGitOpsToggle}
                       />
                     </div>
                     
@@ -951,6 +988,47 @@ export const Settings: React.FC<SettingsProps> = ({
       )}
       </div>
       
+      {/* Confirmation Dialog for Disabling Rewind Git Operations */}
+      <Dialog open={showRewindGitConfirmDialog} onOpenChange={setShowRewindGitConfirmDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>⚠️ 确认禁用 Git 操作</DialogTitle>
+            <DialogDescription className="space-y-3 pt-2">
+              <p>您即将禁用撤回功能中的 Git 操作。启用此选项后：</p>
+              <ul className="list-disc pl-5 space-y-2 text-sm">
+                <li className="text-green-600 dark:text-green-400">
+                  <strong>仍然可以：</strong>撤回对话历史（删除消息记录）
+                </li>
+                <li className="text-red-600 dark:text-red-400">
+                  <strong>无法执行：</strong>代码回滚操作（Git reset/stash）
+                </li>
+              </ul>
+              <p className="text-yellow-600 dark:text-yellow-400 font-medium">
+                ⚠️ 这意味着您将无法通过撤回功能恢复代码到之前的状态。
+              </p>
+              <p className="text-muted-foreground">
+                适用场景：多人协作项目、生产环境、或只需管理对话记录的情况。
+              </p>
+              <p className="font-medium">确定要启用此选项吗？</p>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={cancelEnableRewindGitOpsDisable}
+            >
+              取消
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmEnableRewindGitOpsDisable}
+            >
+              确定启用
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Toast Notification */}
       <ToastContainer>
         {toast && (
