@@ -7,8 +7,10 @@ interface MessageBubbleProps {
   variant: "user" | "assistant";
   /** 子内容 */
   children: React.ReactNode;
-  /** 自定义类名 */
+  /** 自定义容器类名 */
   className?: string;
+  /** 自定义气泡类名 */
+  bubbleClassName?: string;
   /** 是否正在流式输出 */
   isStreaming?: boolean;
 }
@@ -23,6 +25,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   variant,
   children,
   className,
+  bubbleClassName,
   isStreaming = false
 }) => {
   const isUser = variant === "user";
@@ -46,7 +49,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               "rounded-2xl px-4 py-3",
               "bg-primary text-primary-foreground",
               "shadow-sm",
-              "break-words"
+              "break-words",
+              bubbleClassName
             )}
           >
             {children}
@@ -61,7 +65,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               "bg-card text-card-foreground border-border",
               "shadow-md",
               "overflow-hidden",
-              isStreaming && "ring-2 ring-primary/20 animate-pulse-subtle"
+              isStreaming && "ring-2 ring-primary/20 animate-pulse-subtle",
+              bubbleClassName
             )}
           >
             {children}
