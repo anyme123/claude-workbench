@@ -637,27 +637,33 @@ button:not(:disabled),
 /* For Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-muted-foreground) var(--color-background);
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.3s ease;
+}
+
+*:hover {
+  scrollbar-color: var(--color-muted-foreground) transparent;
 }
 
 /* For Webkit Browsers (Chrome, Safari, Edge) */
 *::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
+  width: 6px;
+  height: 6px;
 }
 
 *::-webkit-scrollbar-track {
-  background: var(--color-background);
+  background: transparent;
 }
 
 *::-webkit-scrollbar-thumb {
-  background-color: var(--color-muted);
-  border-radius: 6px;
-  border: 3px solid var(--color-background);
+  background-color: transparent;
+  border-radius: 3px;
+  transition: background-color 0.3s ease;
 }
 
-*::-webkit-scrollbar-thumb:hover {
+*:hover::-webkit-scrollbar-thumb {
   background-color: var(--color-muted-foreground);
+  opacity: 0.5;
 }
 
 *::-webkit-scrollbar-corner {
@@ -741,38 +747,6 @@ code::-webkit-scrollbar-thumb:hover,
 .code-preview-scroll {
   scrollbar-width: thin;
   scrollbar-color: rgba(107, 114, 128, 0.4) rgba(0, 0, 0, 0.2);
-}
-
-/* Thin, elegant scrollbar for chat messages */
-.scrollbar-thin-transparent::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.scrollbar-thin-transparent::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.scrollbar-thin-transparent::-webkit-scrollbar-thumb {
-  background-color: transparent;
-  border-radius: 3px;
-  transition: background-color 0.3s ease;
-}
-
-.scrollbar-thin-transparent:hover::-webkit-scrollbar-thumb {
-  background-color: var(--color-muted-foreground);
-  opacity: 0.5;
-}
-
-/* Firefox support */
-.scrollbar-thin-transparent {
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-  transition: scrollbar-color 0.3s ease;
-}
-
-.scrollbar-thin-transparent:hover {
-  scrollbar-color: var(--color-muted-foreground) transparent;
 }
 
 /* Layout improvements for better UI separation */
@@ -1026,19 +1000,23 @@ code::-webkit-scrollbar-thumb:hover,
 
   /* Light theme scrollbars */
   * {
-    scrollbar-color: var(--color-muted-foreground) var(--color-background);
+    scrollbar-color: transparent transparent;
   }
 
   *::-webkit-scrollbar-track {
-    background: var(--color-background);
+    background: transparent;
   }
 
   *::-webkit-scrollbar-thumb {
-    background-color: var(--color-muted);
-    border: 3px solid var(--color-background);
+    background-color: transparent;
+    border: none;
   }
 
-  *::-webkit-scrollbar-thumb:hover {
+  *:hover {
+    scrollbar-color: var(--color-muted-foreground) transparent;
+  }
+
+  *:hover::-webkit-scrollbar-thumb {
     background-color: var(--color-muted-foreground);
   }
 
