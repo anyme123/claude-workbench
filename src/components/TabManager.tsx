@@ -170,6 +170,7 @@ export const TabManager: React.FC<TabManagerProps> = ({
               variant="default"
               size="sm"
               onClick={onBack}
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-sm transition-all duration-200 hover:shadow-md border-0"
             >
               <ArrowLeft className="h-4 w-4 mr-1.5" />
               <span>返回</span>
