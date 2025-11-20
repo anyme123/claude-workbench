@@ -77,7 +77,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
                 <UpdateBadge onClick={() => setShowUpdateDialog(true)} />
                 
-                <ThemeToggle variant="ghost" size="icon" className="w-8 h-8" />
+                <ThemeToggle size="sm" className="w-8 h-8" />
                 
                 <Button 
                     variant="ghost" 
