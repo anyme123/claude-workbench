@@ -167,7 +167,7 @@ export const TabManager: React.FC<TabManagerProps> = ({
           <div className="flex items-center h-12 px-4 gap-2">
             {/* 返回按钮 */}
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
               onClick={onBack}
               className="px-3"
