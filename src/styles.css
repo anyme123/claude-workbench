@@ -632,41 +632,40 @@ button:not(:disabled),
 
 /* Removed special font-weight for larger sizes to maintain consistency */
 
-/* --- THEME-MATCHING SCROLLBARS --- */
+/* --- THEME-MATCHING SCROLLBARS (GLOBAL OVERRIDE) --- */
 
-/* For Firefox */
-* {
+/* Ensure these rules have high specificity */
+html * {
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
-  transition: scrollbar-color 0.3s ease;
 }
 
-*:hover {
+html *:hover {
   scrollbar-color: var(--color-muted-foreground) transparent;
 }
 
 /* For Webkit Browsers (Chrome, Safari, Edge) */
-*::-webkit-scrollbar {
+html *::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
-*::-webkit-scrollbar-track {
+html *::-webkit-scrollbar-track {
   background: transparent;
 }
 
-*::-webkit-scrollbar-thumb {
+html *::-webkit-scrollbar-thumb {
   background-color: transparent;
   border-radius: 3px;
   transition: background-color 0.3s ease;
 }
 
-*:hover::-webkit-scrollbar-thumb {
+html *:hover::-webkit-scrollbar-thumb {
   background-color: var(--color-muted-foreground);
   opacity: 0.5;
 }
 
-*::-webkit-scrollbar-corner {
+html *::-webkit-scrollbar-corner {
   background: transparent;
 }
 
@@ -675,41 +674,43 @@ pre::-webkit-scrollbar,
 .w-md-editor-content::-webkit-scrollbar,
 code::-webkit-scrollbar,
 .overflow-auto::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 pre::-webkit-scrollbar-thumb,
 .w-md-editor-content::-webkit-scrollbar-thumb,
 code::-webkit-scrollbar-thumb,
 .overflow-auto::-webkit-scrollbar-thumb {
-  background-color: rgba(107, 114, 128, 0.2);
+  background-color: transparent;
 }
 
-pre::-webkit-scrollbar-thumb:hover,
-.w-md-editor-content::-webkit-scrollbar-thumb:hover,
-code::-webkit-scrollbar-thumb:hover,
-.overflow-auto::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(107, 114, 128, 0.4);
+pre:hover::-webkit-scrollbar-thumb,
+.w-md-editor-content:hover::-webkit-scrollbar-thumb,
+code:hover::-webkit-scrollbar-thumb,
+.overflow-auto:hover::-webkit-scrollbar-thumb {
+  background-color: var(--color-muted-foreground);
+  opacity: 0.5;
 }
 
 /* Syntax highlighter specific */
 .bg-zinc-950 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 .bg-zinc-950 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.3);
+  background: transparent;
 }
 
 .bg-zinc-950 ::-webkit-scrollbar-thumb {
-  background-color: rgba(107, 114, 128, 0.3);
-  border-radius: 4px;
+  background-color: transparent;
+  border-radius: 3px;
 }
 
-.bg-zinc-950 ::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(107, 114, 128, 0.5);
+.bg-zinc-950:hover ::-webkit-scrollbar-thumb {
+  background-color: var(--color-muted-foreground);
+  opacity: 0.5;
 }
 
 /* Code preview specific scrollbar */
