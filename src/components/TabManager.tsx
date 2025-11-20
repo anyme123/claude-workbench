@@ -167,10 +167,10 @@ export const TabManager: React.FC<TabManagerProps> = ({
           <div className="flex items-center h-12 px-4 gap-2">
             {/* 返回按钮 */}
             <Button
-              variant="outline"
+              variant="default"
               size="sm"
               onClick={onBack}
-              className="px-3"
+              className="px-3 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all duration-200 shadow-md"
             >
               <ArrowLeft className="h-4 w-4 mr-1.5" />
               <span>返回</span>
