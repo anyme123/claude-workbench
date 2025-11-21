@@ -20,8 +20,32 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
   const [showAboutDialog, setShowAboutDialog] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
 
   const sidebarWidth = isSidebarOpen ? "4rem" : "0px";
+
+  // Auto-hide header on session pages
+  const isSessionPage = currentView === 'claude-code-session' || currentView === 'claude-tab-manager';
+
+  React.useEffect(() => {
+    if (!isSessionPage) {
+      setIsHeaderVisible(true);
+      return;
+    }
+
+    const handleMouseMove = (e: MouseEvent) => {
+      // Show header when mouse is near the top (within 80px)
+      if (e.clientY < 80) {
+        setIsHeaderVisible(true);
+      } else if (e.clientY > 150) {
+        // Hide header when mouse moves away from top
+        setIsHeaderVisible(false);
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, [isSessionPage]);
 
   return (
     <div 
@@ -51,7 +75,13 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       {/* Main Content Area */}
       <main className="flex-1 relative flex flex-col min-w-0 overflow-hidden z-10 transition-all duration-300">
         {/* Header */}
-        <header className="flex items-center justify-between px-6 py-3 border-b border-border/40 bg-background/40 backdrop-blur-md sticky top-0 z-40 h-14">
+        <header
+          className={cn(
+            "flex items-center justify-between px-6 py-3 border-b border-border/40 bg-background/40 backdrop-blur-md sticky z-40 h-14",
+            "transition-all duration-300 ease-in-out",
+            isSessionPage && !isHeaderVisible ? "-top-14 opacity-0" : "top-0 opacity-100"
+          )}
+        >
             {/* Left: Toggle & Breadcrumbs */}
             <div className="flex items-center gap-4">
                 <Button
