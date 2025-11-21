@@ -454,7 +454,7 @@ export const ClaudeStatusIndicator: React.FC<ClaudeStatusIndicatorProps> = ({
               )}
             </div>
           }
-          align="start"
+          align="end"
           className="w-80 p-4"
         />
 

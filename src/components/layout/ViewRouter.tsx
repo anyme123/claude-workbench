@@ -74,12 +74,7 @@ export const ViewRouter: React.FC = () => {
   // Listen for open-prompt-api-settings
   useEffect(() => {
     const handleOpenPromptAPISettings = () => {
-      if (currentView !== "settings") {
-        navigateTo("settings");
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('switch-to-prompt-api-tab'));
-        }, 100);
-      }
+      navigateTo("settings", { initialTab: "prompt-api" });
     };
     window.addEventListener('open-prompt-api-settings', handleOpenPromptAPISettings as EventListener);
     return () => window.removeEventListener('open-prompt-api-settings', handleOpenPromptAPISettings as EventListener);
@@ -196,7 +191,10 @@ export const ViewRouter: React.FC = () => {
       case "settings":
         return (
           <div className="flex-1 flex flex-col" style={{ minHeight: 0 }}>
-            <Settings onBack={goBack} />
+            <Settings 
+              onBack={goBack} 
+              initialTab={viewParams.initialTab}
+            />
           </div>
         );
 

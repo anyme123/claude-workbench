@@ -40,6 +40,10 @@ interface SettingsProps {
    * Optional className for styling
    */
   className?: string;
+  /**
+   * Optional initial tab to show
+   */
+  initialTab?: string;
 }
 
 interface PermissionRule {
@@ -63,6 +67,7 @@ interface EnvironmentVariable {
 export const Settings: React.FC<SettingsProps> = ({
   onBack,
   className,
+  initialTab = "general",
 }) => {
   const { t } = useTranslation();
   const { theme, setTheme } = useTheme();
@@ -70,7 +75,14 @@ export const Settings: React.FC<SettingsProps> = ({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState("general");
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  // Update active tab if initialTab changes prop
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   // ⚡ 监听切换到提示词API标签的事件（内部事件）
   useEffect(() => {

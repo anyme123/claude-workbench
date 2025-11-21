@@ -83,7 +83,7 @@ const extractThinkingContent = (message: ClaudeStreamMessage): string => {
  * AI消息组件（重构版）
  * 左对齐卡片样式，支持工具调用展示和思考块
  */
-export const AIMessage: React.FC<AIMessageProps> = ({
+const AIMessageComponent: React.FC<AIMessageProps> = ({
   message,
   isStreaming = false,
   className,
@@ -203,3 +203,5 @@ export const AIMessage: React.FC<AIMessageProps> = ({
     </div>
   );
 };
+
+export const AIMessage = React.memo(AIMessageComponent);

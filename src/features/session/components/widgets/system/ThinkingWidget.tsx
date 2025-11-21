@@ -43,15 +43,27 @@ export const ThinkingWidget: React.FC<ThinkingWidgetProps> = ({
 
   // 翻译思考内容
   React.useEffect(() => {
+    let isMounted = true;
+
     const translateThinking = async () => {
       if (hasContent) {
         const cacheKey = `thinking-${trimmedThinking.substring(0, 100)}`;
-        const translated = await translateContent(trimmedThinking, cacheKey);
-        setTranslatedThinking(translated);
+        try {
+          const translated = await translateContent(trimmedThinking, cacheKey);
+          if (isMounted) {
+            setTranslatedThinking(translated);
+          }
+        } catch (error) {
+          console.warn('[ThinkingWidget] Translation failed:', error);
+        }
       }
     };
 
     translateThinking();
+
+    return () => {
+      isMounted = false;
+    };
   }, [trimmedThinking, hasContent, translateContent]);
 
   // 格式化 Token 使用情况

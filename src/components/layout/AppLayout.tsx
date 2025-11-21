@@ -70,7 +70,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             <div className="flex items-center gap-1">
                 <ClaudeStatusIndicator 
                     onSettingsClick={() => navigateTo("settings")} 
-                    onAboutClick={() => setShowAboutDialog(true)} 
                 />
                 
                 <div className="h-4 w-px bg-border/50 mx-2" />
