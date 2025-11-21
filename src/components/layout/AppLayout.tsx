@@ -77,10 +77,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         {/* Header */}
         <header
           className={cn(
-            "flex items-center justify-between px-6 py-3 border-b border-border/40 bg-background/40 backdrop-blur-md sticky z-40 h-14",
+            "flex items-center justify-between px-6 py-3 border-b border-border/40 bg-background/40 backdrop-blur-md z-40",
             "transition-all duration-300 ease-in-out",
-            isSessionPage && !isHeaderVisible ? "-top-14 opacity-0" : "top-0 opacity-100"
+            isSessionPage ? "absolute top-0 left-0 right-0" : "relative",
+            isSessionPage && !isHeaderVisible && "-translate-y-full opacity-0"
           )}
+          style={{
+            height: isSessionPage && !isHeaderVisible ? '0' : '3.5rem'
+          }}
         >
             {/* Left: Toggle & Breadcrumbs */}
             <div className="flex items-center gap-4">
@@ -120,7 +124,15 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         </header>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth">
+        <div
+          className={cn(
+            "flex-1 overflow-y-auto overflow-x-hidden scroll-smooth transition-all duration-300",
+            isSessionPage && "pt-0"
+          )}
+          style={{
+            paddingTop: isSessionPage && isHeaderVisible ? '3.5rem' : undefined
+          }}
+        >
              {children}
         </div>
       </main>
