@@ -362,7 +362,8 @@ fn parse_codex_session_file(path: &std::path::Path) -> Option<CodexSession> {
     }
 
     let updated_at = last_timestamp
-        .and_then(|ts| chrono::DateTime::parse_from_rfc3339(&ts).ok())
+        .as_ref()
+        .and_then(|ts| chrono::DateTime::parse_from_rfc3339(ts).ok())
         .map(|dt| dt.timestamp() as u64)
         .unwrap_or(created_at);
 
