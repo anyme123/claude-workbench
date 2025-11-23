@@ -59,8 +59,8 @@ export class CodexEventConverter {
             subtype: 'init',
             result: `Codex session started`,
             session_id: event.thread_id, // ← Important: frontend will extract this
-            timestamp: new Date().toISOString(),
-            receivedAt: new Date().toISOString(),
+            timestamp: (event as any).timestamp || new Date().toISOString(),
+            receivedAt: (event as any).timestamp || new Date().toISOString(),
           };
 
         case 'turn.started':
@@ -71,25 +71,25 @@ export class CodexEventConverter {
 
         case 'turn.completed':
           this.currentTurnUsage = event.usage;
-          return this.createUsageMessage(event.usage);
+          return this.createUsageMessage(event.usage, event.timestamp);
 
         case 'turn.failed':
-          return this.createErrorMessage(event.error.message);
+          return this.createErrorMessage(event.error.message, event.timestamp);
 
         case 'item.started':
           this.itemMap.set(event.item.id, event.item);
-          return this.convertItem(event.item, 'started');
+          return this.convertItem(event.item, 'started', event.timestamp);
 
         case 'item.updated':
           this.itemMap.set(event.item.id, event.item);
-          return this.convertItem(event.item, 'updated');
+          return this.convertItem(event.item, 'updated', event.timestamp);
 
         case 'item.completed':
           this.itemMap.set(event.item.id, event.item);
-          return this.convertItem(event.item, 'completed');
+          return this.convertItem(event.item, 'completed', event.timestamp);
 
         case 'error':
-          return this.createErrorMessage(event.error.message);
+          return this.createErrorMessage(event.error.message, event.timestamp);
 
         case 'session_meta':
           // Return init message
@@ -98,8 +98,8 @@ export class CodexEventConverter {
             subtype: 'init',
             result: `Codex session started (ID: ${event.payload.id})`,
             session_id: event.payload.id,
-            timestamp: event.payload.timestamp || new Date().toISOString(),
-            receivedAt: new Date().toISOString(),
+            timestamp: event.payload.timestamp || event.timestamp || new Date().toISOString(),
+            receivedAt: event.payload.timestamp || event.timestamp || new Date().toISOString(),
           };
 
         case 'response_item':
@@ -245,8 +245,8 @@ export class CodexEventConverter {
         role: payload.role,
         content: content
       },
-      timestamp: payload.timestamp || new Date().toISOString(),
-      receivedAt: new Date().toISOString(),
+      timestamp: payload.timestamp || event.timestamp || new Date().toISOString(),
+      receivedAt: payload.timestamp || event.timestamp || new Date().toISOString(),
     };
 
     console.log('[CodexConverter] Converted response_item:', {
@@ -283,7 +283,7 @@ export class CodexEventConverter {
         ],
       },
       timestamp: event.timestamp || new Date().toISOString(),
-      receivedAt: new Date().toISOString(),
+      receivedAt: event.timestamp || new Date().toISOString(),
     };
   }
 
@@ -321,7 +321,7 @@ export class CodexEventConverter {
         ],
       },
       timestamp: event.timestamp || new Date().toISOString(),
-      receivedAt: new Date().toISOString(),
+      receivedAt: event.timestamp || new Date().toISOString(),
     };
   }
 
@@ -343,14 +343,14 @@ export class CodexEventConverter {
       type: 'thinking',
       content: summaryText || '(Extended thinking - encrypted content)',
       timestamp: event.timestamp || new Date().toISOString(),
-      receivedAt: new Date().toISOString(),
+      receivedAt: event.timestamp || new Date().toISOString(),
     };
   }
 
   /**
    * Converts a Codex item to ClaudeStreamMessage
    */
-  private convertItem(item: CodexItem, phase: 'started' | 'updated' | 'completed'): ClaudeStreamMessage | null {
+  private convertItem(item: CodexItem, phase: 'started' | 'updated' | 'completed', eventTimestamp?: string): ClaudeStreamMessage | null {
     const metadata: CodexMessageMetadata = {
       codexItemType: item.type,
       codexItemId: item.id,
@@ -360,30 +360,30 @@ export class CodexEventConverter {
 
     switch (item.type) {
       case 'agent_message':
-        return this.convertAgentMessage(item, phase, metadata);
+        return this.convertAgentMessage(item, phase, metadata, eventTimestamp);
 
       case 'reasoning':
-        return this.convertReasoning(item, phase, metadata);
+        return this.convertReasoning(item, phase, metadata, eventTimestamp);
 
       case 'command_execution':
-        return this.convertCommandExecution(item, phase, metadata);
+        return this.convertCommandExecution(item, phase, metadata, eventTimestamp);
 
       case 'file_change':
-        return this.convertFileChange(item, phase, metadata);
+        return this.convertFileChange(item, phase, metadata, eventTimestamp);
 
       case 'mcp_tool_call':
         // Only show tool calls when completed (to avoid "executing" state)
         if (phase === 'completed') {
-          return this.convertMcpToolCall(item, phase, metadata);
+          return this.convertMcpToolCall(item, phase, metadata, eventTimestamp);
         }
         console.log('[CodexConverter] Skipping mcp_tool_call in phase:', phase);
         return null;
 
       case 'web_search':
-        return this.convertWebSearch(item, phase, metadata);
+        return this.convertWebSearch(item, phase, metadata, eventTimestamp);
 
       case 'todo_list':
-        return this.convertTodoList(item, phase, metadata);
+        return this.convertTodoList(item, phase, metadata, eventTimestamp);
 
       default:
         console.warn('[CodexConverter] Unknown item type:', (item as any).type, 'Full item:', item);
@@ -397,8 +397,10 @@ export class CodexEventConverter {
   private convertAgentMessage(
     item: CodexAgentMessageItem,
     _phase: string,
-    metadata: CodexMessageMetadata
+    metadata: CodexMessageMetadata,
+    eventTimestamp?: string
   ): ClaudeStreamMessage {
+    const ts = eventTimestamp || new Date().toISOString();
     return {
       type: 'assistant',
       message: {
@@ -410,8 +412,8 @@ export class CodexEventConverter {
           },
         ],
       },
-      timestamp: new Date().toISOString(),
-      receivedAt: new Date().toISOString(),
+      timestamp: ts,
+      receivedAt: ts,
       codexMetadata: metadata,
     };
   }
@@ -422,13 +424,15 @@ export class CodexEventConverter {
   private convertReasoning(
     item: CodexReasoningItem,
     _phase: string,
-    metadata: CodexMessageMetadata
+    metadata: CodexMessageMetadata,
+    eventTimestamp?: string
   ): ClaudeStreamMessage {
+    const ts = eventTimestamp || new Date().toISOString();
     return {
       type: 'thinking',
       content: item.text,
-      timestamp: new Date().toISOString(),
-      receivedAt: new Date().toISOString(),
+      timestamp: ts,
+      receivedAt: ts,
       codexMetadata: metadata,
     };
   }
@@ -439,10 +443,12 @@ export class CodexEventConverter {
   private convertCommandExecution(
     item: CodexCommandExecutionItem,
     phase: string,
-    metadata: CodexMessageMetadata
+    metadata: CodexMessageMetadata,
+    eventTimestamp?: string
   ): ClaudeStreamMessage {
     const isComplete = phase === 'completed';
     const toolUseId = `codex_cmd_${item.id}`;
+    const ts = eventTimestamp || new Date().toISOString();
 
     if (!isComplete) {
       // Return tool_use for started/updated
@@ -455,8 +461,8 @@ export class CodexEventConverter {
           input: { command: item.command },
           type: 'tool_use',
         },
-        timestamp: new Date().toISOString(),
-        receivedAt: new Date().toISOString(),
+        timestamp: ts,
+        receivedAt: ts,
         codexMetadata: metadata,
       };
     } else {
@@ -475,8 +481,8 @@ export class CodexEventConverter {
           is_error: item.status === 'failed',
           type: 'tool_result',
         },
-        timestamp: new Date().toISOString(),
-        receivedAt: new Date().toISOString(),
+        timestamp: ts,
+        receivedAt: ts,
         codexMetadata: metadata,
       };
     }
@@ -488,8 +494,10 @@ export class CodexEventConverter {
   private convertFileChange(
     item: CodexFileChangeItem,
     phase: string,
-    metadata: CodexMessageMetadata
+    metadata: CodexMessageMetadata,
+    eventTimestamp?: string
   ): ClaudeStreamMessage {
+    const ts = eventTimestamp || new Date().toISOString();
     const toolUseId = `codex_file_${item.id}`;
     const toolName = item.change_type === 'create' ? 'write' : item.change_type === 'delete' ? 'bash' : 'edit';
 
@@ -517,8 +525,8 @@ export class CodexEventConverter {
         is_error: item.status === 'failed',
         type: 'tool_result',
       } : undefined,
-      timestamp: new Date().toISOString(),
-      receivedAt: new Date().toISOString(),
+      timestamp: ts,
+      receivedAt: ts,
       codexMetadata: metadata,
     };
   }
@@ -530,8 +538,10 @@ export class CodexEventConverter {
   private convertMcpToolCall(
     item: any, // Use any to handle actual Codex format
     _phase: string,
-    metadata: CodexMessageMetadata
+    metadata: CodexMessageMetadata,
+    eventTimestamp?: string
   ): ClaudeStreamMessage {
+    const ts = eventTimestamp || new Date().toISOString();
     const toolUseId = `codex_mcp_${item.id}`;
 
     // Extract tool name from Codex format: server.tool or just tool
@@ -577,8 +587,8 @@ export class CodexEventConverter {
           }
         ]
       },
-      timestamp: new Date().toISOString(),
-      receivedAt: new Date().toISOString(),
+      timestamp: ts,
+      receivedAt: ts,
       codexMetadata: metadata,
     };
   }
@@ -590,8 +600,10 @@ export class CodexEventConverter {
   private convertWebSearch(
     item: CodexWebSearchItem,
     phase: string,
-    metadata: CodexMessageMetadata
+    metadata: CodexMessageMetadata,
+    eventTimestamp?: string
   ): ClaudeStreamMessage {
+    const ts = eventTimestamp || new Date().toISOString();
     const toolUseId = `codex_search_${item.id}`;
 
     if (phase !== 'completed') {
@@ -604,8 +616,8 @@ export class CodexEventConverter {
           input: { query: item.query },
           type: 'tool_use',
         },
-        timestamp: new Date().toISOString(),
-        receivedAt: new Date().toISOString(),
+        timestamp: ts,
+        receivedAt: ts,
         codexMetadata: metadata,
       };
     } else {
@@ -623,8 +635,8 @@ export class CodexEventConverter {
           is_error: item.status === 'failed',
           type: 'tool_result',
         },
-        timestamp: new Date().toISOString(),
-        receivedAt: new Date().toISOString(),
+        timestamp: ts,
+        receivedAt: ts,
         codexMetadata: metadata,
       };
     }
@@ -636,8 +648,10 @@ export class CodexEventConverter {
   private convertTodoList(
     item: CodexTodoListItem,
     _phase: string,
-    metadata: CodexMessageMetadata
+    metadata: CodexMessageMetadata,
+    eventTimestamp?: string
   ): ClaudeStreamMessage {
+    const ts = eventTimestamp || new Date().toISOString();
     const todoText = item.todos
       .map(
         (todo) =>
@@ -649,8 +663,8 @@ export class CodexEventConverter {
       type: 'system',
       subtype: 'info',
       result: `**Plan:**\n${todoText}`,
-      timestamp: new Date().toISOString(),
-      receivedAt: new Date().toISOString(),
+      timestamp: ts,
+      receivedAt: ts,
       codexMetadata: metadata,
     };
   }
@@ -662,7 +676,8 @@ export class CodexEventConverter {
     input_tokens: number;
     cached_input_tokens?: number;
     output_tokens: number;
-  }): ClaudeStreamMessage {
+  }, eventTimestamp?: string): ClaudeStreamMessage {
+    const ts = eventTimestamp || new Date().toISOString();
     const totalTokens = usage.input_tokens + usage.output_tokens;
     const cacheInfo = usage.cached_input_tokens ? ` (${usage.cached_input_tokens} cached)` : '';
 
@@ -670,8 +685,8 @@ export class CodexEventConverter {
       type: 'system',
       subtype: 'info',
       result: `**Token Usage:** ${totalTokens} tokens (${usage.input_tokens} input${cacheInfo}, ${usage.output_tokens} output)`,
-      timestamp: new Date().toISOString(),
-      receivedAt: new Date().toISOString(),
+      timestamp: ts,
+      receivedAt: ts,
       usage,
     };
   }
@@ -679,13 +694,14 @@ export class CodexEventConverter {
   /**
    * Creates an error message
    */
-  private createErrorMessage(errorText: string): ClaudeStreamMessage {
+  private createErrorMessage(errorText: string, eventTimestamp?: string): ClaudeStreamMessage {
+    const ts = eventTimestamp || new Date().toISOString();
     return {
       type: 'system',
       subtype: 'error',
       result: `**Error:** ${errorText}`,
-      timestamp: new Date().toISOString(),
-      receivedAt: new Date().toISOString(),
+      timestamp: ts,
+      receivedAt: ts,
     };
   }
 
