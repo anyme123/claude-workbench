@@ -130,6 +130,10 @@ export const AIMessage: React.FC<AIMessageProps> = ({
     return parts.join(' | ');
   })() : null;
 
+  // Detect if this is a Codex message
+  const isCodexMessage = !!(message as any).codexMetadata;
+  const assistantName = isCodexMessage ? 'Codex' : 'Claude';
+
   return (
     <div className={cn("relative", className)}>
       <MessageBubble variant="assistant" isStreaming={isStreaming}>
@@ -141,7 +145,7 @@ export const AIMessage: React.FC<AIMessageProps> = ({
               <div className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-500/10 flex-shrink-0">
                 <Bot className="w-4 h-4 text-blue-500" />
               </div>
-              <span className="font-medium">Claude</span>
+              <span className="font-medium">{assistantName}</span>
               {formatTimestamp((message as any).receivedAt ?? (message as any).timestamp) && (
                 <>
                   <span className="text-muted-foreground/50">•</span>
