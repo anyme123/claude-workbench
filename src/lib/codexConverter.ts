@@ -104,7 +104,11 @@ export class CodexEventConverter {
         return this.convertFileChange(item, phase, metadata);
 
       case 'mcp_tool_call':
-        return this.convertMcpToolCall(item, phase, metadata);
+        // Only show tool calls when completed (to avoid "executing" state)
+        if (phase === 'completed') {
+          return this.convertMcpToolCall(item, phase, metadata);
+        }
+        return null;
 
       case 'web_search':
         return this.convertWebSearch(item, phase, metadata);
@@ -251,11 +255,12 @@ export class CodexEventConverter {
   }
 
   /**
-   * Converts mcp_tool_call to tool_use message
+   * Converts mcp_tool_call to complete tool_use + tool_result message
+   * Only called when phase === 'completed'
    */
   private convertMcpToolCall(
     item: any, // Use any to handle actual Codex format
-    phase: string,
+    _phase: string,
     metadata: CodexMessageMetadata
   ): ClaudeStreamMessage {
     const toolUseId = `codex_mcp_${item.id}`;
@@ -263,58 +268,51 @@ export class CodexEventConverter {
     // Extract tool name from Codex format: server.tool or just tool
     const toolName = item.server ? `mcp__${item.server}__${item.tool}` : (item.tool || item.tool_name);
 
-    if (phase !== 'completed') {
-      return {
-        type: 'tool_use',
-        subtype: 'tool_use',
-        tool_use: {
-          id: toolUseId,
-          name: toolName,
-          input: item.arguments || item.tool_input || {},
-          type: 'tool_use',
-        },
-        timestamp: new Date().toISOString(),
-        receivedAt: new Date().toISOString(),
-        codexMetadata: metadata,
-      };
-    } else {
-      // Extract actual result content from nested structure
-      const output = item.result || item.tool_output;
-      let resultText = '';
+    // Always create a complete message with both tool_use and tool_result
+    {
+    // Extract actual result content from nested structure
+    const output = item.result || item.tool_output;
+    let resultText = '';
 
-      if (output && typeof output === 'object') {
-        // MCP result format: { content: [{ text: "..." }], ... }
-        if (output.content && Array.isArray(output.content)) {
-          resultText = output.content
-            .filter((c: any) => c.type === 'text' || c.text)
-            .map((c: any) => c.text)
-            .join('\n');
-        } else {
-          resultText = JSON.stringify(output, null, 2);
-        }
+    if (output && typeof output === 'object') {
+      // MCP result format: { content: [{ text: "..." }], ... }
+      if (output.content && Array.isArray(output.content)) {
+        resultText = output.content
+          .filter((c: any) => c.type === 'text' || c.text)
+          .map((c: any) => c.text)
+          .join('\n');
       } else {
-        resultText = output ? String(output) : '';
+        resultText = JSON.stringify(output, null, 2);
       }
-
-      return {
-        type: 'tool_use',
-        subtype: 'tool_result',
-        tool_result: {
-          tool_use_id: toolUseId,
-          content: [
-            {
-              type: 'text',
-              text: resultText,
-            },
-          ],
-          is_error: item.status === 'failed' || item.error !== null,
-          type: 'tool_result',
-        },
-        timestamp: new Date().toISOString(),
-        receivedAt: new Date().toISOString(),
-        codexMetadata: metadata,
-      };
+    } else {
+      resultText = output ? String(output) : '';
     }
+
+    // Return assistant message with both tool_use and tool_result in content array
+    return {
+      type: 'assistant',
+      message: {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool_use',
+            id: toolUseId,
+            name: toolName,
+            input: item.arguments || item.tool_input || {},
+          },
+          {
+            type: 'tool_result',
+            tool_use_id: toolUseId,
+            content: [{ type: 'text', text: resultText }],
+            is_error: item.status === 'failed' || item.error !== null,
+          }
+        ]
+      },
+      timestamp: new Date().toISOString(),
+      receivedAt: new Date().toISOString(),
+      codexMetadata: metadata,
+    };
+  }
   }
 
   /**
