@@ -63,7 +63,12 @@ export function useSessionLifecycle(config: UseSessionLifecycleConfig): UseSessi
       setIsLoading(true);
       setError(null);
 
-      const history = await api.loadSessionHistory(session.id, session.project_id);
+      console.log('[useSessionLifecycle] Loading session:', session.id, 'engine:', (session as any).engine);
+      const history = await api.loadSessionHistory(
+        session.id,
+        session.project_id,
+        (session as any).engine // 🆕 Pass engine type
+      );
 
       // Convert history to messages format
       const loadedMessages: ClaudeStreamMessage[] = history
