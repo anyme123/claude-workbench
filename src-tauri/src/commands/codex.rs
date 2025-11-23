@@ -222,14 +222,85 @@ pub async fn cancel_codex(
 // Session Management
 // ============================================================================
 
-/// Lists all Codex sessions
+/// Lists all Codex sessions by reading ~/.codex/sessions directory
 #[tauri::command]
 pub async fn list_codex_sessions() -> Result<Vec<CodexSession>, String> {
     log::info!("list_codex_sessions called");
 
-    // TODO: Implement session listing by reading ~/.codex/sessions directory
-    // For now, return empty list
-    Ok(Vec::new())
+    let home_dir = dirs::home_dir()
+        .ok_or_else(|| "Failed to get home directory".to_string())?;
+
+    let sessions_dir = home_dir.join(".codex").join("sessions");
+
+    if !sessions_dir.exists() {
+        log::warn!("Codex sessions directory does not exist: {:?}", sessions_dir);
+        return Ok(Vec::new());
+    }
+
+    let mut sessions = Vec::new();
+
+    // Walk through date-organized directories (2025/11/23/)
+    if let Ok(entries) = std::fs::read_dir(&sessions_dir) {
+        for year_entry in entries.flatten() {
+            if let Ok(month_entries) = std::fs::read_dir(year_entry.path()) {
+                for month_entry in month_entries.flatten() {
+                    if let Ok(day_entries) = std::fs::read_dir(month_entry.path()) {
+                        for day_entry in day_entries.flatten() {
+                            let path = day_entry.path();
+                            if path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
+                                if let Some(session) = parse_codex_session_file(&path) {
+                                    sessions.push(session);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Sort by creation time (newest first)
+    sessions.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+
+    log::info!("Found {} Codex sessions", sessions.len());
+    Ok(sessions)
+}
+
+/// Parses a Codex session JSONL file to extract metadata
+fn parse_codex_session_file(path: &std::path::Path) -> Option<CodexSession> {
+    use std::io::{BufRead, BufReader};
+
+    let file = std::fs::File::open(path).ok()?;
+    let reader = BufReader::new(file);
+
+    // Read first line (session_meta)
+    let first_line = reader.lines().next()?.ok()?;
+    let meta: serde_json::Value = serde_json::from_str(&first_line).ok()?;
+
+    if meta["type"].as_str()? != "session_meta" {
+        return None;
+    }
+
+    let payload = &meta["payload"];
+    let session_id = payload["id"].as_str()?.to_string();
+    let timestamp_str = payload["timestamp"].as_str()?;
+
+    // Parse timestamp
+    let created_at = chrono::DateTime::parse_from_rfc3339(timestamp_str)
+        .ok()?
+        .timestamp() as u64;
+
+    let cwd = payload["cwd"].as_str().unwrap_or("").to_string();
+
+    Some(CodexSession {
+        id: session_id,
+        project_path: cwd,
+        created_at,
+        updated_at: created_at,
+        mode: CodexExecutionMode::ReadOnly, // Default, can be enhanced
+        model: None,
+        status: "completed".to_string(),
+    })
 }
 
 /// Gets details of a specific Codex session
