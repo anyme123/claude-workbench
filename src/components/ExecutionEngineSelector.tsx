@@ -220,6 +220,7 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
       }
       className="w-96"
       align="start"
+      side="top"
     />
   );
 };
