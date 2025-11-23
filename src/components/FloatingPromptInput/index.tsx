@@ -23,6 +23,7 @@ import { usePromptEnhancement } from "./hooks/usePromptEnhancement";
 import { api } from "@/lib/api";
 import { getEnabledProviders } from "@/lib/promptEnhancementService";
 import { SessionToolbar } from "@/components/SessionToolbar";
+import { ExecutionEngineSelector, type ExecutionEngineConfig } from "@/components/ExecutionEngineSelector";
 
 // Re-export types for external use
 export type { FloatingPromptInputRef, FloatingPromptInputProps, ThinkingMode, ModelType } from "./types";
@@ -57,9 +58,11 @@ const FloatingPromptInputInner = (
     isPlanMode = false,
     onTogglePlanMode,
     sessionCost,
-  sessionStats,
+    sessionStats,
     hasMessages = false,
     session,
+    executionEngineConfig: externalEngineConfig, // 🆕 外部传入的执行引擎配置
+    onExecutionEngineConfigChange,               // 🆕 配置变更回调
   }: FloatingPromptInputProps,
   ref: React.Ref<FloatingPromptInputRef>,
 ) => {
@@ -85,6 +88,41 @@ const FloatingPromptInputInner = (
   const [isExpanded, setIsExpanded] = useState(false);
   const [showCostPopover, setShowCostPopover] = useState(false);
   const [cursorPosition, setCursorPosition] = useState(0);
+
+  // 🆕 Execution Engine State (use external config if provided, otherwise use localStorage)
+  const [executionEngineConfig, setExecutionEngineConfig] = useState<ExecutionEngineConfig>(() => {
+    // Prioritize external config
+    if (externalEngineConfig) {
+      return externalEngineConfig;
+    }
+
+    // Fallback to localStorage
+    try {
+      const stored = localStorage.getItem('execution_engine_config');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      console.error('[ExecutionEngine] Failed to load config from localStorage:', error);
+    }
+
+    // Default config
+    return {
+      engine: 'claude',
+      codexMode: 'read-only',
+      codexModel: 'gpt-5.1-codex-max',
+    };
+  });
+
+  // Persist execution engine config to localStorage and notify parent
+  useEffect(() => {
+    try {
+      localStorage.setItem('execution_engine_config', JSON.stringify(executionEngineConfig));
+      onExecutionEngineConfigChange?.(executionEngineConfig);
+    } catch (error) {
+      console.error('[ExecutionEngine] Failed to save config to localStorage:', error);
+    }
+  }, [executionEngineConfig, onExecutionEngineConfigChange]);
 
   // 动态加载模型列表（包括自定义模型）
   const [availableModels, setAvailableModels] = useState<ModelConfig[]>(MODELS);
@@ -481,24 +519,35 @@ const FloatingPromptInputInner = (
               />
 
               <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-2">
-                  <ModelSelector
-                    selectedModel={selectedModel}
-                    onModelChange={setSelectedModel}
-                    disabled={disabled}
-                    availableModels={availableModels}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* 🆕 Execution Engine Selector */}
+                  <ExecutionEngineSelector
+                    value={executionEngineConfig}
+                    onChange={setExecutionEngineConfig}
                   />
-                  <ThinkingModeToggle
-                    isEnabled={selectedThinkingMode === "on"}
-                    onToggle={handleToggleThinkingMode}
-                    disabled={disabled}
-                  />
-                  {onTogglePlanMode && (
-                    <PlanModeToggle
-                      isPlanMode={isPlanMode || false}
-                      onToggle={onTogglePlanMode}
-                      disabled={disabled}
-                    />
+
+                  {/* Only show model selector for Claude Code */}
+                  {executionEngineConfig.engine === 'claude' && (
+                    <>
+                      <ModelSelector
+                        selectedModel={selectedModel}
+                        onModelChange={setSelectedModel}
+                        disabled={disabled}
+                        availableModels={availableModels}
+                      />
+                      <ThinkingModeToggle
+                        isEnabled={selectedThinkingMode === "on"}
+                        onToggle={handleToggleThinkingMode}
+                        disabled={disabled}
+                      />
+                      {onTogglePlanMode && (
+                        <PlanModeToggle
+                          isPlanMode={isPlanMode || false}
+                          onToggle={onTogglePlanMode}
+                          disabled={disabled}
+                        />
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -725,28 +774,39 @@ const FloatingPromptInputInner = (
 
           {/* Second Row: All Controls */}
           <div className="flex items-center gap-2">
-            {/* Model Selector */}
-            <ModelSelector
-              selectedModel={selectedModel}
-              onModelChange={setSelectedModel}
-              disabled={disabled}
-              availableModels={availableModels}
+            {/* 🆕 Execution Engine Selector */}
+            <ExecutionEngineSelector
+              value={executionEngineConfig}
+              onChange={setExecutionEngineConfig}
             />
 
-            {/* Thinking Mode Toggle */}
-            <ThinkingModeToggle
-              isEnabled={selectedThinkingMode === "on"}
-              onToggle={handleToggleThinkingMode}
-              disabled={disabled}
-            />
+            {/* Only show Claude-specific controls for Claude Code */}
+            {executionEngineConfig.engine === 'claude' && (
+              <>
+                {/* Model Selector */}
+                <ModelSelector
+                  selectedModel={selectedModel}
+                  onModelChange={setSelectedModel}
+                  disabled={disabled}
+                  availableModels={availableModels}
+                />
 
-            {/* Plan Mode Toggle */}
-            {onTogglePlanMode && (
-              <PlanModeToggle
-                isPlanMode={isPlanMode || false}
-                onToggle={onTogglePlanMode}
-                disabled={disabled}
-              />
+                {/* Thinking Mode Toggle */}
+                <ThinkingModeToggle
+                  isEnabled={selectedThinkingMode === "on"}
+                  onToggle={handleToggleThinkingMode}
+                  disabled={disabled}
+                />
+
+                {/* Plan Mode Toggle */}
+                {onTogglePlanMode && (
+                  <PlanModeToggle
+                    isPlanMode={isPlanMode || false}
+                    onToggle={onTogglePlanMode}
+                    disabled={disabled}
+                  />
+                )}
+              </>
             )}
 
             {/* Session Cost with Details */}

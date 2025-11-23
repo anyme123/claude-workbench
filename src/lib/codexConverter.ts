@@ -123,7 +123,7 @@ export class CodexEventConverter {
    */
   private convertAgentMessage(
     item: CodexAgentMessageItem,
-    phase: string,
+    _phase: string,
     metadata: CodexMessageMetadata
   ): ClaudeStreamMessage {
     return {
@@ -148,7 +148,7 @@ export class CodexEventConverter {
    */
   private convertReasoning(
     item: CodexReasoningItem,
-    phase: string,
+    _phase: string,
     metadata: CodexMessageMetadata
   ): ClaudeStreamMessage {
     return {
@@ -347,7 +347,7 @@ export class CodexEventConverter {
    */
   private convertTodoList(
     item: CodexTodoListItem,
-    phase: string,
+    _phase: string,
     metadata: CodexMessageMetadata
   ): ClaudeStreamMessage {
     const todoText = item.todos

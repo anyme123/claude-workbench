@@ -102,6 +102,13 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
   // Plan Mode state
   const [isPlanMode, setIsPlanMode] = useState(false);
 
+  // 🆕 Execution Engine Config (Codex integration)
+  const [executionEngineConfig, setExecutionEngineConfig] = useState<import('@/components/FloatingPromptInput/types').ExecutionEngineConfig>({
+    engine: 'claude',
+    codexMode: 'read-only',
+    codexModel: 'gpt-5.1-codex-max',
+  });
+
   // Queued prompts state
   const [queuedPrompts, setQueuedPrompts] = useState<Array<{ id: string; prompt: string; model: ModelType }>>([]);
 
@@ -271,6 +278,9 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
     isActive,
     isFirstPrompt,
     extractedSessionInfo,
+    executionEngine: executionEngineConfig.engine, // 🆕 Codex integration
+    codexMode: executionEngineConfig.codexMode,    // 🆕 Codex integration
+    codexModel: executionEngineConfig.codexModel,  // 🆕 Codex integration
     hasActiveSessionRef,
     unlistenRefs,
     isMountedRef,
@@ -1157,6 +1167,8 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
               sessionStats={costStats}
               hasMessages={messages.length > 0}
               session={effectiveSession || undefined}  // 🆕 传递完整会话信息用于导出
+              executionEngineConfig={executionEngineConfig}              // 🆕 Codex 集成
+              onExecutionEngineConfigChange={setExecutionEngineConfig}   // 🆕 Codex 集成
             />
           </div>
 

@@ -246,7 +246,7 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
           });
 
           // Listen for Codex completion
-          const codexCompleteUnlisten = await listen<boolean>('codex-complete', (evt) => {
+          const codexCompleteUnlisten = await listen<boolean>('codex-complete', (_evt) => {
             console.log('[Codex] Execution complete');
             setIsLoading(false);
             hasActiveSessionRef.current = false;
