@@ -247,6 +247,8 @@ export class CodexEventConverter {
       },
       timestamp: payload.timestamp || event.timestamp || new Date().toISOString(),
       receivedAt: payload.timestamp || event.timestamp || new Date().toISOString(),
+      // Add Codex identifier for UI display
+      engine: 'codex' as const,
     };
 
     console.log('[CodexConverter] Converted response_item:', {
@@ -284,6 +286,7 @@ export class CodexEventConverter {
       },
       timestamp: event.timestamp || new Date().toISOString(),
       receivedAt: event.timestamp || new Date().toISOString(),
+      engine: 'codex' as const,
     };
   }
 
@@ -322,6 +325,7 @@ export class CodexEventConverter {
       },
       timestamp: event.timestamp || new Date().toISOString(),
       receivedAt: event.timestamp || new Date().toISOString(),
+      engine: 'codex' as const,
     };
   }
 
@@ -344,6 +348,7 @@ export class CodexEventConverter {
       content: summaryText || '(Extended thinking - encrypted content)',
       timestamp: event.timestamp || new Date().toISOString(),
       receivedAt: event.timestamp || new Date().toISOString(),
+      engine: 'codex' as const,
     };
   }
 
@@ -414,6 +419,7 @@ export class CodexEventConverter {
       },
       timestamp: ts,
       receivedAt: ts,
+      engine: 'codex' as const,
       codexMetadata: metadata,
     };
   }
@@ -433,6 +439,7 @@ export class CodexEventConverter {
       content: item.text,
       timestamp: ts,
       receivedAt: ts,
+      engine: 'codex' as const,
       codexMetadata: metadata,
     };
   }
@@ -527,6 +534,7 @@ export class CodexEventConverter {
       } : undefined,
       timestamp: ts,
       receivedAt: ts,
+      engine: 'codex' as const,
       codexMetadata: metadata,
     };
   }
@@ -589,6 +597,7 @@ export class CodexEventConverter {
       },
       timestamp: ts,
       receivedAt: ts,
+      engine: 'codex' as const,
       codexMetadata: metadata,
     };
   }
@@ -665,6 +674,7 @@ export class CodexEventConverter {
       result: `**Plan:**\n${todoText}`,
       timestamp: ts,
       receivedAt: ts,
+      engine: 'codex' as const,
       codexMetadata: metadata,
     };
   }

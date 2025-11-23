@@ -131,7 +131,7 @@ export const AIMessage: React.FC<AIMessageProps> = ({
   })() : null;
 
   // Detect if this is a Codex message
-  const isCodexMessage = !!(message as any).codexMetadata;
+  const isCodexMessage = (message as any).engine === 'codex';
   const assistantName = isCodexMessage ? 'Codex' : 'Claude';
 
   return (
