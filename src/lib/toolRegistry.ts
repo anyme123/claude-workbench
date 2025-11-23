@@ -99,7 +99,11 @@ class ToolRegistryClass {
    * @param toolName 工具名称
    * @returns 渲染器或 null
    */
-  getRenderer(toolName: string): ToolRenderer | null {
+  getRenderer(toolName: string | undefined): ToolRenderer | null {
+    if (!toolName) {
+      console.warn('[ToolRegistry] Tool name is undefined');
+      return null;
+    }
     const normalizedName = toolName.toLowerCase();
 
     // 1. 精确匹配
