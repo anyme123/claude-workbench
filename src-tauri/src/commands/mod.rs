@@ -1,6 +1,7 @@
 pub mod acemcp;
 pub mod claude;
 pub mod clipboard;
+pub mod codex;  // OpenAI Codex integration
 pub mod context_commands;
 pub mod context_manager;
 pub mod enhanced_hooks;

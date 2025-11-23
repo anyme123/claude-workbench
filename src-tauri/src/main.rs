@@ -65,6 +65,12 @@ use commands::extensions::{
 };
 use commands::file_operations::{open_directory_in_explorer, open_file_with_default_app};
 use commands::git_stats::{get_git_diff_stats, get_session_code_changes};
+use commands::codex::{
+    execute_codex, resume_codex, resume_last_codex, cancel_codex,
+    list_codex_sessions, get_codex_session, delete_codex_session,
+    check_codex_availability, set_codex_api_key, get_codex_api_key,
+    CodexProcessState,
+};
 use process::ProcessRegistryState;
 use tauri::Manager;
 use tauri_plugin_window_state::Builder as WindowStatePlugin;
@@ -98,6 +104,9 @@ fn main() {
 
             // Initialize Claude process state
             app.manage(ClaudeProcessState::default());
+
+            // Initialize Codex process state
+            app.manage(CodexProcessState::default());
 
             // Initialize auto-compact manager for context management
             let auto_compact_manager =
@@ -274,6 +283,17 @@ fn main() {
             // Git Statistics
             get_git_diff_stats,
             get_session_code_changes,
+            // OpenAI Codex Integration
+            execute_codex,
+            resume_codex,
+            resume_last_codex,
+            cancel_codex,
+            list_codex_sessions,
+            get_codex_session,
+            delete_codex_session,
+            check_codex_availability,
+            set_codex_api_key,
+            get_codex_api_key,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
