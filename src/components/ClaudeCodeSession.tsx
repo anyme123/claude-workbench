@@ -103,10 +103,22 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
   const [isPlanMode, setIsPlanMode] = useState(false);
 
   // 🆕 Execution Engine Config (Codex integration)
-  const [executionEngineConfig, setExecutionEngineConfig] = useState<import('@/components/FloatingPromptInput/types').ExecutionEngineConfig>({
-    engine: 'claude',
-    codexMode: 'read-only',
-    codexModel: 'gpt-5.1-codex-max',
+  // Load from localStorage to remember user's settings
+  const [executionEngineConfig, setExecutionEngineConfig] = useState<import('@/components/FloatingPromptInput/types').ExecutionEngineConfig>(() => {
+    try {
+      const stored = localStorage.getItem('execution_engine_config');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      console.error('[ClaudeCodeSession] Failed to load engine config from localStorage:', error);
+    }
+    // Default config
+    return {
+      engine: 'claude',
+      codexMode: 'read-only',
+      codexModel: 'gpt-5.1-codex-max',
+    };
   });
 
   // Queued prompts state
