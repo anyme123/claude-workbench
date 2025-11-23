@@ -68,6 +68,7 @@ use commands::git_stats::{get_git_diff_stats, get_session_code_changes};
 use commands::codex::{
     execute_codex, resume_codex, resume_last_codex, cancel_codex,
     list_codex_sessions, get_codex_session, delete_codex_session,
+    load_codex_session_history,
     check_codex_availability, set_codex_api_key, get_codex_api_key,
     CodexProcessState,
 };
@@ -291,6 +292,7 @@ fn main() {
             list_codex_sessions,
             get_codex_session,
             delete_codex_session,
+            load_codex_session_history,
             check_codex_availability,
             set_codex_api_key,
             get_codex_api_key,

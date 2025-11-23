@@ -380,6 +380,56 @@ fn parse_codex_session_file(path: &std::path::Path) -> Option<CodexSession> {
     })
 }
 
+/// Loads Codex session history from JSONL file
+#[tauri::command]
+pub async fn load_codex_session_history(session_id: String) -> Result<Vec<serde_json::Value>, String> {
+    log::info!("load_codex_session_history called for: {}", session_id);
+
+    // Find the session file by ID
+    let home_dir = dirs::home_dir()
+        .ok_or_else(|| "Failed to get home directory".to_string())?;
+
+    let sessions_dir = home_dir.join(".codex").join("sessions");
+
+    // Search for file containing this session_id
+    let session_file = find_session_file(&sessions_dir, &session_id)
+        .ok_or_else(|| format!("Session file not found for ID: {}", session_id))?;
+
+    // Read and parse JSONL file
+    use std::io::{BufRead, BufReader};
+    let file = std::fs::File::open(&session_file)
+        .map_err(|e| format!("Failed to open session file: {}", e))?;
+
+    let reader = BufReader::new(file);
+    let mut events = Vec::new();
+
+    for line_result in reader.lines() {
+        if let Ok(line) = line_result {
+            if let Ok(event) = serde_json::from_str::<serde_json::Value>(&line) {
+                events.push(event);
+            }
+        }
+    }
+
+    log::info!("Loaded {} events from Codex session {}", events.len(), session_id);
+    Ok(events)
+}
+
+/// Finds the JSONL file for a given session ID
+fn find_session_file(sessions_dir: &std::path::Path, session_id: &str) -> Option<std::path::PathBuf> {
+    use walkdir::WalkDir;
+
+    for entry in WalkDir::new(sessions_dir).into_iter().flatten() {
+        if entry.path().extension().and_then(|s| s.to_str()) == Some("jsonl") {
+            if entry.file_name().to_string_lossy().contains(session_id) {
+                return Some(entry.path().to_path_buf());
+            }
+        }
+    }
+
+    None
+}
+
 /// Gets details of a specific Codex session
 #[tauri::command]
 pub async fn get_codex_session(session_id: String) -> Result<Option<CodexSession>, String> {

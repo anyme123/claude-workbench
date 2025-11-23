@@ -838,10 +838,27 @@ export const api = {
 
 
   /**
-   * Loads the JSONL history for a specific session
+   * Loads the JSONL history for a specific session (Claude or Codex)
    */
-  async loadSessionHistory(sessionId: string, projectId: string): Promise<any[]> {
+  async loadSessionHistory(sessionId: string, projectId: string, engine?: 'claude' | 'codex'): Promise<any[]> {
+    // For Codex sessions, read directly from .codex/sessions
+    if (engine === 'codex') {
+      return this.loadCodexSessionHistory(sessionId);
+    }
+    // For Claude sessions, use existing backend
     return invoke("load_session_history", { sessionId, projectId });
+  },
+
+  /**
+   * 🆕 Loads Codex session history from JSONL file
+   */
+  async loadCodexSessionHistory(sessionId: string): Promise<any[]> {
+    try {
+      return await invoke("load_codex_session_history", { sessionId });
+    } catch (error) {
+      console.error("Failed to load Codex session history:", error);
+      throw error;
+    }
   },
 
   /**
