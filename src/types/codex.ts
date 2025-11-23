@@ -298,6 +298,12 @@ export interface CodexSession {
 
   /** Session status */
   status: 'active' | 'completed' | 'failed';
+
+  /** 🆕 First user message */
+  firstMessage?: string;
+
+  /** 🆕 Last message timestamp (ISO string) */
+  lastMessageTimestamp?: string;
 }
 
 // ============================================================================

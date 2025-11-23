@@ -542,14 +542,10 @@ export const api = {
         .filter(cs => {
           // If we don't have a target path, we can't filter, so return no Codex sessions
           if (!targetPathNorm) return false;
-          
+
           const csPathNorm = normalize(cs.projectPath);
           const match = csPathNorm === targetPathNorm;
-          
-          if (!match) {
-            // Optional debug logging
-            // console.log('[SessionList] Codex session path mismatch:', cs.projectPath, 'vs', targetPath);
-          }
+
           return match;
         })
         .map(cs => ({
@@ -559,8 +555,9 @@ export const api = {
           created_at: cs.createdAt,
           model: cs.model || 'gpt-5.1-codex-max',
           engine: 'codex' as const,
-          // Codex sessions might not have a first_message extracted yet, so provide a fallback
-          first_message: `Codex Session (${new Date(cs.createdAt * 1000).toLocaleDateString()})`,
+          // 🆕 Use actual first message from JSONL file
+          first_message: cs.firstMessage || `Codex Session`,
+          last_message_timestamp: cs.lastMessageTimestamp,
         }));
 
       console.log('[SessionList] Filtered Codex sessions:', filteredCodexSessions.length);
