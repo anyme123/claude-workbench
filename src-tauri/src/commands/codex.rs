@@ -231,6 +231,7 @@ pub async fn list_codex_sessions() -> Result<Vec<CodexSession>, String> {
         .ok_or_else(|| "Failed to get home directory".to_string())?;
 
     let sessions_dir = home_dir.join(".codex").join("sessions");
+    log::info!("Looking for Codex sessions in: {:?}", sessions_dir);
 
     if !sessions_dir.exists() {
         log::warn!("Codex sessions directory does not exist: {:?}", sessions_dir);
@@ -242,14 +243,24 @@ pub async fn list_codex_sessions() -> Result<Vec<CodexSession>, String> {
     // Walk through date-organized directories (2025/11/23/)
     if let Ok(entries) = std::fs::read_dir(&sessions_dir) {
         for year_entry in entries.flatten() {
+            log::debug!("Checking year dir: {:?}", year_entry.path());
             if let Ok(month_entries) = std::fs::read_dir(year_entry.path()) {
                 for month_entry in month_entries.flatten() {
+                    log::debug!("Checking month dir: {:?}", month_entry.path());
                     if let Ok(day_entries) = std::fs::read_dir(month_entry.path()) {
                         for day_entry in day_entries.flatten() {
                             let path = day_entry.path();
+                            log::debug!("Checking file: {:?}", path);
                             if path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
-                                if let Some(session) = parse_codex_session_file(&path) {
-                                    sessions.push(session);
+                                log::info!("Parsing session file: {:?}", path);
+                                match parse_codex_session_file(&path) {
+                                    Some(session) => {
+                                        log::info!("✅ Parsed session: {}", session.id);
+                                        sessions.push(session);
+                                    }
+                                    None => {
+                                        log::warn!("❌ Failed to parse session file: {:?}", path);
+                                    }
                                 }
                             }
                         }
