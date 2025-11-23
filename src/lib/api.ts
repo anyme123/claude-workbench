@@ -54,6 +54,8 @@ export interface Session {
   last_message_timestamp?: string;
   /** The model used in this session (if available) */
   model?: string;
+  /** 🆕 Execution engine: 'claude' | 'codex' */
+  engine?: 'claude' | 'codex';
 }
 
 /**
@@ -514,13 +516,35 @@ export const api = {
   },
 
   /**
-   * Retrieves sessions for a specific project
+   * Retrieves sessions for a specific project (both Claude and Codex)
    * @param projectId - The ID of the project to retrieve sessions for
    * @returns Promise resolving to an array of sessions
    */
   async getProjectSessions(projectId: string): Promise<Session[]> {
     try {
-      return await invoke<Session[]>('get_project_sessions', { projectId });
+      // Get Claude sessions
+      const claudeSessions = await invoke<Session[]>('get_project_sessions', { projectId });
+
+      // Get Codex sessions and filter by project path
+      const codexSessions = await this.listCodexSessions();
+      const projectPath = claudeSessions[0]?.project_path;
+
+      const filteredCodexSessions: Session[] = codexSessions
+        .filter(cs => projectPath && cs.project_path === projectPath)
+        .map(cs => ({
+          id: cs.id,
+          project_id: projectId,
+          project_path: cs.project_path,
+          created_at: cs.created_at,
+          model: cs.model || 'gpt-5.1-codex-max',
+          engine: 'codex' as const,
+        }));
+
+      // Merge and sort by creation time
+      const allSessions = [...claudeSessions.map(s => ({ ...s, engine: 'claude' as const })), ...filteredCodexSessions];
+      allSessions.sort((a, b) => b.created_at - a.created_at);
+
+      return allSessions;
     } catch (error) {
       console.error("Failed to get project sessions:", error);
       throw error;
