@@ -255,11 +255,14 @@ export class CodexEventConverter {
    * Converts mcp_tool_call to tool_use message
    */
   private convertMcpToolCall(
-    item: CodexMcpToolCallItem,
+    item: any, // Use any to handle actual Codex format
     phase: string,
     metadata: CodexMessageMetadata
   ): ClaudeStreamMessage {
     const toolUseId = `codex_mcp_${item.id}`;
+
+    // Extract tool name from Codex format: server.tool or just tool
+    const toolName = item.server ? `mcp__${item.server}__${item.tool}` : (item.tool || item.tool_name);
 
     if (phase !== 'completed') {
       return {
@@ -267,8 +270,8 @@ export class CodexEventConverter {
         subtype: 'tool_use',
         tool_use: {
           id: toolUseId,
-          name: item.tool_name,
-          input: item.tool_input,
+          name: toolName,
+          input: item.arguments || item.tool_input || {},
           type: 'tool_use',
         },
         timestamp: new Date().toISOString(),
@@ -276,6 +279,7 @@ export class CodexEventConverter {
         codexMetadata: metadata,
       };
     } else {
+      const output = item.result || item.tool_output;
       return {
         type: 'tool_use',
         subtype: 'tool_result',
@@ -284,10 +288,10 @@ export class CodexEventConverter {
           content: [
             {
               type: 'text',
-              text: JSON.stringify(item.tool_output, null, 2),
+              text: typeof output === 'string' ? output : JSON.stringify(output, null, 2),
             },
           ],
-          is_error: item.status === 'failed',
+          is_error: item.status === 'failed' || item.error !== null,
           type: 'tool_result',
         },
         timestamp: new Date().toISOString(),
