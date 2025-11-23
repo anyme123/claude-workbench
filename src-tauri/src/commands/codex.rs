@@ -340,11 +340,17 @@ fn parse_codex_session_file(path: &std::path::Path) -> Option<CodexSession> {
                             if let Some(content) = payload_obj.get("content").and_then(|c| c.as_array()) {
                                 // Extract text from content array
                                 for item in content {
-                                    if let Some(text) = item["text"].as_str() {
-                                        // Skip environment_context messages
-                                        if !text.contains("<environment_context>") && !text.is_empty() {
-                                            first_message = Some(text.to_string());
-                                            break;
+                                    // Check if this is a text content block (input_text type)
+                                    if item["type"].as_str() == Some("input_text") {
+                                        if let Some(text) = item["text"].as_str() {
+                                            // Skip system messages (environment_context and AGENTS.md)
+                                            if !text.contains("<environment_context>")
+                                                && !text.contains("# AGENTS.md instructions")
+                                                && !text.is_empty()
+                                                && text.trim().len() > 0 {
+                                                first_message = Some(text.to_string());
+                                                break;
+                                            }
                                         }
                                     }
                                 }
