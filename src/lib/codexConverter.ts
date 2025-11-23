@@ -36,7 +36,6 @@ export class CodexEventConverter {
   convertEvent(eventLine: string): ClaudeStreamMessage | null {
     try {
       const event = JSON.parse(eventLine) as CodexEvent;
-      console.log('[CodexConverter] Raw event:', event);
 
       switch (event.type) {
         case 'thread.started':
@@ -279,7 +278,24 @@ export class CodexEventConverter {
         codexMetadata: metadata,
       };
     } else {
+      // Extract actual result content from nested structure
       const output = item.result || item.tool_output;
+      let resultText = '';
+
+      if (output && typeof output === 'object') {
+        // MCP result format: { content: [{ text: "..." }], ... }
+        if (output.content && Array.isArray(output.content)) {
+          resultText = output.content
+            .filter((c: any) => c.type === 'text' || c.text)
+            .map((c: any) => c.text)
+            .join('\n');
+        } else {
+          resultText = JSON.stringify(output, null, 2);
+        }
+      } else {
+        resultText = output ? String(output) : '';
+      }
+
       return {
         type: 'tool_use',
         subtype: 'tool_result',
@@ -288,7 +304,7 @@ export class CodexEventConverter {
           content: [
             {
               type: 'text',
-              text: typeof output === 'string' ? output : JSON.stringify(output, null, 2),
+              text: resultText,
             },
           ],
           is_error: item.status === 'failed' || item.error !== null,
