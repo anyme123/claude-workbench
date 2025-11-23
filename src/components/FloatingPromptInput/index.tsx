@@ -117,7 +117,6 @@ const FloatingPromptInputInner = (
   // Sync external config changes to internal state
   useEffect(() => {
     if (externalEngineConfig && externalEngineConfig.engine !== executionEngineConfig.engine) {
-      console.log('[FloatingPromptInput] Syncing external engine config:', externalEngineConfig);
       setExecutionEngineConfig(externalEngineConfig);
     }
   }, [externalEngineConfig]);
