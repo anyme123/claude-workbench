@@ -129,23 +129,62 @@ export const ViewRouter: React.FC = () => {
   // Handlers
   const handleSessionDelete = async (sessionId: string, projectId: string) => {
     try {
-      await api.deleteSession(sessionId, projectId);
+      // Find the session to check if it's a Codex session
+      const session = sessions.find(s => s.id === sessionId);
+      const isCodexSession = session && (session as any).engine === 'codex';
+
+      if (isCodexSession) {
+        // Delete Codex session
+        await api.deleteCodexSession(sessionId);
+      } else {
+        // Delete Claude session
+        await api.deleteSession(sessionId, projectId);
+      }
+
       refreshSessions();
       setToast({ message: `会话已成功删除`, type: "success" });
     } catch (err) {
       console.error("Failed to delete session:", err);
       setToast({ message: `删除会话失败`, type: "error" });
+      // Still refresh sessions to reflect any state changes
+      refreshSessions();
     }
   };
 
   const handleSessionsBatchDelete = async (sessionIds: string[], projectId: string) => {
     try {
-      await api.deleteSessionsBatch(sessionIds, projectId);
+      // Separate Claude and Codex sessions
+      const claudeSessionIds: string[] = [];
+      const codexSessionIds: string[] = [];
+
+      sessionIds.forEach(id => {
+        const session = sessions.find(s => s.id === id);
+        if (session) {
+          if ((session as any).engine === 'codex') {
+            codexSessionIds.push(id);
+          } else {
+            claudeSessionIds.push(id);
+          }
+        }
+      });
+
+      // Delete Codex sessions individually
+      for (const id of codexSessionIds) {
+        await api.deleteCodexSession(id);
+      }
+
+      // Delete Claude sessions in batch
+      if (claudeSessionIds.length > 0) {
+        await api.deleteSessionsBatch(claudeSessionIds, projectId);
+      }
+
       refreshSessions();
       setToast({ message: `成功删除 ${sessionIds.length} 个会话`, type: "success" });
     } catch (err) {
       console.error("Failed to batch delete sessions:", err);
       setToast({ message: `批量删除会话失败`, type: "error" });
+      // Still refresh to reflect any partial deletions
+      refreshSessions();
     }
   };
 

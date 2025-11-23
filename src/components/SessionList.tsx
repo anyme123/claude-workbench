@@ -180,18 +180,8 @@ export const SessionList: React.FC<SessionListProps> = ({
 
     try {
       setIsDeleting(true);
-
-      // Check if this is a Codex session
-      const isCodexSession = (sessionToDelete as any).engine === 'codex';
-
-      if (isCodexSession) {
-        // Delete Codex session directly (doesn't need projectId)
-        await api.deleteCodexSession(sessionToDelete.id);
-      } else {
-        // Delete Claude session (original logic)
-        await onSessionDelete(sessionToDelete.id, sessionToDelete.project_id);
-      }
-
+      // Call the parent handler which will handle both Claude and Codex sessions
+      await onSessionDelete(sessionToDelete.id, sessionToDelete.project_id);
       setDeleteDialogOpen(false);
       setSessionToDelete(null);
     } catch (error) {
@@ -241,37 +231,14 @@ export const SessionList: React.FC<SessionListProps> = ({
     try {
       setIsDeleting(true);
       const sessionIds = Array.from(selectedSessions);
-
-      // Separate Claude and Codex sessions
-      const claudeSessionIds: string[] = [];
-      const codexSessionIds: string[] = [];
-
-      sessionIds.forEach(id => {
-        const session = sessions.find(s => s.id === id);
-        if (session) {
-          if ((session as any).engine === 'codex') {
-            codexSessionIds.push(id);
-          } else {
-            claudeSessionIds.push(id);
-          }
-        }
-      });
-
-      // Delete Codex sessions individually (no batch API yet)
-      for (const id of codexSessionIds) {
-        await api.deleteCodexSession(id);
+      // Get the project_id from the first session
+      const firstSession = sessions.find(s => s.id === sessionIds[0]);
+      if (firstSession) {
+        // Parent handler will separate Claude/Codex sessions and delete accordingly
+        await onSessionsBatchDelete(sessionIds, firstSession.project_id);
+        setSelectedSessions(new Set());
+        setIsSelectionMode(false);
       }
-
-      // Delete Claude sessions in batch
-      if (claudeSessionIds.length > 0) {
-        const firstSession = sessions.find(s => s.id === claudeSessionIds[0]);
-        if (firstSession) {
-          await onSessionsBatchDelete(claudeSessionIds, firstSession.project_id);
-        }
-      }
-
-      setSelectedSessions(new Set());
-      setIsSelectionMode(false);
     } catch (error) {
       console.error("Failed to batch delete sessions:", error);
     } finally {
