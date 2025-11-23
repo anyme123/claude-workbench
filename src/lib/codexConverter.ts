@@ -139,21 +139,17 @@ export class CodexEventConverter {
         return null;
 
       case 'user_message':
-        // Alternative user message format
-        return {
-          type: 'user',
-          message: {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: payload.message || '',
-              },
-            ],
-          },
-          timestamp: event.timestamp || new Date().toISOString(),
-          receivedAt: new Date().toISOString(),
-        };
+        // ⚠️ DUPLICATE DETECTION: Codex sends BOTH event_msg.user_message AND response_item (role: user)
+        // These are the SAME user prompt with identical content
+        // Processing both causes duplicate display with different timestamps
+        //
+        // Example from JSONL:
+        // Line 4: {"type":"response_item","payload":{"role":"user","content":[...]}}
+        // Line 5: {"type":"event_msg","payload":{"type":"user_message","message":"..."}}
+        //
+        // We skip event_msg.user_message to avoid duplication
+        console.log('[CodexConverter] ⚠️ Skipping event_msg.user_message (duplicates response_item with role=user)');
+        return null;
 
       default:
         console.log('[CodexConverter] Skipping event_msg with payload.type:', payload.type);
