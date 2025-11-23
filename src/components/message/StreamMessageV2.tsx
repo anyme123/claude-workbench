@@ -147,15 +147,26 @@ const StreamMessageV2Component: React.FC<StreamMessageV2Props> = ({
     case 'tool_use':
       // Convert tool_use message to assistant format with tool_use/tool_result in content
       const toolUseMsg = message as any;
+
+      // Debug: log the actual structure
+      console.log('[StreamMessageV2] tool_use message:', {
+        hasToolUse: !!toolUseMsg.tool_use,
+        hasToolResult: !!toolUseMsg.tool_result,
+        toolUseName: toolUseMsg.tool_use?.name,
+        toolResultId: toolUseMsg.tool_result?.tool_use_id,
+        fullMessage: toolUseMsg
+      });
+
+      const contentItem = toolUseMsg.tool_use || toolUseMsg.tool_result || toolUseMsg;
+      console.log('[StreamMessageV2] content item:', contentItem);
+
       return (
         <AIMessage
           message={{
             type: 'assistant',
             message: {
               role: 'assistant',
-              content: [
-                toolUseMsg.tool_use || toolUseMsg.tool_result || toolUseMsg
-              ]
+              content: [contentItem]
             },
             timestamp: message.timestamp,
             receivedAt: message.receivedAt
