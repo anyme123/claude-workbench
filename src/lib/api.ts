@@ -2436,4 +2436,156 @@ export const api = {
     }
   },
 
+  // ==================== OpenAI Codex Integration ====================
+
+  /**
+   * Executes a Codex task in non-interactive mode with streaming output
+   * @param options - Codex execution options
+   * @returns Promise resolving when execution starts (events are streamed via event listeners)
+   */
+  async executeCodex(options: import('@/types/codex').CodexExecutionOptions): Promise<void> {
+    try {
+      return await invoke("execute_codex", { options });
+    } catch (error) {
+      console.error("Failed to execute Codex:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Resumes a previous Codex session
+   * @param sessionId - The session ID to resume
+   * @param options - Codex execution options (prompt, mode, etc.)
+   * @returns Promise resolving when execution starts
+   */
+  async resumeCodex(
+    sessionId: string,
+    options: Omit<import('@/types/codex').CodexExecutionOptions, 'sessionId'>
+  ): Promise<void> {
+    try {
+      return await invoke("resume_codex", { sessionId, options });
+    } catch (error) {
+      console.error("Failed to resume Codex session:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Resumes the last Codex session
+   * @param options - Codex execution options
+   * @returns Promise resolving when execution starts
+   */
+  async resumeLastCodex(
+    options: Omit<import('@/types/codex').CodexExecutionOptions, 'resumeLast'>
+  ): Promise<void> {
+    try {
+      return await invoke("resume_last_codex", { options });
+    } catch (error) {
+      console.error("Failed to resume last Codex session:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Cancels a running Codex execution
+   * @param sessionId - Optional session ID to cancel a specific session
+   * @returns Promise resolving when cancellation is complete
+   */
+  async cancelCodex(sessionId?: string): Promise<void> {
+    try {
+      return await invoke("cancel_codex", { sessionId });
+    } catch (error) {
+      console.error("Failed to cancel Codex execution:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Gets a list of all Codex sessions
+   * @returns Promise resolving to array of Codex sessions
+   */
+  async listCodexSessions(): Promise<import('@/types/codex').CodexSession[]> {
+    try {
+      return await invoke<import('@/types/codex').CodexSession[]>("list_codex_sessions");
+    } catch (error) {
+      console.error("Failed to list Codex sessions:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Gets details of a specific Codex session
+   * @param sessionId - The session ID to retrieve
+   * @returns Promise resolving to session details
+   */
+  async getCodexSession(sessionId: string): Promise<import('@/types/codex').CodexSession | null> {
+    try {
+      return await invoke<import('@/types/codex').CodexSession | null>("get_codex_session", { sessionId });
+    } catch (error) {
+      console.error("Failed to get Codex session:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Deletes a Codex session
+   * @param sessionId - The session ID to delete
+   * @returns Promise resolving to success message
+   */
+  async deleteCodexSession(sessionId: string): Promise<string> {
+    try {
+      return await invoke<string>("delete_codex_session", { sessionId });
+    } catch (error) {
+      console.error("Failed to delete Codex session:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Checks if Codex is available and properly configured
+   * @returns Promise resolving to availability status
+   */
+  async checkCodexAvailability(): Promise<{
+    available: boolean;
+    version?: string;
+    error?: string;
+  }> {
+    try {
+      return await invoke("check_codex_availability");
+    } catch (error) {
+      console.error("Failed to check Codex availability:", error);
+      return {
+        available: false,
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  },
+
+  /**
+   * Sets the Codex API key
+   * @param apiKey - The API key to set
+   * @returns Promise resolving to success message
+   */
+  async setCodexApiKey(apiKey: string): Promise<string> {
+    try {
+      return await invoke<string>("set_codex_api_key", { apiKey });
+    } catch (error) {
+      console.error("Failed to set Codex API key:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Gets the current Codex API key (masked)
+   * @returns Promise resolving to masked API key
+   */
+  async getCodexApiKey(): Promise<string | null> {
+    try {
+      return await invoke<string | null>("get_codex_api_key");
+    } catch (error) {
+      console.error("Failed to get Codex API key:", error);
+      return null;
+    }
+  },
+
 };
