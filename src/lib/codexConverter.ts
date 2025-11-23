@@ -36,6 +36,7 @@ export class CodexEventConverter {
   convertEvent(eventLine: string): ClaudeStreamMessage | null {
     try {
       const event = JSON.parse(eventLine) as CodexEvent;
+      console.log('[CodexConverter] Raw event:', event);
 
       switch (event.type) {
         case 'thread.started':
