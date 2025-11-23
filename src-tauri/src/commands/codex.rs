@@ -265,11 +265,22 @@ pub async fn check_codex_availability() -> Result<CodexAvailability, String> {
     for cmd_path in codex_commands {
         log::info!("[Codex] Trying: {}", cmd_path);
 
-        match Command::new(&cmd_path)
-            .arg("--version")
-            .output()
-            .await
+        let mut cmd = Command::new(&cmd_path);
+        cmd.arg("--version");
+
+        // Add npm path to environment for Windows
+        #[cfg(target_os = "windows")]
         {
+            if let Ok(appdata) = std::env::var("APPDATA") {
+                let npm_path = format!(r"{}\npm", appdata);
+                if let Ok(current_path) = std::env::var("PATH") {
+                    let new_path = format!("{};{}", npm_path, current_path);
+                    cmd.env("PATH", new_path);
+                }
+            }
+        }
+
+        match cmd.output().await {
         Ok(output) => {
             let stdout_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
             let stderr_str = String::from_utf8_lossy(&output.stderr).trim().to_string();
@@ -392,13 +403,21 @@ fn build_codex_command(
     options: &CodexExecutionOptions,
     is_resume: bool,
 ) -> Result<Command, String> {
-    // Get the first working Codex command path
-    let codex_cmd = get_working_codex_command()
-        .ok_or_else(|| "Codex CLI not found in any known location".to_string())?;
+    let mut cmd = Command::new("codex");
 
-    log::info!("[Codex] Using command: {}", codex_cmd);
+    // Add npm global directory to PATH
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(appdata) = std::env::var("APPDATA") {
+            let npm_path = format!(r"{}\npm", appdata);
+            if let Ok(current_path) = std::env::var("PATH") {
+                let new_path = format!("{};{}", npm_path, current_path);
+                cmd.env("PATH", new_path);
+                log::info!("[Codex] Added npm path to PATH: {}", npm_path);
+            }
+        }
+    }
 
-    let mut cmd = Command::new(codex_cmd);
     cmd.arg("exec");
 
     // Add resume if needed
