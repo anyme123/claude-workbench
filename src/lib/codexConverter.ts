@@ -127,13 +127,12 @@ export class CodexEventConverter {
 
     switch (payload.type) {
       case 'agent_reasoning':
-        // Short thinking summary
-        return {
-          type: 'thinking',
-          content: payload.text || payload.message || '',
-          timestamp: event.timestamp || new Date().toISOString(),
-          receivedAt: new Date().toISOString(),
-        };
+        // Skip agent_reasoning - it's duplicated by response_item.reasoning
+        // Codex sends both event_msg.agent_reasoning (quick notification) and
+        // response_item.reasoning (full details with encrypted content)
+        // We only process response_item.reasoning to avoid duplicates
+        console.log('[CodexConverter] Skipping event_msg.agent_reasoning (handled by response_item.reasoning)');
+        return null;
 
       case 'token_count':
         // Skip token count events - they are displayed separately via turn.completed
@@ -219,10 +218,11 @@ export class CodexEventConverter {
     }
 
     // Map payload to Claude message structure
-    // Note: Codex uses 'input_text' for user messages, Claude uses 'text'
+    // Note: Codex uses 'input_text' for user messages and 'output_text' for assistant messages
+    // Claude uses 'text' for both
     const content = payload.content?.map(c => ({
       ...c,
-      type: c.type === 'input_text' ? 'text' : c.type
+      type: c.type === 'input_text' || c.type === 'output_text' ? 'text' : c.type
     })) || [];
 
     // Check if content is empty or has only empty text blocks
