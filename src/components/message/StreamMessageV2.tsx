@@ -121,6 +121,47 @@ const StreamMessageV2Component: React.FC<StreamMessageV2Props> = ({
         />
       );
 
+    // 🆕 Codex integration: Handle thinking messages
+    case 'thinking':
+      return (
+        <AIMessage
+          message={{
+            ...message,
+            type: 'assistant',
+            message: {
+              content: [
+                {
+                  type: 'thinking',
+                  thinking: (message as any).content || ''
+                }
+              ]
+            }
+          }}
+          isStreaming={isStreaming}
+          onLinkDetected={onLinkDetected}
+          className={className}
+        />
+      );
+
+    // 🆕 Codex integration: Handle tool_use messages
+    case 'tool_use':
+      return (
+        <AIMessage
+          message={{
+            ...message,
+            type: 'assistant',
+            message: {
+              content: [
+                message
+              ]
+            }
+          }}
+          isStreaming={isStreaming}
+          onLinkDetected={onLinkDetected}
+          className={className}
+        />
+      );
+
     // Silently ignore queue-operation messages (internal operations)
     case 'queue-operation':
       return null;
