@@ -518,9 +518,10 @@ export const api = {
   /**
    * Retrieves sessions for a specific project (both Claude and Codex)
    * @param projectId - The ID of the project to retrieve sessions for
+   * @param projectPath - Optional project path to filter Codex sessions (if not provided, tries to infer from Claude sessions)
    * @returns Promise resolving to an array of sessions
    */
-  async getProjectSessions(projectId: string): Promise<Session[]> {
+  async getProjectSessions(projectId: string, projectPath?: string): Promise<Session[]> {
     try {
       // Get Claude sessions
       const claudeSessions = await invoke<Session[]>('get_project_sessions', { projectId });
@@ -530,14 +531,24 @@ export const api = {
       const codexSessions = await this.listCodexSessions();
       console.log('[SessionList] All Codex sessions:', codexSessions.length);
 
-      const projectPath = claudeSessions[0]?.project_path;
-      console.log('[SessionList] Project path for filtering:', projectPath);
+      const targetPath = projectPath || claudeSessions[0]?.project_path;
+      console.log('[SessionList] Project path for filtering:', targetPath);
+
+      // Normalize paths for comparison (handle Windows backslashes and case insensitivity)
+      const normalize = (p: string) => p ? p.replace(/\\/g, '/').replace(/\/$/, '').toLowerCase() : '';
+      const targetPathNorm = normalize(targetPath || '');
 
       const filteredCodexSessions: Session[] = codexSessions
         .filter(cs => {
-          const match = projectPath && cs.projectPath === projectPath;
+          // If we don't have a target path, we can't filter, so return no Codex sessions
+          if (!targetPathNorm) return false;
+          
+          const csPathNorm = normalize(cs.projectPath);
+          const match = csPathNorm === targetPathNorm;
+          
           if (!match) {
-            console.log('[SessionList] Codex session path mismatch:', cs.projectPath, 'vs', projectPath);
+            // Optional debug logging
+            // console.log('[SessionList] Codex session path mismatch:', cs.projectPath, 'vs', targetPath);
           }
           return match;
         })
@@ -548,6 +559,8 @@ export const api = {
           created_at: cs.createdAt,
           model: cs.model || 'gpt-5.1-codex-max',
           engine: 'codex' as const,
+          // Codex sessions might not have a first_message extracted yet, so provide a fallback
+          first_message: `Codex Session (${new Date(cs.createdAt * 1000).toLocaleDateString()})`,
         }));
 
       console.log('[SessionList] Filtered Codex sessions:', filteredCodexSessions.length);

@@ -106,6 +106,12 @@ pub struct CodexSession {
 
     /// Session status
     pub status: String,
+
+    /// 🆕 First user message
+    pub first_message: Option<String>,
+
+    /// 🆕 Last message timestamp (ISO string)
+    pub last_message_timestamp: Option<String>,
 }
 
 /// Codex availability status
@@ -287,9 +293,10 @@ fn parse_codex_session_file(path: &std::path::Path) -> Option<CodexSession> {
 
     let file = std::fs::File::open(path).ok()?;
     let reader = BufReader::new(file);
+    let mut lines = reader.lines();
 
     // Read first line (session_meta)
-    let first_line = reader.lines().next()?.ok()?;
+    let first_line = lines.next()?.ok()?;
     let meta: serde_json::Value = serde_json::from_str(&first_line).ok()?;
 
     if meta["type"].as_str()? != "session_meta" {
@@ -299,22 +306,76 @@ fn parse_codex_session_file(path: &std::path::Path) -> Option<CodexSession> {
     let payload = &meta["payload"];
     let session_id = payload["id"].as_str()?.to_string();
     let timestamp_str = payload["timestamp"].as_str()?;
-
-    // Parse timestamp
     let created_at = chrono::DateTime::parse_from_rfc3339(timestamp_str)
         .ok()?
         .timestamp() as u64;
 
     let cwd = payload["cwd"].as_str().unwrap_or("").to_string();
 
+    // Extract first user message and other metadata from subsequent lines
+    let mut first_message: Option<String> = None;
+    let mut last_timestamp: Option<String> = None;
+    let mut model: Option<String> = None;
+
+    // Parse remaining lines to find first user message
+    for line_result in lines {
+        if let Ok(line) = line_result {
+            if let Ok(event) = serde_json::from_str::<serde_json::Value>(&line) {
+                // Update last timestamp
+                if let Some(ts) = event["timestamp"].as_str() {
+                    last_timestamp = Some(ts.to_string());
+                }
+
+                // Extract model from session_meta or other events
+                if event["type"].as_str() == Some("session_meta") {
+                    if let Some(m) = event["payload"]["model"].as_str() {
+                        model = Some(m.to_string());
+                    }
+                }
+
+                // Find first user message
+                if first_message.is_none() && event["type"].as_str() == Some("response_item") {
+                    if let Some(payload_obj) = event["payload"].as_object() {
+                        if payload_obj.get("role").and_then(|r| r.as_str()) == Some("user") {
+                            if let Some(content) = payload_obj.get("content").and_then(|c| c.as_array()) {
+                                // Extract text from content array
+                                for item in content {
+                                    if let Some(text) = item["text"].as_str() {
+                                        // Skip environment_context messages
+                                        if !text.contains("<environment_context>") && !text.is_empty() {
+                                            first_message = Some(text.to_string());
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Early exit if we have all info
+                if first_message.is_some() && model.is_some() {
+                    break;
+                }
+            }
+        }
+    }
+
+    let updated_at = last_timestamp
+        .and_then(|ts| chrono::DateTime::parse_from_rfc3339(&ts).ok())
+        .map(|dt| dt.timestamp() as u64)
+        .unwrap_or(created_at);
+
     Some(CodexSession {
         id: session_id,
         project_path: cwd,
         created_at,
-        updated_at: created_at,
-        mode: CodexExecutionMode::ReadOnly, // Default, can be enhanced
-        model: None,
+        updated_at,
+        mode: CodexExecutionMode::ReadOnly,
+        model,
         status: "completed".to_string(),
+        first_message,
+        last_message_timestamp: last_timestamp,
     })
 }
 

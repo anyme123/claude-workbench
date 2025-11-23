@@ -128,7 +128,10 @@ export const SessionList: React.FC<SessionListProps> = ({
   // 🔧 过滤掉空白无用的会话（没有 first_message 或 id 为空的）
   const validSessions = sessions.filter(session =>
     session.id && session.id.trim() !== '' &&
-    (session.first_message && session.first_message.trim() !== '')
+    (
+      (session.first_message && session.first_message.trim() !== '') || 
+      session.engine === 'codex' // Always show Codex sessions, they might use default titles
+    )
   );
 
   // 🔧 按活跃度排序：优先使用最后一条消息时间，其次第一条消息时间，最后使用创建时间

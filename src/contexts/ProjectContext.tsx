@@ -43,7 +43,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     try {
       setLoading(true);
       setError(null);
-      const sessionList = await api.getProjectSessions(project.id);
+      const sessionList = await api.getProjectSessions(project.id, project.path);
       console.log('[ProjectContext] Loaded sessions:', sessionList.length);
       console.log('[ProjectContext] Session engines:', {
         claude: sessionList.filter(s => s.engine === 'claude').length,
@@ -67,7 +67,7 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   const refreshSessions = useCallback(async () => {
     if (selectedProject) {
       try {
-        const sessionList = await api.getProjectSessions(selectedProject.id);
+        const sessionList = await api.getProjectSessions(selectedProject.id, selectedProject.path);
         setSessions(sessionList);
       } catch (err) {
         console.error("Failed to refresh sessions:", err);
