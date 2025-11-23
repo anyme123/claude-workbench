@@ -530,12 +530,12 @@ export const api = {
       const projectPath = claudeSessions[0]?.project_path;
 
       const filteredCodexSessions: Session[] = codexSessions
-        .filter(cs => projectPath && cs.project_path === projectPath)
+        .filter(cs => projectPath && cs.projectPath === projectPath)
         .map(cs => ({
           id: cs.id,
           project_id: projectId,
-          project_path: cs.project_path,
-          created_at: cs.created_at,
+          project_path: cs.projectPath,
+          created_at: cs.createdAt,
           model: cs.model || 'gpt-5.1-codex-max',
           engine: 'codex' as const,
         }));
