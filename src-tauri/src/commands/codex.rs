@@ -542,22 +542,12 @@ async fn execute_codex_process(
         }
     });
 
-    // Spawn task to read stderr (only log, don't emit to frontend unless it's an actual error)
+    // Spawn task to read stderr (suppress all debug output, only critical errors)
     tokio::spawn(async move {
         let mut reader = BufReader::new(stderr).lines();
-        while let Ok(Some(line)) = reader.next_line().await {
-            if !line.trim().is_empty() {
-                // Only emit critical errors, not WARN/DEBUG/INFO
-                if line.contains("ERROR") && !line.contains("WARN") {
-                    log::warn!("[Codex stderr] {}", line);
-                    if let Err(e) = app_handle_stderr.emit("codex-error", line) {
-                        log::error!("Failed to emit codex-error: {}", e);
-                    }
-                } else {
-                    // Just log debug/warn output without emitting to frontend
-                    log::debug!("[Codex debug] {}", line);
-                }
-            }
+        while let Ok(Some(_line)) = reader.next_line().await {
+            // Completely suppress Codex debug output
+            // All useful information is in stdout JSONL stream
         }
     });
 
