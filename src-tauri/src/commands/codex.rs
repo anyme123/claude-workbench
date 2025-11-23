@@ -403,21 +403,27 @@ fn build_codex_command(
     options: &CodexExecutionOptions,
     is_resume: bool,
 ) -> Result<Command, String> {
-    let mut cmd = Command::new("codex");
-
-    // Add npm global directory to PATH
+    // Use full path on Windows
     #[cfg(target_os = "windows")]
-    {
+    let codex_cmd = {
         if let Ok(appdata) = std::env::var("APPDATA") {
-            let npm_path = format!(r"{}\npm", appdata);
-            if let Ok(current_path) = std::env::var("PATH") {
-                let new_path = format!("{};{}", npm_path, current_path);
-                cmd.env("PATH", new_path);
-                log::info!("[Codex] Added npm path to PATH: {}", npm_path);
+            let full_path = format!(r"{}\npm\codex.cmd", appdata);
+            if std::path::Path::new(&full_path).exists() {
+                log::info!("[Codex] Using full path: {}", full_path);
+                full_path
+            } else {
+                log::warn!("[Codex] Full path not found, using 'codex'");
+                "codex".to_string()
             }
+        } else {
+            "codex".to_string()
         }
-    }
+    };
 
+    #[cfg(not(target_os = "windows"))]
+    let codex_cmd = "codex".to_string();
+
+    let mut cmd = Command::new(&codex_cmd);
     cmd.arg("exec");
 
     // Add resume if needed
