@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, Clock, Plus, Trash2, CheckSquare, Square, FilePenLine, Loader2 } from "lucide-react";
+import { ArrowLeft, Clock, Plus, Trash2, CheckSquare, Square, FilePenLine, Loader2, Zap, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -416,10 +416,24 @@ export const SessionList: React.FC<SessionListProps> = ({
               <div className="flex items-center justify-between gap-3">
                 {/* Session info */}
                 <div className="flex-1 min-w-0 space-y-0.5">
-                  {/* First message preview */}
-                  <p className="text-sm font-medium truncate text-foreground group-hover:text-primary transition-colors">
-                    {firstMessagePreview}
-                  </p>
+                  {/* First message preview with engine badge */}
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium truncate text-foreground group-hover:text-primary transition-colors flex-1 min-w-0">
+                      {firstMessagePreview}
+                    </p>
+                    {/* 🆕 Engine type badge */}
+                    {session.engine === 'codex' ? (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 shrink-0">
+                        <Bot className="h-3 w-3" />
+                        Codex
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 shrink-0">
+                        <Zap className="h-3 w-3" />
+                        Claude
+                      </span>
+                    )}
+                  </div>
 
                   {/* Session ID (small and subtle) */}
                   <p className="text-xs font-mono text-muted-foreground truncate" aria-label={`会话 ID: ${session.id}`}>
