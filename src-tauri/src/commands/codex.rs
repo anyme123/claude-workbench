@@ -240,26 +240,30 @@ pub async fn list_codex_sessions() -> Result<Vec<CodexSession>, String> {
 
     let mut sessions = Vec::new();
 
-    // Walk through date-organized directories (2025/11/23/)
+    // Walk through date-organized directories (2025/11/23/rollout-xxx.jsonl)
     if let Ok(entries) = std::fs::read_dir(&sessions_dir) {
         for year_entry in entries.flatten() {
-            log::debug!("Checking year dir: {:?}", year_entry.path());
             if let Ok(month_entries) = std::fs::read_dir(year_entry.path()) {
                 for month_entry in month_entries.flatten() {
-                    log::debug!("Checking month dir: {:?}", month_entry.path());
                     if let Ok(day_entries) = std::fs::read_dir(month_entry.path()) {
                         for day_entry in day_entries.flatten() {
-                            let path = day_entry.path();
-                            log::debug!("Checking file: {:?}", path);
-                            if path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
-                                log::info!("Parsing session file: {:?}", path);
-                                match parse_codex_session_file(&path) {
-                                    Some(session) => {
-                                        log::info!("✅ Parsed session: {}", session.id);
-                                        sessions.push(session);
-                                    }
-                                    None => {
-                                        log::warn!("❌ Failed to parse session file: {:?}", path);
+                            // day_entry is a day directory (e.g., "23"), go into it
+                            if day_entry.path().is_dir() {
+                                if let Ok(file_entries) = std::fs::read_dir(day_entry.path()) {
+                                    for file_entry in file_entries.flatten() {
+                                        let path = file_entry.path();
+                                        if path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
+                                            match parse_codex_session_file(&path) {
+                                                Some(session) => {
+                                                    log::info!("✅ Found session: {} ({})",
+                                                        session.id, session.project_path);
+                                                    sessions.push(session);
+                                                }
+                                                None => {
+                                                    log::debug!("Failed to parse: {:?}", path);
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
