@@ -100,7 +100,40 @@ export type CodexEvent =
   | CodexItemStartedEvent
   | CodexItemUpdatedEvent
   | CodexItemCompletedEvent
-  | CodexErrorEvent;
+  | CodexErrorEvent
+  | CodexSessionMetaEvent
+  | CodexResponseItemEvent;
+
+/**
+ * Session metadata event
+ */
+export interface CodexSessionMetaEvent extends CodexBaseEvent {
+  type: 'session_meta';
+  payload: {
+    id: string;
+    timestamp: string;
+    cwd: string;
+    model?: string;
+  };
+}
+
+/**
+ * Response item event (Alternative format)
+ */
+export interface CodexResponseItemEvent extends CodexBaseEvent {
+  type: 'response_item';
+  payload: {
+    id?: string;
+    role?: string;
+    content?: Array<{
+      type: string;
+      text?: string;
+      [key: string]: any;
+    }>;
+    timestamp?: string;
+    [key: string]: any;
+  };
+}
 
 // ============================================================================
 // Item Types

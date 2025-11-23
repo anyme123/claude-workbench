@@ -88,10 +88,45 @@ export class CodexEventConverter {
         case 'error':
           return this.createErrorMessage(event.error.message);
 
+        case 'session_meta':
+          // Return init message
+          return {
+            type: 'system',
+            subtype: 'init',
+            result: `Codex session started (ID: ${event.payload.id})`,
+            session_id: event.payload.id,
+            timestamp: event.payload.timestamp || new Date().toISOString(),
+            receivedAt: new Date().toISOString(),
+          };
+
+        case 'response_item':
+          return this.convertResponseItem(event);
+
         default:
           console.warn('[CodexConverter] Unknown event type:', event);
           return null;
       }
+  }
+
+  /**
+   * Converts response_item event to ClaudeStreamMessage
+   */
+  private convertResponseItem(event: import('@/types/codex').CodexResponseItemEvent): ClaudeStreamMessage | null {
+    const { payload } = event;
+    if (!payload || !payload.role) return null;
+
+    // Map payload to Claude message structure
+    const message: ClaudeStreamMessage = {
+      type: payload.role === 'user' ? 'user' : 'assistant',
+      message: {
+        role: payload.role,
+        content: payload.content
+      },
+      timestamp: payload.timestamp || new Date().toISOString(),
+      receivedAt: new Date().toISOString(),
+    };
+
+    return message;
   }
 
   /**
