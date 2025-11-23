@@ -59,6 +59,7 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
   const [showSettings, setShowSettings] = useState(false);
   const [codexAvailable, setCodexAvailable] = useState(false);
   const [codexVersion, setCodexVersion] = useState<string | null>(null);
+  const [codexError, setCodexError] = useState<string | null>(null);
   const [isCheckingCodex, setIsCheckingCodex] = useState(false);
 
   // Check Codex availability on mount
@@ -67,18 +68,26 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
   }, []);
 
   const checkCodexAvailability = async () => {
+    console.log('[ExecutionEngineSelector] 🔍 Checking Codex availability...');
     setIsCheckingCodex(true);
+
     try {
       const result = await api.checkCodexAvailability();
+      console.log('[ExecutionEngineSelector] 📊 Check result:', result);
+
       setCodexAvailable(result.available);
       setCodexVersion(result.version || null);
+      setCodexError(result.error || null);
 
-      if (!result.available) {
-        console.warn('[ExecutionEngineSelector] Codex not available:', result.error);
+      if (result.available) {
+        console.log('[ExecutionEngineSelector] ✅ Codex is available:', result.version);
+      } else {
+        console.warn('[ExecutionEngineSelector] ❌ Codex not available:', result.error);
       }
     } catch (error) {
-      console.error('[ExecutionEngineSelector] Failed to check Codex availability:', error);
+      console.error('[ExecutionEngineSelector] ❌ Failed to check Codex availability:', error);
       setCodexAvailable(false);
+      setCodexError(error instanceof Error ? error.message : String(error));
     } finally {
       setIsCheckingCodex(false);
     }
@@ -249,15 +258,23 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
                     <div className="flex items-center gap-2">
                       <div
                         className={`h-2 w-2 rounded-full ${
+                          isCheckingCodex ? 'bg-yellow-500 animate-pulse' :
                           codexAvailable ? 'bg-green-500' : 'bg-red-500'
                         }`}
                       />
                       <span>
-                        {codexAvailable ? '已安装' : '未安装'}
+                        {isCheckingCodex ? '检查中...' :
+                         codexAvailable ? '已安装并可用' : '未安装或不可用'}
                       </span>
                     </div>
                     {codexVersion && (
                       <div className="text-muted-foreground">版本: {codexVersion}</div>
+                    )}
+                    {!codexAvailable && codexError && (
+                      <div className="text-destructive text-xs mt-2 p-2 bg-destructive/10 rounded">
+                        <div className="font-medium mb-1">错误详情:</div>
+                        <div className="font-mono">{codexError}</div>
+                      </div>
                     )}
                   </div>
                 </div>

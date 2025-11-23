@@ -257,7 +257,7 @@ pub async fn delete_codex_session(session_id: String) -> Result<String, String> 
 /// Checks if Codex is available and properly configured
 #[tauri::command]
 pub async fn check_codex_availability() -> Result<CodexAvailability, String> {
-    log::info!("check_codex_availability called");
+    log::info!("[Codex] Checking availability...");
 
     // Try to execute codex --version
     match Command::new("codex")
@@ -266,17 +266,36 @@ pub async fn check_codex_availability() -> Result<CodexAvailability, String> {
         .await
     {
         Ok(output) => {
+            let stdout_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            let stderr_str = String::from_utf8_lossy(&output.stderr).trim().to_string();
+
+            log::info!("[Codex] Command executed - status: {}, stdout: '{}', stderr: '{}'",
+                output.status, stdout_str, stderr_str);
+
             if output.status.success() {
-                let version = String::from_utf8_lossy(&output.stdout)
-                    .trim()
-                    .to_string();
+                // Codex version might be in stdout or stderr
+                let version = if !stdout_str.is_empty() {
+                    stdout_str
+                } else if !stderr_str.is_empty() {
+                    stderr_str
+                } else {
+                    "Unknown version".to_string()
+                };
+
+                log::info!("[Codex] ✅ Available - version: {}", version);
                 Ok(CodexAvailability {
                     available: true,
                     version: Some(version),
                     error: None,
                 })
             } else {
-                let error = String::from_utf8_lossy(&output.stderr).to_string();
+                let error = if !stderr_str.is_empty() {
+                    stderr_str
+                } else {
+                    format!("Command failed with status: {}", output.status)
+                };
+
+                log::warn!("[Codex] ❌ Command failed: {}", error);
                 Ok(CodexAvailability {
                     available: false,
                     version: None,
@@ -285,10 +304,11 @@ pub async fn check_codex_availability() -> Result<CodexAvailability, String> {
             }
         }
         Err(e) => {
+            log::error!("[Codex] ❌ Failed to execute command: {}", e);
             Ok(CodexAvailability {
                 available: false,
                 version: None,
-                error: Some(format!("Codex CLI not found: {}", e)),
+                error: Some(format!("Codex CLI not found in PATH: {}", e)),
             })
         }
     }
