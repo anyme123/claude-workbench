@@ -12,7 +12,6 @@ import type {
   CodexReasoningItem,
   CodexCommandExecutionItem,
   CodexFileChangeItem,
-  CodexMcpToolCallItem,
   CodexWebSearchItem,
   CodexTodoListItem,
   CodexMessageMetadata,
@@ -391,19 +390,6 @@ export class CodexEventConverter {
       timestamp: new Date().toISOString(),
       receivedAt: new Date().toISOString(),
       codexMetadata: metadata,
-    };
-  }
-
-  /**
-   * Creates a system message
-   */
-  private createSystemMessage(subtype: string, message: string): ClaudeStreamMessage {
-    return {
-      type: 'system',
-      subtype: subtype as any,
-      result: message,
-      timestamp: new Date().toISOString(),
-      receivedAt: new Date().toISOString(),
     };
   }
 
