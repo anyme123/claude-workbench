@@ -115,12 +115,32 @@ export class CodexEventConverter {
     const { payload } = event;
     if (!payload || !payload.role) return null;
 
+    // Filter out system environment context messages from user
+    if (payload.role === 'user' && payload.content) {
+      const isEnvContext = payload.content.some(c => 
+        c.type === 'input_text' && c.text && (
+          c.text.includes('<environment_context>') || 
+          c.text.includes('# AGENTS.md instructions')
+        )
+      );
+      
+      if (isEnvContext) {
+        return null;
+      }
+    }
+
     // Map payload to Claude message structure
+    // Note: Codex uses 'input_text' for user messages, Claude uses 'text'
+    const content = payload.content?.map(c => ({
+      ...c,
+      type: c.type === 'input_text' ? 'text' : c.type
+    }));
+
     const message: ClaudeStreamMessage = {
       type: payload.role === 'user' ? 'user' : 'assistant',
       message: {
         role: payload.role,
-        content: payload.content
+        content: content
       },
       timestamp: payload.timestamp || new Date().toISOString(),
       receivedAt: new Date().toISOString(),
