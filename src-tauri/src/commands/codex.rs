@@ -348,20 +348,21 @@ fn get_codex_command_candidates() -> Vec<String> {
 fn get_working_codex_command() -> Option<String> {
     let candidates = get_codex_command_candidates();
 
-    for cmd_path in candidates {
-        // Quick existence check for file-based paths
+    for cmd_path in &candidates {
+        // Check if file exists for absolute paths
         if cmd_path.contains("\\") || cmd_path.contains("/") {
             if std::path::Path::new(&cmd_path).exists() {
-                log::info!("[Codex] Found working command: {}", cmd_path);
-                return Some(cmd_path);
+                log::info!("[Codex] ✅ Found working command: {}", cmd_path);
+                return Some(cmd_path.clone());
+            } else {
+                log::debug!("[Codex] Path does not exist: {}", cmd_path);
             }
-        } else {
-            // For simple "codex" command, assume it works if in PATH
-            return Some(cmd_path);
         }
     }
 
-    None
+    // Fallback: try "codex" in PATH as last resort
+    log::warn!("[Codex] No absolute path found, trying 'codex' in PATH as fallback");
+    Some("codex".to_string())
 }
 
 /// Sets the Codex API key
