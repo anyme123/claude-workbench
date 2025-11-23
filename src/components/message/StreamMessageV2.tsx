@@ -143,28 +143,11 @@ const StreamMessageV2Component: React.FC<StreamMessageV2Props> = ({
         />
       );
 
-    // 🆕 Codex integration: Handle tool_use messages
+    // 🆕 Codex integration: tool_use messages are now converted to assistant type
+    // This case should not be hit anymore, but keep for safety
     case 'tool_use':
-      // Convert tool_use message to assistant format with tool_use/tool_result in content
-      const toolUseMsg = message as any;
-      const contentItem = toolUseMsg.tool_use || toolUseMsg.tool_result || toolUseMsg;
-
-      return (
-        <AIMessage
-          message={{
-            type: 'assistant',
-            message: {
-              role: 'assistant',
-              content: [contentItem]
-            },
-            timestamp: message.timestamp,
-            receivedAt: message.receivedAt
-          }}
-          isStreaming={isStreaming}
-          onLinkDetected={onLinkDetected}
-          className={className}
-        />
-      );
+      console.warn('[StreamMessageV2] Unexpected tool_use message type (should be assistant now)');
+      return null;
 
     // Silently ignore queue-operation messages (internal operations)
     case 'queue-operation':
