@@ -371,14 +371,26 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
 
       // 🆕 Auto-switch execution engine based on session type
       const sessionEngine = (session as any).engine;
+      console.log('[ClaudeCodeSession] Session loaded:', {
+        id: session.id,
+        engine: sessionEngine,
+        hasEngineField: 'engine' in session,
+        sessionKeys: Object.keys(session),
+      });
+
       if (sessionEngine === 'codex') {
-        console.log('[ClaudeCodeSession] Auto-switching to Codex engine for historical session');
-        setExecutionEngineConfig(prev => ({
-          ...prev,
-          engine: 'codex',
-        }));
+        console.log('[ClaudeCodeSession] ✅ Auto-switching to Codex engine for historical session');
+        setExecutionEngineConfig(prev => {
+          console.log('[ClaudeCodeSession] Previous config:', prev);
+          const newConfig = {
+            ...prev,
+            engine: 'codex' as const,
+          };
+          console.log('[ClaudeCodeSession] New config:', newConfig);
+          return newConfig;
+        });
       } else {
-        console.log('[ClaudeCodeSession] Using Claude engine for historical session');
+        console.log('[ClaudeCodeSession] Using Claude engine for historical session (engine:', sessionEngine, ')');
         setExecutionEngineConfig(prev => ({
           ...prev,
           engine: 'claude',
