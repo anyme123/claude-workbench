@@ -485,7 +485,20 @@ pub async fn get_codex_session(session_id: String) -> Result<Option<CodexSession
 pub async fn delete_codex_session(session_id: String) -> Result<String, String> {
     log::info!("delete_codex_session called for: {}", session_id);
 
-    // TODO: Implement session deletion
+    let home_dir = dirs::home_dir()
+        .ok_or_else(|| "Failed to get home directory".to_string())?;
+
+    let sessions_dir = home_dir.join(".codex").join("sessions");
+
+    // Find the session file
+    let session_file = find_session_file(&sessions_dir, &session_id)
+        .ok_or_else(|| format!("Session file not found for ID: {}", session_id))?;
+
+    // Delete the file
+    std::fs::remove_file(&session_file)
+        .map_err(|e| format!("Failed to delete session file: {}", e))?;
+
+    log::info!("Successfully deleted Codex session file: {:?}", session_file);
     Ok(format!("Session {} deleted", session_id))
 }
 
