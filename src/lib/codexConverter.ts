@@ -35,7 +35,19 @@ export class CodexEventConverter {
   convertEvent(eventLine: string): ClaudeStreamMessage | null {
     try {
       const event = JSON.parse(eventLine) as CodexEvent;
+      return this.convertEventObject(event);
+    } catch (error) {
+      console.error('[CodexConverter] Failed to parse event:', eventLine, error);
+      return null;
+    }
+  }
 
+  /**
+   * Converts a parsed Codex event object to ClaudeStreamMessage format
+   * @param event - Parsed Codex event object
+   * @returns ClaudeStreamMessage or null if event should be skipped
+   */
+  convertEventObject(event: CodexEvent): ClaudeStreamMessage | null {
       switch (event.type) {
         case 'thread.started':
           this.threadId = event.thread_id;
@@ -80,10 +92,6 @@ export class CodexEventConverter {
           console.warn('[CodexConverter] Unknown event type:', event);
           return null;
       }
-    } catch (error) {
-      console.error('[CodexConverter] Failed to parse event:', eventLine, error);
-      return null;
-    }
   }
 
   /**
