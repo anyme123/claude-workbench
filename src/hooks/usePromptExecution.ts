@@ -18,6 +18,8 @@ import { api, type Session } from '@/lib/api';
 import { translationMiddleware, isSlashCommand, type TranslationResult } from '@/lib/translationMiddleware';
 import type { ClaudeStreamMessage } from '@/types/claude';
 import type { ModelType } from '@/components/FloatingPromptInput/types';
+import { codexConverter } from '@/lib/codexConverter';
+import type { CodexExecutionMode } from '@/types/codex';
 
 // ============================================================================
 // Type Definitions
@@ -40,6 +42,11 @@ interface UsePromptExecutionConfig {
   isActive: boolean;
   isFirstPrompt: boolean;
   extractedSessionInfo: { sessionId: string; projectId: string } | null;
+
+  // 🆕 Codex Integration
+  executionEngine?: 'claude' | 'codex'; // 执行引擎选择 (默认: 'claude')
+  codexMode?: CodexExecutionMode;       // Codex 执行模式
+  codexModel?: string;                  // Codex 模型 (e.g., 'gpt-5.1-codex-max')
 
   // Refs
   hasActiveSessionRef: React.MutableRefObject<boolean>;
@@ -81,6 +88,9 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
     isActive,
     isFirstPrompt,
     extractedSessionInfo,
+    executionEngine = 'claude', // 🆕 默认使用 Claude Code
+    codexMode = 'read-only',     // 🆕 Codex 默认只读模式
+    codexModel,                  // 🆕 Codex 模型
     hasActiveSessionRef,
     unlistenRefs,
     isMountedRef,
@@ -205,19 +215,71 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
         isListeningRef.current = true;
 
         console.log('[usePromptExecution] Setting up event listeners for ACTIVE tab only');
+        console.log('[usePromptExecution] Execution engine:', executionEngine);
 
-        // --------------------------------------------------------------------
-        // Event Listener Setup Strategy
-        // --------------------------------------------------------------------
-        // Claude Code may emit a *new* session_id even when we pass --resume.
-        // If we listen only on the old session-scoped channel we will miss the
-        // stream until the user navigates away & back. To avoid this we:
-        //   • Always start with GENERIC listeners (no suffix) so we catch the
-        //     very first "system:init" message regardless of the session id.
-        //   • Once that init message provides the *actual* session_id, we
-        //     dynamically switch to session-scoped listeners and stop the
-        //     generic ones to prevent duplicate handling.
-        // --------------------------------------------------------------------
+        // ====================================================================
+        // 🆕 Codex Event Listeners
+        // ====================================================================
+        if (executionEngine === 'codex') {
+          console.log('[usePromptExecution] Setting up Codex event listeners');
+
+          // Reset Codex converter state for new session
+          codexConverter.reset();
+
+          // Listen for Codex JSONL output
+          const codexOutputUnlisten = await listen<string>('codex-output', (evt) => {
+            if (!isMountedRef.current) return;
+
+            // Convert Codex JSONL event to ClaudeStreamMessage
+            const message = codexConverter.convertEvent(evt.payload);
+            if (message) {
+              console.log('[Codex] Converted message:', message.type);
+              setMessages(prev => [...prev, message]);
+              setRawJsonlOutput((prev) => [...prev, evt.payload]);
+            }
+          });
+
+          // Listen for Codex errors
+          const codexErrorUnlisten = await listen<string>('codex-error', (evt) => {
+            console.error('[Codex] Error:', evt.payload);
+            setError(evt.payload);
+          });
+
+          // Listen for Codex completion
+          const codexCompleteUnlisten = await listen<boolean>('codex-complete', (evt) => {
+            console.log('[Codex] Execution complete');
+            setIsLoading(false);
+            hasActiveSessionRef.current = false;
+            isListeningRef.current = false;
+
+            // Process queued prompts
+            if (queuedPromptsRef.current.length > 0) {
+              const [nextPrompt, ...remainingPrompts] = queuedPromptsRef.current;
+              setQueuedPrompts(remainingPrompts);
+
+              setTimeout(() => {
+                handleSendPrompt(nextPrompt.prompt, nextPrompt.model);
+              }, 100);
+            }
+          });
+
+          unlistenRefs.current = [codexOutputUnlisten, codexErrorUnlisten, codexCompleteUnlisten];
+
+          // Skip Claude Code listener setup for Codex
+          console.log('[usePromptExecution] Codex listeners setup complete');
+        } else {
+          // --------------------------------------------------------------------
+          // Claude Code Event Listener Setup Strategy
+          // --------------------------------------------------------------------
+          // Claude Code may emit a *new* session_id even when we pass --resume.
+          // If we listen only on the old session-scoped channel we will miss the
+          // stream until the user navigates away & back. To avoid this we:
+          //   • Always start with GENERIC listeners (no suffix) so we catch the
+          //     very first "system:init" message regardless of the session id.
+          //   • Once that init message provides the *actual* session_id, we
+          //     dynamically switch to session-scoped listeners and stop the
+          //     generic ones to prevent duplicate handling.
+          // --------------------------------------------------------------------
 
         let currentSessionId: string | null = claudeSessionId || effectiveSession?.id || null;
 
@@ -470,6 +532,8 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
         // Store the generic unlisteners for now; they may be replaced later.
         unlistenRefs.current = [genericOutputUnlisten, genericErrorUnlisten, genericCompleteUnlisten];
 
+        } // End of Claude Code event listener setup
+
         // ========================================================================
         // 3️⃣ Translation Processing
         // ========================================================================
@@ -547,23 +611,68 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
       // 6️⃣ API Execution
       // ========================================================================
 
-      // Execute the appropriate command based on session state
+      // Execute the appropriate command based on execution engine
       // Use processedPrompt (potentially translated) for API calls
-      if (effectiveSession && !isFirstPrompt) {
-        // Resume existing session
-        console.log('[usePromptExecution] Resuming session:', effectiveSession.id);
-        try {
-          await api.resumeClaudeCode(projectPath, effectiveSession.id, processedPrompt, model, isPlanMode, maxThinkingTokens);
-        } catch (resumeError) {
-          console.warn('[usePromptExecution] Resume failed, falling back to continue mode:', resumeError);
-          // Fallback to continue mode if resume fails
-          await api.continueClaudeCode(projectPath, processedPrompt, model, isPlanMode, maxThinkingTokens);
+      if (executionEngine === 'codex') {
+        // ====================================================================
+        // 🆕 Codex Execution Branch
+        // ====================================================================
+        console.log('[usePromptExecution] Using Codex execution engine');
+
+        if (effectiveSession && !isFirstPrompt) {
+          // Resume existing Codex session
+          console.log('[Codex] Resuming session:', effectiveSession.id);
+          try {
+            await api.resumeCodex(effectiveSession.id, {
+              projectPath,
+              prompt: processedPrompt,
+              mode: codexMode || 'read-only',
+              model: codexModel || model,
+              json: true
+            });
+          } catch (resumeError) {
+            console.warn('[Codex] Resume failed, falling back to resume last:', resumeError);
+            // Fallback to resume last if specific resume fails
+            await api.resumeLastCodex({
+              projectPath,
+              prompt: processedPrompt,
+              mode: codexMode || 'read-only',
+              model: codexModel || model,
+              json: true
+            });
+          }
+        } else {
+          // Start new Codex session
+          console.log('[Codex] Starting new session');
+          setIsFirstPrompt(false);
+          await api.executeCodex({
+            projectPath,
+            prompt: processedPrompt,
+            mode: codexMode || 'read-only',
+            model: codexModel || model,
+            json: true
+          });
         }
       } else {
-        // Start new session
-        console.log('[usePromptExecution] Starting new session');
-        setIsFirstPrompt(false);
-        await api.executeClaudeCode(projectPath, processedPrompt, model, isPlanMode, maxThinkingTokens);
+        // ====================================================================
+        // Claude Code Execution Branch
+        // ====================================================================
+        if (effectiveSession && !isFirstPrompt) {
+          // Resume existing session
+          console.log('[usePromptExecution] Resuming session:', effectiveSession.id);
+          try {
+            await api.resumeClaudeCode(projectPath, effectiveSession.id, processedPrompt, model, isPlanMode, maxThinkingTokens);
+          } catch (resumeError) {
+            console.warn('[usePromptExecution] Resume failed, falling back to continue mode:', resumeError);
+            // Fallback to continue mode if resume fails
+            await api.continueClaudeCode(projectPath, processedPrompt, model, isPlanMode, maxThinkingTokens);
+          }
+        } else {
+          // Start new session
+          console.log('[usePromptExecution] Starting new session');
+          setIsFirstPrompt(false);
+          await api.executeClaudeCode(projectPath, processedPrompt, model, isPlanMode, maxThinkingTokens);
+        }
       }
 
     } catch (err) {
@@ -586,6 +695,9 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
     isActive,
     isFirstPrompt,
     extractedSessionInfo,
+    executionEngine,  // 🆕 Codex integration
+    codexMode,        // 🆕 Codex integration
+    codexModel,       // 🆕 Codex integration
     hasActiveSessionRef,
     unlistenRefs,
     isMountedRef,
