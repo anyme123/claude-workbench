@@ -236,6 +236,20 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
               console.log('[Codex] Converted message:', message.type);
               setMessages(prev => [...prev, message]);
               setRawJsonlOutput((prev) => [...prev, evt.payload]);
+
+              // Extract and save Codex session ID from thread.started
+              if (message.type === 'system' && message.subtype === 'init' && (message as any).session_id) {
+                const codexSessionId = (message as any).session_id;
+                console.log('[Codex] Extracted session ID:', codexSessionId);
+                setClaudeSessionId(codexSessionId);
+
+                // Save session info for resuming
+                const projectId = projectPath.replace(/[^a-zA-Z0-9]/g, '-');
+                setExtractedSessionInfo({ sessionId: codexSessionId, projectId });
+
+                // Mark as not first prompt anymore
+                setIsFirstPrompt(false);
+              }
             }
           });
 

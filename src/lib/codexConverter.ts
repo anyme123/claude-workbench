@@ -40,7 +40,15 @@ export class CodexEventConverter {
       switch (event.type) {
         case 'thread.started':
           this.threadId = event.thread_id;
-          return this.createSystemMessage('init', `Codex session started: ${event.thread_id}`);
+          // Return init message with session_id for frontend to track
+          return {
+            type: 'system',
+            subtype: 'init',
+            result: `Codex session started`,
+            session_id: event.thread_id, // ← Important: frontend will extract this
+            timestamp: new Date().toISOString(),
+            receivedAt: new Date().toISOString(),
+          };
 
         case 'turn.started':
           // Reset turn state
