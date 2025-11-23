@@ -259,12 +259,17 @@ pub async fn delete_codex_session(session_id: String) -> Result<String, String> 
 pub async fn check_codex_availability() -> Result<CodexAvailability, String> {
     log::info!("[Codex] Checking availability...");
 
-    // Try to execute codex --version
-    match Command::new("codex")
-        .arg("--version")
-        .output()
-        .await
-    {
+    // Try multiple possible Codex command locations
+    let codex_commands = get_codex_command_candidates();
+
+    for cmd_path in codex_commands {
+        log::info!("[Codex] Trying: {}", cmd_path);
+
+        match Command::new(&cmd_path)
+            .arg("--version")
+            .output()
+            .await
+        {
         Ok(output) => {
             let stdout_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
             let stderr_str = String::from_utf8_lossy(&output.stderr).trim().to_string();
@@ -283,35 +288,80 @@ pub async fn check_codex_availability() -> Result<CodexAvailability, String> {
                 };
 
                 log::info!("[Codex] ✅ Available - version: {}", version);
-                Ok(CodexAvailability {
+                return Ok(CodexAvailability {
                     available: true,
                     version: Some(version),
                     error: None,
-                })
+                });
             } else {
-                let error = if !stderr_str.is_empty() {
-                    stderr_str
-                } else {
-                    format!("Command failed with status: {}", output.status)
-                };
-
-                log::warn!("[Codex] ❌ Command failed: {}", error);
-                Ok(CodexAvailability {
-                    available: false,
-                    version: None,
-                    error: Some(error),
-                })
+                log::warn!("[Codex] Command '{}' returned non-zero status, trying next...", cmd_path);
+                continue;
             }
         }
         Err(e) => {
-            log::error!("[Codex] ❌ Failed to execute command: {}", e);
-            Ok(CodexAvailability {
-                available: false,
-                version: None,
-                error: Some(format!("Codex CLI not found in PATH: {}", e)),
-            })
+            log::warn!("[Codex] Command '{}' failed: {}", cmd_path, e);
+            continue; // Try next candidate
+        }
         }
     }
+
+    // All attempts failed
+    log::error!("[Codex] ❌ All command candidates failed");
+    Ok(CodexAvailability {
+        available: false,
+        version: None,
+        error: Some("Codex CLI not found. Tried: codex, npm global paths".to_string()),
+    })
+}
+
+/// Returns a list of possible Codex command paths to try
+fn get_codex_command_candidates() -> Vec<String> {
+    let mut candidates = vec!["codex".to_string()];
+
+    // Windows: npm global install paths
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(appdata) = std::env::var("APPDATA") {
+            candidates.push(format!(r"{}\npm\codex.cmd", appdata));
+            candidates.push(format!(r"{}\npm\codex", appdata));
+        }
+        // Also try common npm prefix paths
+        if let Ok(programfiles) = std::env::var("ProgramFiles") {
+            candidates.push(format!(r"{}\nodejs\codex.cmd", programfiles));
+        }
+    }
+
+    // macOS/Linux: npm global paths
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(home) = std::env::var("HOME") {
+            candidates.push(format!("{}/.npm-global/bin/codex", home));
+            candidates.push("/usr/local/bin/codex".to_string());
+            candidates.push("/usr/bin/codex".to_string());
+        }
+    }
+
+    candidates
+}
+
+/// Finds the first working Codex command path (synchronously)
+fn get_working_codex_command() -> Option<String> {
+    let candidates = get_codex_command_candidates();
+
+    for cmd_path in candidates {
+        // Quick existence check for file-based paths
+        if cmd_path.contains("\\") || cmd_path.contains("/") {
+            if std::path::Path::new(&cmd_path).exists() {
+                log::info!("[Codex] Found working command: {}", cmd_path);
+                return Some(cmd_path);
+            }
+        } else {
+            // For simple "codex" command, assume it works if in PATH
+            return Some(cmd_path);
+        }
+    }
+
+    None
 }
 
 /// Sets the Codex API key
@@ -341,7 +391,13 @@ fn build_codex_command(
     options: &CodexExecutionOptions,
     is_resume: bool,
 ) -> Result<Command, String> {
-    let mut cmd = Command::new("codex");
+    // Get the first working Codex command path
+    let codex_cmd = get_working_codex_command()
+        .ok_or_else(|| "Codex CLI not found in any known location".to_string())?;
+
+    log::info!("[Codex] Using command: {}", codex_cmd);
+
+    let mut cmd = Command::new(codex_cmd);
     cmd.arg("exec");
 
     // Add resume if needed
