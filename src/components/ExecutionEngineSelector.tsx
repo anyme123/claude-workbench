@@ -15,13 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Popover } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { api } from '@/lib/api';
@@ -59,8 +53,6 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
   const [showSettings, setShowSettings] = useState(false);
   const [codexAvailable, setCodexAvailable] = useState(false);
   const [codexVersion, setCodexVersion] = useState<string | null>(null);
-  const [codexError, setCodexError] = useState<string | null>(null);
-  const [isCheckingCodex, setIsCheckingCodex] = useState(false);
 
   // Check Codex availability on mount
   useEffect(() => {
@@ -68,38 +60,18 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
   }, []);
 
   const checkCodexAvailability = async () => {
-    console.log('[ExecutionEngineSelector] 🔍 Checking Codex availability...');
-    console.log('[ExecutionEngineSelector] 📡 Calling api.checkCodexAvailability()...');
-    setIsCheckingCodex(true);
-
     try {
-      // 检查 api 对象是否存在
       if (!api || typeof api.checkCodexAvailability !== 'function') {
         throw new Error('api.checkCodexAvailability is not available');
       }
 
-      console.log('[ExecutionEngineSelector] ✅ API method exists, calling...');
       const result = await api.checkCodexAvailability();
-      console.log('[ExecutionEngineSelector] 📊 Check result:', JSON.stringify(result, null, 2));
 
       setCodexAvailable(result.available);
       setCodexVersion(result.version || null);
-      setCodexError(result.error || null);
-
-      if (result.available) {
-        console.log('[ExecutionEngineSelector] ✅ Codex is available:', result.version);
-      } else {
-        console.warn('[ExecutionEngineSelector] ❌ Codex not available:', result.error);
-      }
     } catch (error) {
-      console.error('[ExecutionEngineSelector] ❌ Exception during check:', error);
-      console.error('[ExecutionEngineSelector] ❌ Error stack:', error instanceof Error ? error.stack : 'N/A');
+      console.error('[ExecutionEngineSelector] Failed to check Codex availability:', error);
       setCodexAvailable(false);
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      setCodexError(errorMsg);
-    } finally {
-      setIsCheckingCodex(false);
-      console.log('[ExecutionEngineSelector] 🏁 Check complete. Available:', codexAvailable);
     }
   };
 
@@ -130,184 +102,125 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
   };
 
   return (
-    <>
-      <div className={`flex items-center gap-2 ${className}`}>
-        {/* Engine Selector */}
-        <Select value={value.engine} onValueChange={handleEngineChange}>
-          <SelectTrigger className="w-[160px]">
-            <div className="flex items-center gap-2">
-              <Zap className="h-4 w-4" />
-              <SelectValue />
-            </div>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="claude">
-              <div className="flex items-center justify-between w-full">
-                <span>Claude Code</span>
-                {value.engine === 'claude' && <Check className="h-4 w-4 ml-2" />}
-              </div>
-            </SelectItem>
-            <SelectItem value="codex" disabled={!codexAvailable}>
-              <div className="flex flex-col items-start">
-                <div className="flex items-center justify-between w-full">
-                  <span>Codex</span>
-                  {value.engine === 'codex' && <Check className="h-4 w-4 ml-2" />}
-                </div>
-                {!codexAvailable && (
-                  <span className="text-xs text-muted-foreground">未安装</span>
-                )}
-                {codexAvailable && codexVersion && (
-                  <span className="text-xs text-muted-foreground">{codexVersion}</span>
-                )}
-              </div>
-            </SelectItem>
-          </SelectContent>
-        </Select>
-
-        {/* Settings Button */}
+    <Popover
+      open={showSettings}
+      onOpenChange={setShowSettings}
+      trigger={
         <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setShowSettings(true)}
-          className="h-8 w-8"
+          variant="outline"
+          role="combobox"
+          aria-expanded={showSettings}
+          className={`justify-between ${className}`}
         >
-          <Settings className="h-4 w-4" />
-        </Button>
-
-        {/* Quick Mode Indicator (Codex only) */}
-        {value.engine === 'codex' && (
-          <div className="text-xs text-muted-foreground flex items-center gap-1">
-            <span className="font-medium">
-              {value.codexMode === 'read-only' && '只读'}
-              {value.codexMode === 'full-auto' && '编辑'}
-              {value.codexMode === 'danger-full-access' && '完全访问'}
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Settings Dialog */}
-      <Dialog open={showSettings} onOpenChange={setShowSettings}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>执行引擎设置</DialogTitle>
-            <DialogDescription>
-              配置 {value.engine === 'claude' ? 'Claude Code' : 'Codex'} 的执行参数
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            {value.engine === 'codex' ? (
-              <>
-                {/* Codex Mode */}
-                <div className="space-y-2">
-                  <Label>执行模式</Label>
-                  <Select
-                    value={value.codexMode || 'read-only'}
-                    onValueChange={(v) => handleCodexModeChange(v as CodexExecutionMode)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="read-only">
-                        <div className="flex flex-col items-start">
-                          <span>只读模式</span>
-                          <span className="text-xs text-muted-foreground">
-                            安全模式,只能读取文件
-                          </span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="full-auto">
-                        <div className="flex flex-col items-start">
-                          <span>编辑模式</span>
-                          <span className="text-xs text-muted-foreground">
-                            允许编辑文件
-                          </span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="danger-full-access">
-                        <div className="flex flex-col items-start">
-                          <span className="text-destructive">完全访问模式</span>
-                          <span className="text-xs text-muted-foreground">
-                            ⚠️ 允许网络访问 (谨慎使用)
-                          </span>
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Codex Model */}
-                <div className="space-y-2">
-                  <Label>模型</Label>
-                  <Input
-                    value={value.codexModel || 'gpt-5.1-codex-max'}
-                    onChange={(e) => handleCodexModelChange(e.target.value)}
-                    placeholder="gpt-5.1-codex-max"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    默认: gpt-5.1-codex-max
-                  </p>
-                </div>
-
-                {/* Codex Availability Status */}
-                <div className="rounded-lg border p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Codex CLI 状态</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={checkCodexAvailability}
-                      disabled={isCheckingCodex}
-                    >
-                      {isCheckingCodex ? '检查中...' : '重新检查'}
-                    </Button>
-                  </div>
-                  <div className="text-xs space-y-1">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={`h-2 w-2 rounded-full ${
-                          isCheckingCodex ? 'bg-yellow-500 animate-pulse' :
-                          codexAvailable ? 'bg-green-500' : 'bg-red-500'
-                        }`}
-                      />
-                      <span>
-                        {isCheckingCodex ? '检查中...' :
-                         codexAvailable ? '已安装并可用' : '未安装或不可用'}
-                      </span>
-                    </div>
-                    {codexVersion && (
-                      <div className="text-muted-foreground">版本: {codexVersion}</div>
-                    )}
-                    {!codexAvailable && codexError && (
-                      <div className="text-destructive text-xs mt-2 p-2 bg-destructive/10 rounded">
-                        <div className="font-medium mb-1">错误详情:</div>
-                        <div className="font-mono">{codexError}</div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </>
-            ) : (
-              // Claude Code settings (minimal for now)
-              <div className="text-sm text-muted-foreground">
-                <p>Claude Code 使用项目的默认配置。</p>
-                <p className="mt-2">
-                  可以在设置中配置权限、模型等选项。
-                </p>
-              </div>
+          <div className="flex items-center gap-2">
+            <Zap className="h-4 w-4" />
+            <span>{value.engine === 'claude' ? 'Claude Code' : 'Codex'}</span>
+            {value.engine === 'codex' && value.codexMode && (
+              <span className="text-xs text-muted-foreground">
+                ({value.codexMode === 'read-only' ? '只读' : value.codexMode === 'full-auto' ? '编辑' : '完全访问'})
+              </span>
             )}
           </div>
-
-          <div className="flex justify-end">
-            <Button onClick={() => setShowSettings(false)}>
-              完成
-            </Button>
+          <Settings className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      }
+      content={
+        <div className="space-y-4 p-4">
+          {/* Engine Selection */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">执行引擎</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant={value.engine === 'claude' ? 'default' : 'outline'}
+                className="justify-start"
+                onClick={() => handleEngineChange('claude')}
+              >
+                <Check className={`mr-2 h-4 w-4 ${value.engine === 'claude' ? 'opacity-100' : 'opacity-0'}`} />
+                Claude Code
+              </Button>
+              <Button
+                variant={value.engine === 'codex' ? 'default' : 'outline'}
+                className="justify-start"
+                onClick={() => handleEngineChange('codex')}
+                disabled={!codexAvailable}
+              >
+                <Check className={`mr-2 h-4 w-4 ${value.engine === 'codex' ? 'opacity-100' : 'opacity-0'}`} />
+                Codex
+              </Button>
+            </div>
           </div>
-        </DialogContent>
-      </Dialog>
-    </>
+
+          {/* Codex-specific settings */}
+          {value.engine === 'codex' && (
+            <>
+              <div className="h-px bg-border" />
+
+              {/* Execution Mode */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">执行模式</Label>
+                <Select
+                  value={value.codexMode || 'read-only'}
+                  onValueChange={(v) => handleCodexModeChange(v as CodexExecutionMode)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="read-only">
+                      <div>
+                        <div className="font-medium">只读模式</div>
+                        <div className="text-xs text-muted-foreground">安全模式，只能读取文件</div>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="full-auto">
+                      <div>
+                        <div className="font-medium">编辑模式</div>
+                        <div className="text-xs text-muted-foreground">允许编辑文件</div>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="danger-full-access">
+                      <div>
+                        <div className="font-medium text-destructive">完全访问模式</div>
+                        <div className="text-xs text-muted-foreground">⚠️ 允许网络访问</div>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Model */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">模型</Label>
+                <Input
+                  value={value.codexModel || 'gpt-5.1-codex-max'}
+                  onChange={(e) => handleCodexModelChange(e.target.value)}
+                  placeholder="gpt-5.1-codex-max"
+                  className="font-mono text-sm"
+                />
+              </div>
+
+              {/* Status */}
+              <div className="rounded-md border p-2 bg-muted/50">
+                <div className="flex items-center gap-2 text-xs">
+                  <div className={`h-2 w-2 rounded-full ${codexAvailable ? 'bg-green-500' : 'bg-red-500'}`} />
+                  <span>{codexAvailable ? '已安装' : '未安装'}</span>
+                  {codexVersion && <span className="text-muted-foreground">• {codexVersion}</span>}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Claude-specific settings */}
+          {value.engine === 'claude' && (
+            <div className="text-sm text-muted-foreground">
+              <p>Claude Code 配置请前往设置页面。</p>
+            </div>
+          )}
+        </div>
+      }
+      className="w-96"
+      align="start"
+    />
   );
 };
 
