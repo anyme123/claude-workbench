@@ -44,6 +44,13 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
       setLoading(true);
       setError(null);
       const sessionList = await api.getProjectSessions(project.id);
+      console.log('[ProjectContext] Loaded sessions:', sessionList.length);
+      console.log('[ProjectContext] Session engines:', {
+        claude: sessionList.filter(s => s.engine === 'claude').length,
+        codex: sessionList.filter(s => s.engine === 'codex').length,
+        undefined: sessionList.filter(s => !s.engine).length,
+      });
+      console.log('[ProjectContext] First Codex session:', sessionList.find(s => s.engine === 'codex'));
       setSessions(sessionList);
       setSelectedProject(project);
       
