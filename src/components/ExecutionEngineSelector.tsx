@@ -69,11 +69,18 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
 
   const checkCodexAvailability = async () => {
     console.log('[ExecutionEngineSelector] 🔍 Checking Codex availability...');
+    console.log('[ExecutionEngineSelector] 📡 Calling api.checkCodexAvailability()...');
     setIsCheckingCodex(true);
 
     try {
+      // 检查 api 对象是否存在
+      if (!api || typeof api.checkCodexAvailability !== 'function') {
+        throw new Error('api.checkCodexAvailability is not available');
+      }
+
+      console.log('[ExecutionEngineSelector] ✅ API method exists, calling...');
       const result = await api.checkCodexAvailability();
-      console.log('[ExecutionEngineSelector] 📊 Check result:', result);
+      console.log('[ExecutionEngineSelector] 📊 Check result:', JSON.stringify(result, null, 2));
 
       setCodexAvailable(result.available);
       setCodexVersion(result.version || null);
@@ -81,15 +88,21 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
 
       if (result.available) {
         console.log('[ExecutionEngineSelector] ✅ Codex is available:', result.version);
+        alert(`✅ Codex 检测成功!\n版本: ${result.version}`);
       } else {
         console.warn('[ExecutionEngineSelector] ❌ Codex not available:', result.error);
+        alert(`❌ Codex 不可用\n错误: ${result.error}`);
       }
     } catch (error) {
-      console.error('[ExecutionEngineSelector] ❌ Failed to check Codex availability:', error);
+      console.error('[ExecutionEngineSelector] ❌ Exception during check:', error);
+      console.error('[ExecutionEngineSelector] ❌ Error stack:', error instanceof Error ? error.stack : 'N/A');
       setCodexAvailable(false);
-      setCodexError(error instanceof Error ? error.message : String(error));
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      setCodexError(errorMsg);
+      alert(`❌ 检查失败!\n错误: ${errorMsg}`);
     } finally {
       setIsCheckingCodex(false);
+      console.log('[ExecutionEngineSelector] 🏁 Check complete. Available:', codexAvailable);
     }
   };
 
