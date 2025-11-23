@@ -402,31 +402,66 @@ pub async fn load_codex_session_history(session_id: String) -> Result<Vec<serde_
 
     let reader = BufReader::new(file);
     let mut events = Vec::new();
+    let mut line_count = 0;
+    let mut parse_errors = 0;
 
     for line_result in reader.lines() {
-        if let Ok(line) = line_result {
-            if let Ok(event) = serde_json::from_str::<serde_json::Value>(&line) {
-                events.push(event);
+        line_count += 1;
+        match line_result {
+            Ok(line) => {
+                if line.trim().is_empty() {
+                    continue; // Skip empty lines
+                }
+                match serde_json::from_str::<serde_json::Value>(&line) {
+                    Ok(event) => {
+                        events.push(event);
+                    }
+                    Err(e) => {
+                        parse_errors += 1;
+                        log::warn!("Failed to parse line {} in session {}: {}", line_count, session_id, e);
+                        log::debug!("Problematic line content: {}", line);
+                    }
+                }
+            }
+            Err(e) => {
+                log::error!("Failed to read line {} in session {}: {}", line_count, session_id, e);
             }
         }
     }
 
-    log::info!("Loaded {} events from Codex session {}", events.len(), session_id);
+    log::info!("Loaded {} events from Codex session {} (total lines: {}, parse errors: {})",
+        events.len(), session_id, line_count, parse_errors);
     Ok(events)
 }
 
 /// Finds the JSONL file for a given session ID
 fn find_session_file(sessions_dir: &std::path::Path, session_id: &str) -> Option<std::path::PathBuf> {
     use walkdir::WalkDir;
+    use std::io::{BufRead, BufReader};
 
     for entry in WalkDir::new(sessions_dir).into_iter().flatten() {
         if entry.path().extension().and_then(|s| s.to_str()) == Some("jsonl") {
-            if entry.file_name().to_string_lossy().contains(session_id) {
-                return Some(entry.path().to_path_buf());
+            // Read the first line to check session_id
+            if let Ok(file) = std::fs::File::open(entry.path()) {
+                let reader = BufReader::new(file);
+                if let Some(Ok(first_line)) = reader.lines().next() {
+                    if let Ok(meta) = serde_json::from_str::<serde_json::Value>(&first_line) {
+                        // Check if this is a session_meta event with matching ID
+                        if meta["type"].as_str() == Some("session_meta") {
+                            if let Some(id) = meta["payload"]["id"].as_str() {
+                                if id == session_id {
+                                    log::info!("Found session file: {:?} for session_id: {}", entry.path(), session_id);
+                                    return Some(entry.path().to_path_buf());
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 
+    log::warn!("Session file not found for session_id: {}", session_id);
     None
 }
 
