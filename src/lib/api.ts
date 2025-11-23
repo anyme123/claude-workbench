@@ -524,13 +524,23 @@ export const api = {
     try {
       // Get Claude sessions
       const claudeSessions = await invoke<Session[]>('get_project_sessions', { projectId });
+      console.log('[SessionList] Claude sessions:', claudeSessions.length);
 
       // Get Codex sessions and filter by project path
       const codexSessions = await this.listCodexSessions();
+      console.log('[SessionList] All Codex sessions:', codexSessions.length);
+
       const projectPath = claudeSessions[0]?.project_path;
+      console.log('[SessionList] Project path for filtering:', projectPath);
 
       const filteredCodexSessions: Session[] = codexSessions
-        .filter(cs => projectPath && cs.projectPath === projectPath)
+        .filter(cs => {
+          const match = projectPath && cs.projectPath === projectPath;
+          if (!match) {
+            console.log('[SessionList] Codex session path mismatch:', cs.projectPath, 'vs', projectPath);
+          }
+          return match;
+        })
         .map(cs => ({
           id: cs.id,
           project_id: projectId,
@@ -540,9 +550,16 @@ export const api = {
           engine: 'codex' as const,
         }));
 
+      console.log('[SessionList] Filtered Codex sessions:', filteredCodexSessions.length);
+
       // Merge and sort by creation time
       const allSessions = [...claudeSessions.map(s => ({ ...s, engine: 'claude' as const })), ...filteredCodexSessions];
       allSessions.sort((a, b) => b.created_at - a.created_at);
+
+      console.log('[SessionList] Total sessions:', allSessions.length, {
+        claude: claudeSessions.length,
+        codex: filteredCodexSessions.length
+      });
 
       return allSessions;
     } catch (error) {
