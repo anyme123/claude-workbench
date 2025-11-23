@@ -88,10 +88,8 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
 
       if (result.available) {
         console.log('[ExecutionEngineSelector] ✅ Codex is available:', result.version);
-        alert(`✅ Codex 检测成功!\n版本: ${result.version}`);
       } else {
         console.warn('[ExecutionEngineSelector] ❌ Codex not available:', result.error);
-        alert(`❌ Codex 不可用\n错误: ${result.error}`);
       }
     } catch (error) {
       console.error('[ExecutionEngineSelector] ❌ Exception during check:', error);
@@ -99,7 +97,6 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
       setCodexAvailable(false);
       const errorMsg = error instanceof Error ? error.message : String(error);
       setCodexError(errorMsg);
-      alert(`❌ 检查失败!\n错误: ${errorMsg}`);
     } finally {
       setIsCheckingCodex(false);
       console.log('[ExecutionEngineSelector] 🏁 Check complete. Available:', codexAvailable);
