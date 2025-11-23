@@ -48,6 +48,8 @@ export class CodexEventConverter {
    * @returns ClaudeStreamMessage or null if event should be skipped
    */
   convertEventObject(event: CodexEvent): ClaudeStreamMessage | null {
+      console.log('[CodexConverter] Processing event:', event.type, event);
+
       switch (event.type) {
         case 'thread.started':
           this.threadId = event.thread_id;
@@ -64,6 +66,7 @@ export class CodexEventConverter {
         case 'turn.started':
           // Reset turn state
           this.currentTurnUsage = null;
+          console.log('[CodexConverter] Skipping turn.started event');
           return null; // Don't display turn start events
 
         case 'turn.completed':
@@ -102,29 +105,115 @@ export class CodexEventConverter {
         case 'response_item':
           return this.convertResponseItem(event);
 
+        case 'event_msg':
+          return this.convertEventMsg(event as import('@/types/codex').CodexEventMsgEvent);
+
+        case 'turn_context':
+          // Turn context events are metadata, don't display
+          console.log('[CodexConverter] Skipping turn_context event');
+          return null;
+
         default:
-          console.warn('[CodexConverter] Unknown event type:', event);
+          console.warn('[CodexConverter] Unknown event type:', (event as any).type, 'Full event:', event);
           return null;
       }
   }
 
   /**
+   * Converts event_msg event to ClaudeStreamMessage
+   */
+  private convertEventMsg(event: import('@/types/codex').CodexEventMsgEvent): ClaudeStreamMessage | null {
+    const { payload } = event;
+
+    switch (payload.type) {
+      case 'agent_reasoning':
+        // Short thinking summary
+        return {
+          type: 'thinking',
+          content: payload.text || payload.message || '',
+          timestamp: event.timestamp || new Date().toISOString(),
+          receivedAt: new Date().toISOString(),
+        };
+
+      case 'token_count':
+        // Skip token count events - they are displayed separately via turn.completed
+        return null;
+
+      case 'user_message':
+        // Alternative user message format
+        return {
+          type: 'user',
+          message: {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: payload.message || '',
+              },
+            ],
+          },
+          timestamp: event.timestamp || new Date().toISOString(),
+          receivedAt: new Date().toISOString(),
+        };
+
+      default:
+        console.log('[CodexConverter] Skipping event_msg with payload.type:', payload.type);
+        return null;
+    }
+  }
+
+  /**
    * Converts response_item event to ClaudeStreamMessage
+   * Note: This handles different payload.type values including function_call, reasoning, etc.
    */
   private convertResponseItem(event: import('@/types/codex').CodexResponseItemEvent): ClaudeStreamMessage | null {
     const { payload } = event;
-    if (!payload || !payload.role) return null;
+    if (!payload) {
+      console.warn('[CodexConverter] response_item missing payload:', event);
+      return null;
+    }
+
+    // Handle different response_item payload types
+    const payloadType = (payload as any).type;
+
+    if (payloadType === 'function_call') {
+      // Tool use (function call)
+      return this.convertFunctionCall(event);
+    }
+
+    if (payloadType === 'function_call_output') {
+      // Tool result (function call output)
+      return this.convertFunctionCallOutput(event);
+    }
+
+    if (payloadType === 'reasoning') {
+      // Extended thinking (encrypted content)
+      return this.convertReasoningPayload(event);
+    }
+
+    if (payloadType === 'ghost_snapshot') {
+      // Ghost commit snapshot - skip for now
+      console.log('[CodexConverter] Skipping ghost_snapshot');
+      return null;
+    }
+
+    // Handle message-type response_item (user/assistant messages)
+    if (!payload.role) {
+      console.warn('[CodexConverter] response_item missing role and not a recognized type:', event);
+      return null;
+    }
 
     // Filter out system environment context messages from user
     if (payload.role === 'user' && payload.content) {
-      const isEnvContext = payload.content.some(c => 
+      const isEnvContext = payload.content.some(c =>
         c.type === 'input_text' && c.text && (
-          c.text.includes('<environment_context>') || 
+          c.text.includes('<environment_context>') ||
           c.text.includes('# AGENTS.md instructions')
         )
       );
-      
+
       if (isEnvContext) {
+        console.log('[CodexConverter] Filtered out environment context message');
         return null;
       }
     }
@@ -134,7 +223,25 @@ export class CodexEventConverter {
     const content = payload.content?.map(c => ({
       ...c,
       type: c.type === 'input_text' ? 'text' : c.type
-    }));
+    })) || [];
+
+    // Check if content is empty or has only empty text blocks
+    if (content.length === 0) {
+      console.warn('[CodexConverter] response_item has empty content, skipping');
+      return null;
+    }
+
+    const hasNonEmptyContent = content.some(c => {
+      if (c.type === 'text') {
+        return c.text && c.text.trim().length > 0;
+      }
+      return true; // Non-text content blocks are considered valid
+    });
+
+    if (!hasNonEmptyContent) {
+      console.warn('[CodexConverter] response_item has no non-empty content, skipping');
+      return null;
+    }
 
     const message: ClaudeStreamMessage = {
       type: payload.role === 'user' ? 'user' : 'assistant',
@@ -146,7 +253,102 @@ export class CodexEventConverter {
       receivedAt: new Date().toISOString(),
     };
 
+    console.log('[CodexConverter] Converted response_item:', {
+      eventType: event.type,
+      role: payload.role,
+      contentTypes: content?.map(c => c.type),
+      contentCount: content.length,
+      messageType: message.type
+    });
+
     return message;
+  }
+
+  /**
+   * Converts function_call response_item to tool_use message
+   */
+  private convertFunctionCall(event: any): ClaudeStreamMessage {
+    const payload = event.payload;
+    const toolName = payload.name || 'unknown_tool';
+    const toolArgs = payload.arguments ? JSON.parse(payload.arguments) : {};
+    const callId = payload.call_id || `call_${Date.now()}`;
+
+    return {
+      type: 'assistant',
+      message: {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool_use',
+            id: callId,
+            name: toolName,
+            input: toolArgs,
+          },
+        ],
+      },
+      timestamp: event.timestamp || new Date().toISOString(),
+      receivedAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Converts function_call_output response_item to tool_result message
+   */
+  private convertFunctionCallOutput(event: any): ClaudeStreamMessage {
+    const payload = event.payload;
+    const callId = payload.call_id || `call_${Date.now()}`;
+    const output = payload.output || '';
+
+    // Parse output if it's JSON string
+    let resultContent = output;
+    try {
+      if (typeof output === 'string' && output.trim().startsWith('[')) {
+        const parsed = JSON.parse(output);
+        if (Array.isArray(parsed) && parsed[0]?.text) {
+          resultContent = parsed[0].text;
+        }
+      }
+    } catch {
+      // Keep original output if parsing fails
+    }
+
+    return {
+      type: 'assistant',
+      message: {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: callId,
+            content: typeof resultContent === 'string' ? resultContent : JSON.stringify(resultContent),
+          },
+        ],
+      },
+      timestamp: event.timestamp || new Date().toISOString(),
+      receivedAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Converts reasoning response_item to thinking message
+   */
+  private convertReasoningPayload(event: any): ClaudeStreamMessage {
+    const payload = event.payload;
+
+    // Extract summary text if available
+    const summaryText = payload.summary
+      ?.map((s: any) => s.text || s.summary_text)
+      .filter(Boolean)
+      .join('\n') || '';
+
+    // Note: encrypted_content is encrypted and cannot be displayed
+    // We use the summary instead
+    return {
+      type: 'thinking',
+      content: summaryText || '(Extended thinking - encrypted content)',
+      timestamp: event.timestamp || new Date().toISOString(),
+      receivedAt: new Date().toISOString(),
+    };
   }
 
   /**
@@ -178,6 +380,7 @@ export class CodexEventConverter {
         if (phase === 'completed') {
           return this.convertMcpToolCall(item, phase, metadata);
         }
+        console.log('[CodexConverter] Skipping mcp_tool_call in phase:', phase);
         return null;
 
       case 'web_search':
@@ -187,7 +390,7 @@ export class CodexEventConverter {
         return this.convertTodoList(item, phase, metadata);
 
       default:
-        console.warn('[CodexConverter] Unknown item type:', item);
+        console.warn('[CodexConverter] Unknown item type:', (item as any).type, 'Full item:', item);
         return null;
     }
   }

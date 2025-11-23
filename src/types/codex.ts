@@ -14,6 +14,7 @@
  */
 export interface CodexBaseEvent {
   type: string;
+  timestamp?: string;
 }
 
 /**
@@ -90,6 +91,36 @@ export interface CodexErrorEvent extends CodexBaseEvent {
 }
 
 /**
+ * Event message event (general event wrapper)
+ */
+export interface CodexEventMsgEvent extends CodexBaseEvent {
+  type: 'event_msg';
+  payload: {
+    type: string;
+    message?: string;
+    text?: string;
+    info?: any;
+    rate_limits?: any;
+    [key: string]: any;
+  };
+}
+
+/**
+ * Turn context event
+ */
+export interface CodexTurnContextEvent extends CodexBaseEvent {
+  type: 'turn_context';
+  payload: {
+    cwd: string;
+    approval_policy: string;
+    sandbox_policy: any;
+    model: string;
+    effort: string;
+    summary: string;
+  };
+}
+
+/**
  * Union type for all Codex events
  */
 export type CodexEvent =
@@ -102,7 +133,9 @@ export type CodexEvent =
   | CodexItemCompletedEvent
   | CodexErrorEvent
   | CodexSessionMetaEvent
-  | CodexResponseItemEvent;
+  | CodexResponseItemEvent
+  | CodexEventMsgEvent
+  | CodexTurnContextEvent;
 
 /**
  * Session metadata event
