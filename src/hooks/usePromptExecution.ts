@@ -632,10 +632,16 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
         // 🆕 Codex Execution Branch
         // ====================================================================
         console.log('[usePromptExecution] Using Codex execution engine');
+        console.log('[Codex] Session state:', {
+          hasEffectiveSession: !!effectiveSession,
+          effectiveSessionId: effectiveSession?.id,
+          isFirstPrompt,
+          claudeSessionId
+        });
 
         if (effectiveSession && !isFirstPrompt) {
           // Resume existing Codex session
-          console.log('[Codex] Resuming session:', effectiveSession.id);
+          console.log('[Codex] 🔄 Resuming session:', effectiveSession.id);
           try {
             await api.resumeCodex(effectiveSession.id, {
               projectPath,
@@ -657,7 +663,7 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
           }
         } else {
           // Start new Codex session
-          console.log('[Codex] Starting new session');
+          console.log('[Codex] 🆕 Starting new session');
           setIsFirstPrompt(false);
           await api.executeCodex({
             projectPath,
