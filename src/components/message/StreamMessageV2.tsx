@@ -145,16 +145,20 @@ const StreamMessageV2Component: React.FC<StreamMessageV2Props> = ({
 
     // 🆕 Codex integration: Handle tool_use messages
     case 'tool_use':
+      // Convert tool_use message to assistant format with tool_use/tool_result in content
+      const toolUseMsg = message as any;
       return (
         <AIMessage
           message={{
-            ...message,
             type: 'assistant',
             message: {
+              role: 'assistant',
               content: [
-                message
+                toolUseMsg.tool_use || toolUseMsg.tool_result || toolUseMsg
               ]
-            }
+            },
+            timestamp: message.timestamp,
+            receivedAt: message.receivedAt
           }}
           isStreaming={isStreaming}
           onLinkDetected={onLinkDetected}
