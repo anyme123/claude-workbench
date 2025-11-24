@@ -2582,20 +2582,6 @@ export const api = {
   },
 
   /**
-   * Gets details of a specific Codex session
-   * @param sessionId - The session ID to retrieve
-   * @returns Promise resolving to session details
-   */
-  async getCodexSession(sessionId: string): Promise<import('@/types/codex').CodexSession | null> {
-    try {
-      return await invoke<import('@/types/codex').CodexSession | null>("get_codex_session", { sessionId });
-    } catch (error) {
-      console.error("Failed to get Codex session:", error);
-      throw error;
-    }
-  },
-
-  /**
    * Deletes a Codex session
    * @param sessionId - The session ID to delete
    * @returns Promise resolving to success message
@@ -2626,33 +2612,6 @@ export const api = {
         available: false,
         error: error instanceof Error ? error.message : String(error)
       };
-    }
-  },
-
-  /**
-   * Sets the Codex API key
-   * @param apiKey - The API key to set
-   * @returns Promise resolving to success message
-   */
-  async setCodexApiKey(apiKey: string): Promise<string> {
-    try {
-      return await invoke<string>("set_codex_api_key", { apiKey });
-    } catch (error) {
-      console.error("Failed to set Codex API key:", error);
-      throw error;
-    }
-  },
-
-  /**
-   * Gets the current Codex API key (masked)
-   * @returns Promise resolving to masked API key
-   */
-  async getCodexApiKey(): Promise<string | null> {
-    try {
-      return await invoke<string | null>("get_codex_api_key");
-    } catch (error) {
-      console.error("Failed to get Codex API key:", error);
-      return null;
     }
   },
 

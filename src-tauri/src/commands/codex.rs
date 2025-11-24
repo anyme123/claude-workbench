@@ -470,15 +470,6 @@ fn find_session_file(sessions_dir: &std::path::Path, session_id: &str) -> Option
     None
 }
 
-/// Gets details of a specific Codex session
-#[tauri::command]
-pub async fn get_codex_session(session_id: String) -> Result<Option<CodexSession>, String> {
-    log::info!("get_codex_session called for: {}", session_id);
-
-    // TODO: Implement session detail retrieval
-    Ok(None)
-}
-
 /// Deletes a Codex session
 #[tauri::command]
 pub async fn delete_codex_session(session_id: String) -> Result<String, String> {
@@ -608,24 +599,6 @@ fn get_codex_command_candidates() -> Vec<String> {
     }
 
     candidates
-}
-
-/// Sets the Codex API key
-#[tauri::command]
-pub async fn set_codex_api_key(_api_key: String) -> Result<String, String> {
-    log::info!("set_codex_api_key called");
-
-    // TODO: Store API key securely in settings
-    Ok("API key saved".to_string())
-}
-
-/// Gets the current Codex API key (masked)
-#[tauri::command]
-pub async fn get_codex_api_key() -> Result<Option<String>, String> {
-    log::info!("get_codex_api_key called");
-
-    // TODO: Retrieve and mask API key from settings
-    Ok(None)
 }
 
 // ============================================================================

@@ -67,9 +67,9 @@ use commands::file_operations::{open_directory_in_explorer, open_file_with_defau
 use commands::git_stats::{get_git_diff_stats, get_session_code_changes};
 use commands::codex::{
     execute_codex, resume_codex, resume_last_codex, cancel_codex,
-    list_codex_sessions, get_codex_session, delete_codex_session,
+    list_codex_sessions, delete_codex_session,
     load_codex_session_history,
-    check_codex_availability, set_codex_api_key, get_codex_api_key,
+    check_codex_availability,
     CodexProcessState,
 };
 use process::ProcessRegistryState;
@@ -290,12 +290,9 @@ fn main() {
             resume_last_codex,
             cancel_codex,
             list_codex_sessions,
-            get_codex_session,
             delete_codex_session,
             load_codex_session_history,
             check_codex_availability,
-            set_codex_api_key,
-            get_codex_api_key,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

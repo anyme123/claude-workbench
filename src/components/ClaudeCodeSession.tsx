@@ -489,8 +489,12 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
     if (!isLoading) return;
 
     try {
-      // Pass session ID if available, but backend can still cancel without it
-      await api.cancelClaudeExecution(claudeSessionId || undefined);
+      // 🆕 根据执行引擎调用相应的取消方法
+      if (executionEngineConfig.engine === 'codex') {
+        await api.cancelCodex(claudeSessionId || undefined);
+      } else {
+        await api.cancelClaudeExecution(claudeSessionId || undefined);
+      }
       
       // Clean up listeners
       unlistenRefs.current.forEach(unlisten => unlisten && typeof unlisten === 'function' && unlisten());
