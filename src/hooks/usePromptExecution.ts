@@ -206,6 +206,13 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
       // 2️⃣ Event Listener Setup (Only for Active Tabs)
       // ========================================================================
 
+      console.log('[usePromptExecution] Listener setup check:', {
+        isListening: isListeningRef.current,
+        isActive,
+        willSetupListeners: !isListeningRef.current && isActive,
+        executionEngine
+      });
+
       if (!isListeningRef.current && isActive) {
         // Clean up previous listeners
         unlistenRefs.current.forEach(unlisten => unlisten && typeof unlisten === 'function' && unlisten());
