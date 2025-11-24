@@ -17,6 +17,21 @@ pub fn get_claude_dir() -> Result<PathBuf> {
     Ok(claude_dir)
 }
 
+/// Gets the path to the ~/.codex directory
+pub fn get_codex_dir() -> Result<PathBuf> {
+    let codex_dir = dirs::home_dir()
+        .context("Could not find home directory")?
+        .join(".codex");
+
+    // Ensure the directory exists
+    fs::create_dir_all(&codex_dir)
+        .context("Failed to create ~/.codex directory")?;
+
+    // Return the path directly without canonicalization to avoid permission issues
+    // The path is valid since we just created it successfully
+    Ok(codex_dir)
+}
+
 /// Encodes a project path to match Claude CLI's encoding scheme
 /// Uses single hyphens to separate path components
 pub fn encode_project_path(path: &str) -> String {

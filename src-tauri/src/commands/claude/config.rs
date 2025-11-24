@@ -8,7 +8,7 @@ use regex::Regex;
 
 
 
-use super::paths::get_claude_dir;
+use super::paths::{get_claude_dir, get_codex_dir};
 use super::platform;
 use crate::commands::permission_config::{
     ClaudeExecutionConfig, ClaudePermissionConfig, PermissionMode,
@@ -810,5 +810,34 @@ pub async fn validate_permission_config(
     }
     
     Ok(validation_result)
+}
+
+/// Reads the AGENTS.md system prompt file from Codex directory
+#[tauri::command]
+pub async fn get_codex_system_prompt() -> Result<String, String> {
+    log::info!("Reading AGENTS.md system prompt from Codex directory");
+
+    let codex_dir = get_codex_dir().map_err(|e| e.to_string())?;
+    let agents_md_path = codex_dir.join("AGENTS.md");
+
+    if !agents_md_path.exists() {
+        log::warn!("AGENTS.md not found in Codex directory");
+        return Ok(String::new());
+    }
+
+    fs::read_to_string(&agents_md_path).map_err(|e| format!("Failed to read AGENTS.md: {}", e))
+}
+
+/// Saves the AGENTS.md system prompt file to Codex directory
+#[tauri::command]
+pub async fn save_codex_system_prompt(content: String) -> Result<String, String> {
+    log::info!("Saving AGENTS.md system prompt to Codex directory");
+
+    let codex_dir = get_codex_dir().map_err(|e| e.to_string())?;
+    let agents_md_path = codex_dir.join("AGENTS.md");
+
+    fs::write(&agents_md_path, content).map_err(|e| format!("Failed to write AGENTS.md: {}", e))?;
+
+    Ok("Codex system prompt saved successfully".to_string())
 }
 
