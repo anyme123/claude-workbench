@@ -817,15 +817,22 @@ pub async fn validate_permission_config(
 pub async fn get_codex_system_prompt() -> Result<String, String> {
     log::info!("Reading AGENTS.md system prompt from Codex directory");
 
-    let codex_dir = get_codex_dir().map_err(|e| e.to_string())?;
+    let codex_dir = get_codex_dir().map_err(|e| {
+        log::error!("Failed to get Codex directory: {}", e);
+        format!("无法访问 Codex 目录: {}。请确保已安装 Codex CLI。", e)
+    })?;
+
     let agents_md_path = codex_dir.join("AGENTS.md");
 
     if !agents_md_path.exists() {
-        log::warn!("AGENTS.md not found in Codex directory");
+        log::warn!("AGENTS.md not found at {:?}", agents_md_path);
         return Ok(String::new());
     }
 
-    fs::read_to_string(&agents_md_path).map_err(|e| format!("Failed to read AGENTS.md: {}", e))
+    fs::read_to_string(&agents_md_path).map_err(|e| {
+        log::error!("Failed to read AGENTS.md: {}", e);
+        format!("读取 AGENTS.md 失败: {}", e)
+    })
 }
 
 /// Saves the AGENTS.md system prompt file to Codex directory
@@ -833,11 +840,19 @@ pub async fn get_codex_system_prompt() -> Result<String, String> {
 pub async fn save_codex_system_prompt(content: String) -> Result<String, String> {
     log::info!("Saving AGENTS.md system prompt to Codex directory");
 
-    let codex_dir = get_codex_dir().map_err(|e| e.to_string())?;
+    let codex_dir = get_codex_dir().map_err(|e| {
+        log::error!("Failed to get Codex directory: {}", e);
+        format!("无法访问 Codex 目录: {}。请确保已安装 Codex CLI。", e)
+    })?;
+
     let agents_md_path = codex_dir.join("AGENTS.md");
 
-    fs::write(&agents_md_path, content).map_err(|e| format!("Failed to write AGENTS.md: {}", e))?;
+    fs::write(&agents_md_path, content).map_err(|e| {
+        log::error!("Failed to write AGENTS.md: {}", e);
+        format!("保存 AGENTS.md 失败: {}", e)
+    })?;
 
-    Ok("Codex system prompt saved successfully".to_string())
+    log::info!("Successfully saved AGENTS.md to {:?}", agents_md_path);
+    Ok("Codex 系统提示词保存成功".to_string())
 }
 
