@@ -794,12 +794,14 @@ async fn execute_codex_process(
         }
     });
 
-    // Spawn task to read stderr (suppress all debug output, only critical errors)
+    // Spawn task to read stderr (log errors, suppress debug output)
     tokio::spawn(async move {
         let mut reader = BufReader::new(stderr).lines();
-        while let Ok(Some(_line)) = reader.next_line().await {
-            // Completely suppress Codex debug output
-            // All useful information is in stdout JSONL stream
+        while let Ok(Some(line)) = reader.next_line().await {
+            // Log error messages for debugging
+            if !line.trim().is_empty() {
+                log::warn!("Codex stderr: {}", line);
+            }
         }
     });
 
