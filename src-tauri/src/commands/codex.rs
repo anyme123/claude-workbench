@@ -678,51 +678,87 @@ fn build_codex_command(
     let mut cmd = Command::new(&codex_cmd);
     cmd.arg("exec");
 
-    // Add resume if needed
+    // For resume commands: OPTIONS must come AFTER 'resume'
+    // Correct order: codex exec resume [OPTIONS] <SESSION_ID> <PROMPT>
+    // Wrong order: codex exec [OPTIONS] resume <SESSION_ID> <PROMPT>
+
     if is_resume {
+        // Add 'resume' first
         cmd.arg("resume");
-    }
 
-    // Enable JSON output mode (always for our use case)
-    if options.json {
-        cmd.arg("--json");
-    }
-
-    // Add execution mode
-    match options.mode {
-        CodexExecutionMode::FullAuto => {
-            cmd.arg("--full-auto");
+        // Then add all options after 'resume'
+        if options.json {
+            cmd.arg("--json");
         }
-        CodexExecutionMode::DangerFullAccess => {
-            cmd.arg("--sandbox");
-            cmd.arg("danger-full-access");
+
+        match options.mode {
+            CodexExecutionMode::FullAuto => {
+                cmd.arg("--full-auto");
+            }
+            CodexExecutionMode::DangerFullAccess => {
+                cmd.arg("--sandbox");
+                cmd.arg("danger-full-access");
+            }
+            CodexExecutionMode::ReadOnly => {
+                // Read-only is default
+            }
         }
-        CodexExecutionMode::ReadOnly => {
-            // Read-only is default, no flags needed
+
+        if let Some(ref model) = options.model {
+            cmd.arg("--model");
+            cmd.arg(model);
         }
-    }
 
-    // Add model if specified
-    if let Some(ref model) = options.model {
-        cmd.arg("--model");
-        cmd.arg(model);
-    }
+        if let Some(ref schema) = options.output_schema {
+            cmd.arg("--output-schema");
+            cmd.arg(schema);
+        }
 
-    // Add output schema if specified
-    if let Some(ref schema) = options.output_schema {
-        cmd.arg("--output-schema");
-        cmd.arg(schema);
-    }
+        if let Some(ref file) = options.output_file {
+            cmd.arg("-o");
+            cmd.arg(file);
+        }
 
-    // Add output file if specified
-    if let Some(ref file) = options.output_file {
-        cmd.arg("-o");
-        cmd.arg(file);
-    }
+        if options.skip_git_repo_check {
+            cmd.arg("--skip-git-repo-check");
+        }
+    } else {
+        // For new sessions: OPTIONS come before prompt
+        if options.json {
+            cmd.arg("--json");
+        }
 
-    // Skip git repo check if requested
-    if options.skip_git_repo_check {
-        cmd.arg("--skip-git-repo-check");
+        match options.mode {
+            CodexExecutionMode::FullAuto => {
+                cmd.arg("--full-auto");
+            }
+            CodexExecutionMode::DangerFullAccess => {
+                cmd.arg("--sandbox");
+                cmd.arg("danger-full-access");
+            }
+            CodexExecutionMode::ReadOnly => {
+                // Read-only is default
+            }
+        }
+
+        if let Some(ref model) = options.model {
+            cmd.arg("--model");
+            cmd.arg(model);
+        }
+
+        if let Some(ref schema) = options.output_schema {
+            cmd.arg("--output-schema");
+            cmd.arg(schema);
+        }
+
+        if let Some(ref file) = options.output_file {
+            cmd.arg("-o");
+            cmd.arg(file);
+        }
+
+        if options.skip_git_repo_check {
+            cmd.arg("--skip-git-repo-check");
+        }
     }
 
     // Set working directory
