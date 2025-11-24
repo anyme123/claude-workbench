@@ -317,13 +317,23 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
    * - Reduced overscan from 8 to 5 (25% fewer rendered items off-screen)
    * - Dynamic height estimation based on message type
    * - Performance improvement: ~30-40% reduction in DOM nodes
+   * - Fixed: Use messageGroups.length instead of displayableMessages.length
    */
   const rowVirtualizer = useVirtualizer({
-    count: displayableMessages.length,
+    count: messageGroups.length,
     getScrollElement: () => parentRef.current,
     estimateSize: (index) => {
-      // ✅ Dynamic height estimation based on message type
-      const message = displayableMessages[index];
+      // ✅ Dynamic height estimation based on message group type
+      const messageGroup = messageGroups[index];
+      if (!messageGroup) return 200;
+
+      // For subagent groups, estimate larger height
+      if (messageGroup.type === 'subagent') {
+        return 400; // Subagent groups are typically larger
+      }
+
+      // For normal messages, estimate based on message type
+      const message = messageGroup.message;
       if (!message) return 200;
 
       // Estimate different heights for different message types
@@ -661,32 +671,38 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
   // 🆕 撤回处理函数 - 支持三种撤回模式
   // Handle prompt navigation - scroll to specific prompt
   const handlePromptNavigation = useCallback((promptIndex: number) => {
-    // 找到 promptIndex 对应的消息在 displayableMessages 中的索引
+    // 找到 promptIndex 对应的消息在 messageGroups 中的索引
     let currentPromptIndex = 0;
-    let targetMessageIndex = -1;
+    let targetGroupIndex = -1;
 
-    for (let i = 0; i < displayableMessages.length; i++) {
-      const message = displayableMessages[i];
-      const messageType = (message as any).type || (message.message as any)?.role;
+    for (let i = 0; i < messageGroups.length; i++) {
+      const group = messageGroups[i];
 
-      if (messageType === 'user') {
-        if (currentPromptIndex === promptIndex) {
-          targetMessageIndex = i;
-          break;
+      // 检查普通消息
+      if (group.type === 'normal') {
+        const message = group.message;
+        const messageType = (message as any).type || (message.message as any)?.role;
+
+        if (messageType === 'user') {
+          if (currentPromptIndex === promptIndex) {
+            targetGroupIndex = i;
+            break;
+          }
+          currentPromptIndex++;
         }
-        currentPromptIndex++;
       }
+      // 子代理组不包含 user 消息，跳过
     }
 
-    if (targetMessageIndex === -1) {
+    if (targetGroupIndex === -1) {
       console.warn(`[Prompt Navigation] Prompt #${promptIndex} not found`);
       return;
     }
 
-    console.log(`[Prompt Navigation] Navigating to prompt #${promptIndex}, message index: ${targetMessageIndex}`);
+    console.log(`[Prompt Navigation] Navigating to prompt #${promptIndex}, group index: ${targetGroupIndex}`);
 
     // 先使用虚拟列表滚动到该索引（让元素渲染出来）
-    rowVirtualizer.scrollToIndex(targetMessageIndex, {
+    rowVirtualizer.scrollToIndex(targetGroupIndex, {
       align: 'center',
       behavior: 'smooth',
     });
@@ -701,7 +717,7 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
 
     // Close navigator after navigation
     setShowPromptNavigator(false);
-  }, [displayableMessages, rowVirtualizer]);
+  }, [messageGroups, rowVirtualizer]);
 
   const handleRevert = useCallback(async (promptIndex: number, mode: import('@/lib/api').RewindMode = 'both') => {
     if (!effectiveSession) return;
@@ -803,12 +819,19 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
         <AnimatePresence>
           {rowVirtualizer.getVirtualItems().map((virtualItem) => {
             const messageGroup = messageGroups[virtualItem.index];
+
+            // 防御性检查：确保 messageGroup 存在
+            if (!messageGroup) {
+              console.warn('[ClaudeCodeSession] messageGroup is undefined for index:', virtualItem.index);
+              return null;
+            }
+
             const message = messageGroup.type === 'normal' ? messageGroup.message : null;
             const originalIndex = messageGroup.type === 'normal' ? messageGroup.index : undefined;
             const promptIndex = message && message.type === 'user' && originalIndex !== undefined
-              ? getPromptIndexForMessage(originalIndex) 
+              ? getPromptIndexForMessage(originalIndex)
               : undefined;
-            
+
             return (
               <motion.div
                 key={virtualItem.key}
