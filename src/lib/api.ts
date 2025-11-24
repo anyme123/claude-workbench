@@ -735,6 +735,33 @@ export const api = {
   },
 
   /**
+   * Reads the AGENTS.md system prompt file from Codex directory
+   * @returns Promise resolving to the Codex system prompt content
+   */
+  async getCodexSystemPrompt(): Promise<string> {
+    try {
+      return await invoke<string>("get_codex_system_prompt");
+    } catch (error) {
+      console.error("Failed to get Codex system prompt:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Saves the AGENTS.md system prompt file to Codex directory
+   * @param content - The new content for the Codex system prompt
+   * @returns Promise resolving when the file is saved
+   */
+  async saveCodexSystemPrompt(content: string): Promise<string> {
+    try {
+      return await invoke<string>("save_codex_system_prompt", { content });
+    } catch (error) {
+      console.error("Failed to save Codex system prompt:", error);
+      throw error;
+    }
+  },
+
+  /**
    * Saves the Claude settings file
    * @param settings - The settings object to save
    * @returns Promise resolving when the settings are saved
