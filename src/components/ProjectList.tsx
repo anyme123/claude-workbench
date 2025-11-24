@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   FolderOpen,
   FileText,
@@ -8,6 +8,8 @@ import {
   Archive
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { api } from "@/lib/api";
+import type { CodexSession } from "@/types/codex";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -103,6 +105,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState("active");
+  const [codexSessions, setCodexSessions] = useState<CodexSession[]>([]);
   
   // Calculate pagination
   const totalPages = Math.ceil(projects.length / ITEMS_PER_PAGE);
@@ -110,6 +113,20 @@ export const ProjectList: React.FC<ProjectListProps> = ({
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const currentProjects = projects.slice(startIndex, endIndex);
   
+  // Load Codex sessions for counting
+  useEffect(() => {
+    const loadCodexSessions = async () => {
+      try {
+        const sessions = await api.listCodexSessions();
+        setCodexSessions(sessions);
+      } catch (error) {
+        console.error('Failed to load Codex sessions:', error);
+        // Continue with empty array - won't block UI
+      }
+    };
+    loadCodexSessions();
+  }, []);
+
   // Reset to page 1 if projects change
   React.useEffect(() => {
     setCurrentPage(1);
@@ -139,7 +156,26 @@ export const ProjectList: React.FC<ProjectListProps> = ({
     setDeleteDialogOpen(false);
     setProjectToDelete(null);
   };
-  
+
+  /**
+   * Calculate total session count for a project (Claude Code + Codex)
+   */
+  const getTotalSessionCount = (project: Project): number => {
+    // Claude Code sessions count
+    const claudeSessionCount = project.sessions.length;
+
+    // Codex sessions count - filter by normalized project path
+    const normalize = (p: string) => p ? p.replace(/\\/g, '/').replace(/\/$/, '').toLowerCase() : '';
+    const projectPathNorm = normalize(project.path);
+
+    const codexSessionCount = codexSessions.filter(cs => {
+      const csPathNorm = normalize(cs.projectPath);
+      return csPathNorm === projectPathNorm;
+    }).length;
+
+    return claudeSessionCount + codexSessionCount;
+  };
+
   const ProjectGrid = () => (
     <div className="space-y-4">
       <div
@@ -149,7 +185,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
       >
         {currentProjects.map((project) => {
           const projectName = getProjectName(project.path);
-          const sessionCount = project.sessions.length;
+          const sessionCount = getTotalSessionCount(project);
 
           return (
             <div
