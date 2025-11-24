@@ -206,13 +206,6 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
       // 2️⃣ Event Listener Setup (Only for Active Tabs)
       // ========================================================================
 
-      console.log('[usePromptExecution] Listener setup check:', {
-        isListening: isListeningRef.current,
-        isActive,
-        willSetupListeners: !isListeningRef.current && isActive,
-        executionEngine
-      });
-
       if (!isListeningRef.current && isActive) {
         // Clean up previous listeners
         unlistenRefs.current.forEach(unlisten => unlisten && typeof unlisten === 'function' && unlisten());
@@ -221,38 +214,26 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
         // Mark as setting up listeners
         isListeningRef.current = true;
 
-        console.log('[usePromptExecution] Setting up event listeners for ACTIVE tab only');
-        console.log('[usePromptExecution] Execution engine:', executionEngine);
-
         // ====================================================================
         // 🆕 Codex Event Listeners
         // ====================================================================
         if (executionEngine === 'codex') {
-          console.log('[usePromptExecution] Setting up Codex event listeners');
-
           // Reset Codex converter state for new session
           codexConverter.reset();
 
           // Listen for Codex JSONL output
           const codexOutputUnlisten = await listen<string>('codex-output', (evt) => {
-            console.log('[Codex] ✅ Received codex-output event:', evt.payload.substring(0, 100));
-
-            if (!isMountedRef.current) {
-              console.warn('[Codex] ⚠️ Component unmounted, skipping event');
-              return;
-            }
+            if (!isMountedRef.current) return;
 
             // Convert Codex JSONL event to ClaudeStreamMessage
             const message = codexConverter.convertEvent(evt.payload);
             if (message) {
-              console.log('[Codex] ✅ Converted message:', message.type);
               setMessages(prev => [...prev, message]);
               setRawJsonlOutput((prev) => [...prev, evt.payload]);
 
               // Extract and save Codex session ID from thread.started
               if (message.type === 'system' && message.subtype === 'init' && (message as any).session_id) {
                 const codexSessionId = (message as any).session_id;
-                console.log('[Codex] Extracted session ID:', codexSessionId);
                 setClaudeSessionId(codexSessionId);
 
                 // Save session info for resuming
@@ -267,13 +248,11 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
 
           // Listen for Codex errors
           const codexErrorUnlisten = await listen<string>('codex-error', (evt) => {
-            console.error('[Codex] Error:', evt.payload);
             setError(evt.payload);
           });
 
           // Listen for Codex completion
           const codexCompleteUnlisten = await listen<boolean>('codex-complete', (_evt) => {
-            console.log('[Codex] Execution complete');
             setIsLoading(false);
             hasActiveSessionRef.current = false;
             isListeningRef.current = false;
@@ -290,9 +269,6 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
           });
 
           unlistenRefs.current = [codexOutputUnlisten, codexErrorUnlisten, codexCompleteUnlisten];
-
-          // Skip Claude Code listener setup for Codex
-          console.log('[usePromptExecution] Codex listeners setup complete');
         } else {
           // --------------------------------------------------------------------
           // Claude Code Event Listener Setup Strategy
@@ -643,19 +619,8 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
         // ====================================================================
         // 🆕 Codex Execution Branch
         // ====================================================================
-        console.log('[usePromptExecution] 🚀 Using Codex execution engine');
-        console.log('[Codex] Session state:', {
-          hasEffectiveSession: !!effectiveSession,
-          effectiveSessionId: effectiveSession?.id,
-          isFirstPrompt,
-          claudeSessionId,
-          isListening: isListeningRef.current,
-          hasListeners: unlistenRefs.current.length
-        });
-
         if (effectiveSession && !isFirstPrompt) {
           // Resume existing Codex session
-          console.log('[Codex] 🔄 Resuming session:', effectiveSession.id);
           try {
             await api.resumeCodex(effectiveSession.id, {
               projectPath,
@@ -665,7 +630,6 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
               json: true
             });
           } catch (resumeError) {
-            console.warn('[Codex] Resume failed, falling back to resume last:', resumeError);
             // Fallback to resume last if specific resume fails
             await api.resumeLastCodex({
               projectPath,
@@ -677,7 +641,6 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
           }
         } else {
           // Start new Codex session
-          console.log('[Codex] 🆕 Starting new session');
           setIsFirstPrompt(false);
           await api.executeCodex({
             projectPath,

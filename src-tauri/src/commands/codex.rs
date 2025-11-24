@@ -741,12 +741,7 @@ fn build_codex_command(
     }
 
     // Add prompt
-    // For resume: codex exec resume [OPTIONS] <SESSION_ID> <new_prompt>
-    // For new: codex exec [OPTIONS] <prompt>
     cmd.arg(&options.prompt);
-
-    // Log the complete command for debugging
-    log::info!("[Codex] Built command: {:?}", cmd);
 
     Ok(cmd)
 }

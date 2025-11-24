@@ -155,7 +155,6 @@ export function useSessionLifecycle(config: UseSessionLifecycleConfig): UseSessi
       // Codex sessions are non-interactive and don't maintain active state
       const isCodexSession = (session as any).engine === 'codex';
       if (isCodexSession) {
-        console.log('[useSessionLifecycle] Skipping active session check for Codex session');
         return;
       }
 
