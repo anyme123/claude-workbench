@@ -151,6 +151,14 @@ export function useSessionLifecycle(config: UseSessionLifecycleConfig): UseSessi
   const checkForActiveSession = useCallback(async () => {
     // If we have a session prop, check if it's still active
     if (session) {
+      // Skip active session check for Codex sessions
+      // Codex sessions are non-interactive and don't maintain active state
+      const isCodexSession = (session as any).engine === 'codex';
+      if (isCodexSession) {
+        console.log('[useSessionLifecycle] Skipping active session check for Codex session');
+        return;
+      }
+
       try {
         const activeSessions = await api.listRunningClaudeSessions();
         const activeSession = activeSessions.find((s: any) => {
