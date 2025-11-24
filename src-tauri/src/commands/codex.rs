@@ -733,10 +733,10 @@ fn build_codex_command(
         cmd.env("CODEX_API_KEY", api_key);
     }
 
-    // Add prompt (if not resuming)
-    if !is_resume {
-        cmd.arg(&options.prompt);
-    }
+    // Add prompt
+    // For resume: codex exec resume <SESSION_ID> <new_prompt>
+    // For new: codex exec <prompt>
+    cmd.arg(&options.prompt);
 
     Ok(cmd)
 }
