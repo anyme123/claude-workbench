@@ -106,7 +106,7 @@ export class CodexEventConverter {
           return this.convertResponseItem(event);
 
         case 'event_msg':
-          return this.convertEventMsg(event as import('@/types/codex').CodexEventMsgEvent);
+          return this.convertEventMsg(event as import('@/types/codex').CodexEvent);
 
         case 'turn_context':
           // Turn context events are metadata, don't display
@@ -122,7 +122,7 @@ export class CodexEventConverter {
   /**
    * Converts event_msg event to ClaudeStreamMessage
    */
-  private convertEventMsg(event: import('@/types/codex').CodexEventMsgEvent): ClaudeStreamMessage | null {
+  private convertEventMsg(event: import('@/types/codex').CodexEvent): ClaudeStreamMessage | null {
     const { payload } = event;
 
     switch (payload.type) {
@@ -161,7 +161,7 @@ export class CodexEventConverter {
    * Converts response_item event to ClaudeStreamMessage
    * Note: This handles different payload.type values including function_call, reasoning, etc.
    */
-  private convertResponseItem(event: import('@/types/codex').CodexResponseItemEvent): ClaudeStreamMessage | null {
+  private convertResponseItem(event: import('@/types/codex').CodexEvent): ClaudeStreamMessage | null {
     const { payload } = event;
     if (!payload) {
       console.warn('[CodexConverter] response_item missing payload:', event);
@@ -200,7 +200,7 @@ export class CodexEventConverter {
 
     // Filter out system environment context messages from user
     if (payload.role === 'user' && payload.content) {
-      const isEnvContext = payload.content.some(c =>
+      const isEnvContext = payload.content.some((c: any) =>
         c.type === 'input_text' && c.text && (
           c.text.includes('<environment_context>') ||
           c.text.includes('# AGENTS.md instructions')
@@ -216,7 +216,7 @@ export class CodexEventConverter {
     // Map payload to Claude message structure
     // Note: Codex uses 'input_text' for user messages and 'output_text' for assistant messages
     // Claude uses 'text' for both
-    const content = payload.content?.map(c => ({
+    const content = payload.content?.map((c: any) => ({
       ...c,
       type: c.type === 'input_text' || c.type === 'output_text' ? 'text' : c.type
     })) || [];
@@ -227,7 +227,7 @@ export class CodexEventConverter {
       return null;
     }
 
-    const hasNonEmptyContent = content.some(c => {
+    const hasNonEmptyContent = content.some((c: any) => {
       if (c.type === 'text') {
         return c.text && c.text.trim().length > 0;
       }
@@ -254,7 +254,7 @@ export class CodexEventConverter {
     console.log('[CodexConverter] Converted response_item:', {
       eventType: event.type,
       role: payload.role,
-      contentTypes: content?.map(c => c.type),
+      contentTypes: content?.map((c: any) => c.type),
       contentCount: content.length,
       messageType: message.type
     });

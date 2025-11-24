@@ -610,29 +610,6 @@ fn get_codex_command_candidates() -> Vec<String> {
     candidates
 }
 
-/// Finds the first working Codex command path (synchronously)
-/// Reserved for future use in command validation
-#[allow(dead_code)]
-fn get_working_codex_command() -> Option<String> {
-    let candidates = get_codex_command_candidates();
-
-    for cmd_path in &candidates {
-        // Check if file exists for absolute paths
-        if cmd_path.contains("\\") || cmd_path.contains("/") {
-            if std::path::Path::new(&cmd_path).exists() {
-                log::info!("[Codex] ✅ Found working command: {}", cmd_path);
-                return Some(cmd_path.clone());
-            } else {
-                log::debug!("[Codex] Path does not exist: {}", cmd_path);
-            }
-        }
-    }
-
-    // Fallback: try "codex" in PATH as last resort
-    log::warn!("[Codex] No absolute path found, trying 'codex' in PATH as fallback");
-    Some("codex".to_string())
-}
-
 /// Sets the Codex API key
 #[tauri::command]
 pub async fn set_codex_api_key(_api_key: String) -> Result<String, String> {
