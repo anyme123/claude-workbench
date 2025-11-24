@@ -150,7 +150,7 @@ pub async fn execute_codex(
     log::info!("execute_codex called with options: {:?}", options);
 
     // Build codex exec command
-    let cmd = build_codex_command(&options, false)?;
+    let cmd = build_codex_command(&options, false, None)?;
 
     // Execute and stream output
     execute_codex_process(cmd, options.project_path.clone(), app_handle).await
@@ -165,10 +165,8 @@ pub async fn resume_codex(
 ) -> Result<(), String> {
     log::info!("resume_codex called for session: {}", session_id);
 
-    // Build codex exec resume command
-    let mut cmd_builder = build_codex_command(&options, true)?;
-    cmd_builder.arg(&session_id);
-    let cmd = cmd_builder;
+    // Build codex exec resume command (session_id added inside build function)
+    let cmd = build_codex_command(&options, true, Some(&session_id))?;
 
     // Execute and stream output
     execute_codex_process(cmd, options.project_path.clone(), app_handle).await
@@ -183,9 +181,7 @@ pub async fn resume_last_codex(
     log::info!("resume_last_codex called");
 
     // Build codex exec resume --last command
-    let mut cmd_builder = build_codex_command(&options, true)?;
-    cmd_builder.arg("--last");
-    let cmd = cmd_builder;
+    let cmd = build_codex_command(&options, true, Some("--last"))?;
 
     // Execute and stream output
     execute_codex_process(cmd, options.project_path.clone(), app_handle).await
@@ -654,6 +650,7 @@ pub async fn get_codex_api_key() -> Result<Option<String>, String> {
 fn build_codex_command(
     options: &CodexExecutionOptions,
     is_resume: bool,
+    session_id: Option<&str>,
 ) -> Result<Command, String> {
     // Use full path on Windows
     #[cfg(target_os = "windows")]
@@ -721,6 +718,11 @@ fn build_codex_command(
 
         if options.skip_git_repo_check {
             cmd.arg("--skip-git-repo-check");
+        }
+
+        // Add session_id after options, before prompt
+        if let Some(sid) = session_id {
+            cmd.arg(sid);
         }
     } else {
         // For new sessions: OPTIONS come before prompt
