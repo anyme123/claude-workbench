@@ -14,6 +14,9 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
 
+// Import platform-specific utilities for window hiding
+use crate::commands::claude::apply_no_window_async;
+
 // ============================================================================
 // Type Definitions
 // ============================================================================
@@ -528,6 +531,10 @@ pub async fn check_codex_availability() -> Result<CodexAvailability, String> {
             }
         }
 
+        // 🔥 CRITICAL FIX: Apply no-window configuration for availability check
+        // This prevents terminal flash when checking Codex availability
+        apply_no_window_async(&mut cmd);
+
         match cmd.output().await {
         Ok(output) => {
             let stdout_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -604,6 +611,8 @@ fn get_codex_command_candidates() -> Vec<String> {
 }
 
 /// Finds the first working Codex command path (synchronously)
+/// Reserved for future use in command validation
+#[allow(dead_code)]
 fn get_working_codex_command() -> Option<String> {
     let candidates = get_codex_command_candidates();
 
@@ -756,6 +765,10 @@ async fn execute_codex_process(
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
 
+    // 🔥 Fix: Apply platform-specific no-window configuration to hide console
+    // This prevents the terminal window from flashing when starting Codex sessions
+    apply_no_window_async(&mut cmd);
+
     // Spawn process
     let mut child = cmd
         .spawn()
@@ -782,7 +795,7 @@ async fn execute_codex_process(
 
     // Clone handles for async tasks
     let app_handle_stdout = app_handle.clone();
-    let app_handle_stderr = app_handle.clone();
+    let _app_handle_stderr = app_handle.clone(); // Reserved for future stderr event emission
     let app_handle_complete = app_handle.clone();
     let session_id_complete = session_id.clone();
 

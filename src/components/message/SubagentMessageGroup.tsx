@@ -1,6 +1,6 @@
 /**
  * 子代理消息组组件
- * 
+ *
  * 将子代理的完整操作链路（从 Task 调用到执行完成）作为一个整体进行渲染
  * 提供视觉分隔和折叠/展开功能
  */
@@ -25,7 +25,7 @@ interface SubagentMessageGroupProps {
 
 /**
  * 子代理消息组
- * 
+ *
  * 将 Task 工具调用和相关的子代理消息打包展示
  * 使用独立的视觉样式（边框、背景色、缩进）进行区分
  */
@@ -36,16 +36,27 @@ export const SubagentMessageGroup: React.FC<SubagentMessageGroupProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
 
+  // 🛡️ 防御性编程：验证 subagentMessages 数组
+  const subagentMessages = Array.isArray(group.subagentMessages) ? group.subagentMessages : [];
+
   // 统计子代理消息数量
-  const messageCount = group.subagentMessages.length;
-  const userMessages = group.subagentMessages.filter(m => m.type === 'user').length;
-  const assistantMessages = group.subagentMessages.filter(m => m.type === 'assistant').length;
+  const messageCount = subagentMessages.length;
+  const userMessages = subagentMessages.filter(m => m?.type === 'user').length;
+  const assistantMessages = subagentMessages.filter(m => m?.type === 'assistant').length;
+
+  // 🛡️ 如果没有 taskMessage，返回 null 防止崩溃
+  if (!group.taskMessage) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('[SubagentMessageGroup] Missing taskMessage in group:', group);
+    }
+    return null;
+  }
 
   return (
     <div className={cn("relative my-4", className)}>
       {/* 子代理组容器 */}
       <div className="rounded-lg border-2 border-purple-500/30 bg-purple-500/5 overflow-hidden">
-        
+
         {/* Task 工具调用（固定显示） */}
         <div className="border-b border-purple-500/20">
           <AIMessage
@@ -99,56 +110,72 @@ export const SubagentMessageGroup: React.FC<SubagentMessageGroupProps> = ({
                 </div>
 
                 {/* 渲染子代理消息 */}
-                {group.subagentMessages.map((message, index) => {
-                  const role = getSubagentMessageRole(message);
-                  
-                  // 根据修正后的角色渲染消息
-                  if (role === 'assistant' || message.type === 'assistant') {
-                    return (
-                      <div key={index} className="pl-2">
-                        <AIMessage
-                          message={message}
-                          isStreaming={false}
-                          onLinkDetected={onLinkDetected}
-                          className="shadow-sm"
-                        />
-                      </div>
-                    );
-                  } else if (role === 'user' || message.type === 'user') {
-                    // 如果是主代理发给子代理的提示词，添加特殊标识
-                    const isPromptToSubagent = message.type === 'user' && 
-                      Array.isArray(message.message?.content) &&
-                      message.message.content.some((item: any) => item.type === 'text');
-                    
-                    return (
-                      <div key={index} className="pl-2">
-                        {isPromptToSubagent && (
-                          <div className="text-xs text-purple-600 dark:text-purple-400 mb-1 px-2 flex items-center gap-1">
-                            <Bot className="h-3 w-3" />
-                            <span>主代理 → 子代理任务</span>
-                          </div>
-                        )}
-                        <UserMessage
-                          message={message}
-                          className="shadow-sm"
-                        />
-                      </div>
-                    );
-                  }
-                  
-                  return null;
-                })}
+                {subagentMessages.length > 0 ? (
+                  subagentMessages.map((message, index) => {
+                    // 🛡️ 跳过 null/undefined 消息
+                    if (!message) {
+                      if (process.env.NODE_ENV !== 'production') {
+                        console.warn('[SubagentMessageGroup] Skipping null/undefined message at index:', index);
+                      }
+                      return null;
+                    }
+
+                    const role = getSubagentMessageRole(message);
+
+                    // 根据修正后的角色渲染消息
+                    if (role === 'assistant' || message.type === 'assistant') {
+                      return (
+                        <div key={`msg-${index}-${message.timestamp || index}`} className="pl-2">
+                          <AIMessage
+                            message={message}
+                            isStreaming={false}
+                            onLinkDetected={onLinkDetected}
+                            className="shadow-sm"
+                          />
+                        </div>
+                      );
+                    } else if (role === 'user' || message.type === 'user') {
+                      // 如果是主代理发给子代理的提示词，添加特殊标识
+                      const isPromptToSubagent = message.type === 'user' &&
+                        Array.isArray(message.message?.content) &&
+                        message.message.content.some((item: any) => item?.type === 'text');
+
+                      return (
+                        <div key={`msg-${index}-${message.timestamp || index}`} className="pl-2">
+                          {isPromptToSubagent && (
+                            <div className="text-xs text-purple-600 dark:text-purple-400 mb-1 px-2 flex items-center gap-1">
+                              <Bot className="h-3 w-3" />
+                              <span>主代理 → 子代理任务</span>
+                            </div>
+                          )}
+                          <UserMessage
+                            message={message}
+                            className="shadow-sm"
+                          />
+                        </div>
+                      );
+                    }
+
+                    return null;
+                  })
+                ) : (
+                  <div className="text-xs text-muted-foreground px-2 py-4 text-center">
+                    暂无子代理消息
+                  </div>
+                )}
 
                 {/* 统计信息 */}
-                <div className="text-xs text-muted-foreground mt-3 px-2 pt-2 border-t border-purple-500/20">
-                  <div className="flex items-center gap-4">
-                    <span>交互轮次: {Math.ceil(messageCount / 2)}</span>
-                    <span>•</span>
-                    <span>子代理回复: {assistantMessages}</span>
-                    <span>•</span>
-                    <span>任务消息: {userMessages}</span>
+                {messageCount > 0 && (
+                  <div className="text-xs text-muted-foreground mt-3 px-2 pt-2 border-t border-purple-500/20">
+                    <div className="flex items-center gap-4">
+                      <span>交互轮次: {Math.ceil(messageCount / 2)}</span>
+                      <span>•</span>
+                      <span>子代理回复: {assistantMessages}</span>
+                      <span>•</span>
+                      <span>任务消息: {userMessages}</span>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </motion.div>
           )}

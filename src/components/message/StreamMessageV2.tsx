@@ -55,9 +55,27 @@ const StreamMessageV2Component: React.FC<StreamMessageV2Props> = ({
   // 如果提供了 messageGroup，优先使用分组渲染
   if (messageGroup) {
     if (messageGroup.type === 'subagent') {
+      // 🛡️ 数据完整性验证：防止崩溃
+      const group = messageGroup.group;
+
+      // 验证必要的数据结构
+      if (!group ||
+          !group.taskMessage ||
+          !Array.isArray(group.subagentMessages)) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('[StreamMessageV2] Invalid subagent group structure:', {
+            hasGroup: !!group,
+            hasTaskMessage: !!group?.taskMessage,
+            hasSubagentMessages: Array.isArray(group?.subagentMessages),
+            group
+          });
+        }
+        return null; // 安全降级：不渲染无效数据
+      }
+
       return (
         <SubagentMessageGroup
-          group={messageGroup.group}
+          group={group}
           className={className}
           onLinkDetected={onLinkDetected}
         />
@@ -181,7 +199,7 @@ export const StreamMessageV2 = React.memo(
     if (prevProps.messageGroup || nextProps.messageGroup) {
       const prevGroupStr = JSON.stringify(prevProps.messageGroup);
       const nextGroupStr = JSON.stringify(nextProps.messageGroup);
-      
+
       return (
         prevGroupStr === nextGroupStr &&
         prevProps.isStreaming === nextProps.isStreaming &&

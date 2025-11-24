@@ -10,6 +10,8 @@ mod file_ops;
 
 pub use models::*;
 pub use paths::*;
+// Export platform utilities for process window hiding
+pub use platform::apply_no_window_async;
 pub use self::cli_runner::{
     cancel_claude_execution,
     continue_claude_code,

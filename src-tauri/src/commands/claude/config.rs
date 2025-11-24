@@ -67,6 +67,13 @@ pub async fn open_new_session(app: AppHandle, path: Option<String>) -> Result<St
             cmd.current_dir(&project_path);
         }
 
+        // 🔥 Fix: Apply platform-specific no-window configuration to hide console
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        }
+
         // Execute the command
         match cmd.spawn() {
             Ok(_) => {
