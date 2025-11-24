@@ -638,12 +638,14 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
         // ====================================================================
         // 🆕 Codex Execution Branch
         // ====================================================================
-        console.log('[usePromptExecution] Using Codex execution engine');
+        console.log('[usePromptExecution] 🚀 Using Codex execution engine');
         console.log('[Codex] Session state:', {
           hasEffectiveSession: !!effectiveSession,
           effectiveSessionId: effectiveSession?.id,
           isFirstPrompt,
-          claudeSessionId
+          claudeSessionId,
+          isListening: isListeningRef.current,
+          hasListeners: unlistenRefs.current.length
         });
 
         if (effectiveSession && !isFirstPrompt) {
