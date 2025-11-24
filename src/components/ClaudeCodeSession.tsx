@@ -764,22 +764,25 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
   }, [effectiveSession, projectPath, claudeSettings?.hideWarmupMessages]);
 
   // Cleanup event listeners and track mount state
+  // ⚠️ IMPORTANT: No dependencies! Only cleanup on real unmount
+  // Adding dependencies like effectiveSession would cause cleanup to run
+  // when session ID is extracted, clearing active listeners
   useEffect(() => {
     isMountedRef.current = true;
-    
+
     return () => {
       console.log('[ClaudeCodeSession] Component unmounting, cleaning up listeners');
       isMountedRef.current = false;
       isListeningRef.current = false;
-      
+
       // Clean up listeners
       unlistenRefs.current.forEach(unlisten => unlisten && typeof unlisten === 'function' && unlisten());
       unlistenRefs.current = [];
-      
+
       // Reset session state on unmount
       setClaudeSessionId(null);
     };
-  }, [effectiveSession, projectPath]);
+  }, []); // Empty deps - only run on mount/unmount
 
   const messagesList = (
     <div
