@@ -683,47 +683,18 @@ fn build_codex_command(
         // Add 'resume' first
         cmd.arg("resume");
 
-        // Then add all options after 'resume'
-        if options.json {
-            cmd.arg("--json");
-        }
+        // ⚠️ IMPORTANT: codex exec resume does NOT support most options!
+        // It only accepts: <SESSION_ID> <PROMPT>
+        // Options like --json, --sandbox, --model are NOT supported in resume mode
+        // They were already set when the session was created
 
-        match options.mode {
-            CodexExecutionMode::FullAuto => {
-                cmd.arg("--full-auto");
-            }
-            CodexExecutionMode::DangerFullAccess => {
-                cmd.arg("--sandbox");
-                cmd.arg("danger-full-access");
-            }
-            CodexExecutionMode::ReadOnly => {
-                // Read-only is default
-            }
-        }
-
-        if let Some(ref model) = options.model {
-            cmd.arg("--model");
-            cmd.arg(model);
-        }
-
-        if let Some(ref schema) = options.output_schema {
-            cmd.arg("--output-schema");
-            cmd.arg(schema);
-        }
-
-        if let Some(ref file) = options.output_file {
-            cmd.arg("-o");
-            cmd.arg(file);
-        }
-
-        if options.skip_git_repo_check {
-            cmd.arg("--skip-git-repo-check");
-        }
-
-        // Add session_id after options, before prompt
+        // Add session_id
         if let Some(sid) = session_id {
             cmd.arg(sid);
         }
+
+        // Note: We skip all options in resume mode
+        // The session retains its original configuration
     } else {
         // For new sessions: OPTIONS come before prompt
         if options.json {
