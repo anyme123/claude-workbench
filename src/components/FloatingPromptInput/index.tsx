@@ -336,13 +336,19 @@ const FloatingPromptInputInner = (
   // Auto-resize textarea based on content
   const adjustTextareaHeight = (textarea: HTMLTextAreaElement | null) => {
     if (!textarea) return;
-    
+
     // Reset height to auto to get the correct scrollHeight
     textarea.style.height = 'auto';
-    
-    // Set height to scrollHeight (content height)
-    const newHeight = Math.min(textarea.scrollHeight, 160); // Max 160px as per original CSS
+
+    // 🔧 修复：增加最大高度限制，从 160px 增加到 300px，改善长文本体验
+    const maxHeight = isExpanded ? 600 : 300; // 展开模式允许更大的高度
+    const newHeight = Math.min(textarea.scrollHeight, maxHeight);
     textarea.style.height = `${newHeight}px`;
+
+    // 🔧 修复：确保当内容超出时可以滚动到底部
+    if (textarea.scrollHeight > maxHeight) {
+      textarea.scrollTop = textarea.scrollHeight;
+    }
   };
 
   // Auto-resize on prompt change
@@ -517,7 +523,7 @@ const FloatingPromptInputInner = (
                 onChange={handleTextChange}
                 onPaste={handlePaste}
                 placeholder="输入您的提示词..."
-                className="min-h-[240px] resize-none"
+                className="min-h-[240px] max-h-[600px] resize-none overflow-y-auto"
                 disabled={disabled}
                 onDragEnter={handleDrag}
                 onDragLeave={handleDrag}
@@ -732,7 +738,7 @@ const FloatingPromptInputInner = (
               placeholder={dragActive ? "拖放图片到这里..." : "向 Claude 提问..."}
               disabled={disabled}
               className={cn(
-                "min-h-[56px] max-h-[160px] resize-none pr-10 overflow-y-auto",
+                "min-h-[56px] max-h-[300px] resize-none pr-10 overflow-y-auto",
                 dragActive && "border-primary"
               )}
               rows={1}
