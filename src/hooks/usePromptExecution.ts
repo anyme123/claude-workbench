@@ -235,12 +235,17 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
 
           // Listen for Codex JSONL output
           const codexOutputUnlisten = await listen<string>('codex-output', (evt) => {
-            if (!isMountedRef.current) return;
+            console.log('[Codex] ✅ Received codex-output event:', evt.payload.substring(0, 100));
+
+            if (!isMountedRef.current) {
+              console.warn('[Codex] ⚠️ Component unmounted, skipping event');
+              return;
+            }
 
             // Convert Codex JSONL event to ClaudeStreamMessage
             const message = codexConverter.convertEvent(evt.payload);
             if (message) {
-              console.log('[Codex] Converted message:', message.type);
+              console.log('[Codex] ✅ Converted message:', message.type);
               setMessages(prev => [...prev, message]);
               setRawJsonlOutput((prev) => [...prev, evt.payload]);
 
