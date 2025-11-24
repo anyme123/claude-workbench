@@ -675,31 +675,29 @@ fn build_codex_command(
     let mut cmd = Command::new(&codex_cmd);
     cmd.arg("exec");
 
-    // For resume commands: OPTIONS must come AFTER 'resume'
-    // Correct order: codex exec resume [OPTIONS] <SESSION_ID> <PROMPT>
-    // Wrong order: codex exec [OPTIONS] resume <SESSION_ID> <PROMPT>
+    // ⚠️ CRITICAL: --json MUST come before 'resume' (if used)
+    // Correct order: codex exec --json resume <SESSION_ID> <PROMPT>
+    // This enables JSON output for both new and resume sessions
+
+    // Add --json flag first (works for both new and resume)
+    if options.json {
+        cmd.arg("--json");
+    }
 
     if is_resume {
-        // Add 'resume' first
+        // Add 'resume' after --json
         cmd.arg("resume");
-
-        // ⚠️ IMPORTANT: codex exec resume does NOT support most options!
-        // It only accepts: <SESSION_ID> <PROMPT>
-        // Options like --json, --sandbox, --model are NOT supported in resume mode
-        // They were already set when the session was created
 
         // Add session_id
         if let Some(sid) = session_id {
             cmd.arg(sid);
         }
 
-        // Note: We skip all options in resume mode
-        // The session retains its original configuration
+        // Resume mode: other options are NOT supported
+        // The session retains its original mode/model configuration
     } else {
-        // For new sessions: OPTIONS come before prompt
-        if options.json {
-            cmd.arg("--json");
-        }
+        // For new sessions: add other options
+        // (--json already added above)
 
         match options.mode {
             CodexExecutionMode::FullAuto => {
