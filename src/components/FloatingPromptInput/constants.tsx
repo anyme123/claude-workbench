@@ -19,7 +19,7 @@ export const MODELS: ModelConfig[] = [
   },
   {
     id: "opus",
-    name: "Claude 4.1 Opus",
+    name: "Claude 4.5 Opus",
     description: "Latest model with enhanced coding & reasoning capabilities",
     icon: <Sparkles className="h-4 w-4" />
   }

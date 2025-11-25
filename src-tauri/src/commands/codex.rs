@@ -153,10 +153,10 @@ pub async fn execute_codex(
     log::info!("execute_codex called with options: {:?}", options);
 
     // Build codex exec command
-    let cmd = build_codex_command(&options, false, None)?;
+    let (cmd, prompt) = build_codex_command(&options, false, None)?;
 
     // Execute and stream output
-    execute_codex_process(cmd, options.project_path.clone(), app_handle).await
+    execute_codex_process(cmd, prompt, options.project_path.clone(), app_handle).await
 }
 
 /// Resumes a previous Codex session
@@ -169,10 +169,10 @@ pub async fn resume_codex(
     log::info!("resume_codex called for session: {}", session_id);
 
     // Build codex exec resume command (session_id added inside build function)
-    let cmd = build_codex_command(&options, true, Some(&session_id))?;
+    let (cmd, prompt) = build_codex_command(&options, true, Some(&session_id))?;
 
     // Execute and stream output
-    execute_codex_process(cmd, options.project_path.clone(), app_handle).await
+    execute_codex_process(cmd, prompt, options.project_path.clone(), app_handle).await
 }
 
 /// Resumes the last Codex session
@@ -184,10 +184,10 @@ pub async fn resume_last_codex(
     log::info!("resume_last_codex called");
 
     // Build codex exec resume --last command
-    let cmd = build_codex_command(&options, true, Some("--last"))?;
+    let (cmd, prompt) = build_codex_command(&options, true, Some("--last"))?;
 
     // Execute and stream output
-    execute_codex_process(cmd, options.project_path.clone(), app_handle).await
+    execute_codex_process(cmd, prompt, options.project_path.clone(), app_handle).await
 }
 
 /// Cancels a running Codex execution
@@ -606,11 +606,12 @@ fn get_codex_command_candidates() -> Vec<String> {
 // ============================================================================
 
 /// Builds a Codex command with the given options
+/// Returns (Command, Option<String>) where the String is the prompt to be passed via stdin
 fn build_codex_command(
     options: &CodexExecutionOptions,
     is_resume: bool,
     session_id: Option<&str>,
-) -> Result<Command, String> {
+) -> Result<(Command, Option<String>), String> {
     // Use full path on Windows
     #[cfg(target_os = "windows")]
     let codex_cmd = {
@@ -699,19 +700,35 @@ fn build_codex_command(
         cmd.env("CODEX_API_KEY", api_key);
     }
 
-    // Add prompt
-    cmd.arg(&options.prompt);
+    // 🔧 FIX: Pass prompt via stdin instead of command line argument
+    // This fixes issues with:
+    // 1. Command line length limits (Windows: ~8191 chars)
+    // 2. Special characters (newlines, quotes, etc.)
+    // 3. Formatted text (markdown, code blocks)
 
-    Ok(cmd)
+    // Add "-" to indicate reading from stdin (common CLI convention)
+    cmd.arg("-");
+
+    let prompt_for_stdin = if is_resume {
+        // For resume mode, prompt is still needed but passed via stdin
+        Some(options.prompt.clone())
+    } else {
+        // For new sessions, pass prompt via stdin
+        Some(options.prompt.clone())
+    };
+
+    Ok((cmd, prompt_for_stdin))
 }
 
 /// Executes a Codex process and streams output to frontend
 async fn execute_codex_process(
     mut cmd: Command,
+    prompt: Option<String>,
     _project_path: String,
     app_handle: AppHandle,
 ) -> Result<(), String> {
     // Setup stdio
+    cmd.stdin(Stdio::piped());   // 🔧 Enable stdin to pass prompt
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
 
@@ -723,6 +740,28 @@ async fn execute_codex_process(
     let mut child = cmd
         .spawn()
         .map_err(|e| format!("Failed to spawn codex: {}", e))?;
+
+    // 🔧 FIX: Write prompt to stdin if provided
+    // This avoids command line length limits and special character issues
+    if let Some(prompt_text) = prompt {
+        if let Some(mut stdin) = child.stdin.take() {
+            use tokio::io::AsyncWriteExt;
+
+            log::debug!("Writing prompt to stdin ({} bytes)", prompt_text.len());
+
+            if let Err(e) = stdin.write_all(prompt_text.as_bytes()).await {
+                log::error!("Failed to write prompt to stdin: {}", e);
+                return Err(format!("Failed to write prompt to stdin: {}", e));
+            }
+
+            // Close stdin to signal end of input
+            drop(stdin);
+            log::debug!("Stdin closed successfully");
+        } else {
+            log::error!("Failed to get stdin handle");
+            return Err("Failed to get stdin handle".to_string());
+        }
+    }
 
     // Extract stdout and stderr
     let stdout = child.stdout.take()
