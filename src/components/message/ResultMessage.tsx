@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -52,6 +52,8 @@ const getResultContent = (value: unknown): string => {
   }
 };
 
+const COLLAPSE_HEIGHT = 300; // px
+
 export const ResultMessage: React.FC<ResultMessageProps> = ({ message, className }) => {
   const isError = Boolean((message as any).is_error) || Boolean(message.subtype?.toLowerCase().includes("error"));
   if (!isError) {
@@ -59,11 +61,24 @@ export const ResultMessage: React.FC<ResultMessageProps> = ({ message, className
   }
 
   const { theme } = useTheme();
-  const syntaxTheme = React.useMemo(() => getClaudeSyntaxTheme(theme === "dark"), [theme]);
+  const syntaxTheme = useMemo(() => getClaudeSyntaxTheme(theme === "dark"), [theme]);
 
   const timestamp = formatTimestamp((message as any).receivedAt ?? (message as any).timestamp);
   const resultContent = getResultContent((message as any).result);
   const errorMessage = getResultContent((message as any).error);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [shouldCollapse, setShouldCollapse] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
+
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    // 读取实际高度，决定是否需要折叠
+    const height = el.scrollHeight;
+    const needCollapse = height > COLLAPSE_HEIGHT;
+    setShouldCollapse(needCollapse);
+    setCollapsed(needCollapse); // 初始时仅当超出阈值才折叠
+  }, [resultContent, errorMessage]);
 
   const usageSummary = React.useMemo(() => {
     if (!message.usage) {
@@ -101,37 +116,69 @@ export const ResultMessage: React.FC<ResultMessageProps> = ({ message, className
             {timestamp && <span className="text-xs font-mono text-destructive/80">{timestamp}</span>}
           </div>
 
-          {resultContent && (
-            <div className="prose prose-sm dark:prose-invert max-w-none">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  code(props: any) {
-                    const { inline, className: codeClassName, children, ...rest } = props;
-                    const match = /language-(\w+)/.exec(codeClassName || "");
-                    return !inline && match ? (
-                      <SyntaxHighlighter
-                        style={syntaxTheme as any}
-                        language={match[1]}
-                        PreTag="div"
-                      >
-                        {String(children).replace(/\n$/, "")}
-                      </SyntaxHighlighter>
-                    ) : (
-                      <code className={codeClassName} {...rest}>
-                        {children}
-                      </code>
-                    );
-                  },
-                }}
+          {(resultContent || errorMessage) && (
+            <div className="relative">
+              <div
+                ref={contentRef}
+                className={cn(
+                  "prose prose-sm dark:prose-invert max-w-none transition-[max-height]",
+                  shouldCollapse && collapsed && "overflow-hidden"
+                )}
+                style={
+                  shouldCollapse && collapsed
+                    ? { maxHeight: `${COLLAPSE_HEIGHT}px` }
+                    : undefined
+                }
               >
-                {resultContent}
-              </ReactMarkdown>
-            </div>
-          )}
+                {resultContent && (
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      code(props: any) {
+                        const { inline, className: codeClassName, children, ...rest } = props;
+                        const match = /language-(\w+)/.exec(codeClassName || "");
+                        return !inline && match ? (
+                          <SyntaxHighlighter
+                            style={syntaxTheme as any}
+                            language={match[1]}
+                            PreTag="div"
+                          >
+                            {String(children).replace(/\n$/, "")}
+                          </SyntaxHighlighter>
+                        ) : (
+                          <code className={codeClassName} {...rest}>
+                            {children}
+                          </code>
+                        );
+                      },
+                    }}
+                  >
+                    {resultContent}
+                  </ReactMarkdown>
+                )}
 
-          {errorMessage && (
-            <div className="text-sm text-destructive">{errorMessage}</div>
+                {errorMessage && (
+                  <div className="text-sm text-destructive mt-2 whitespace-pre-wrap break-words">
+                    {errorMessage}
+                  </div>
+                )}
+              </div>
+
+              {shouldCollapse && collapsed && (
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-destructive/10 via-destructive/5 to-transparent" />
+              )}
+
+              {shouldCollapse && (
+                <div className="mt-2">
+                  <button
+                    onClick={() => setCollapsed((v) => !v)}
+                    className="text-xs text-destructive hover:text-destructive/80 underline underline-offset-2"
+                  >
+                    {collapsed ? "展开全部" : "收起内容"}
+                  </button>
+                </div>
+              )}
+            </div>
           )}
 
           <div className="space-y-1 text-xs text-muted-foreground">
@@ -147,5 +194,4 @@ export const ResultMessage: React.FC<ResultMessageProps> = ({ message, className
 };
 
 ResultMessage.displayName = "ResultMessage";
-
 
