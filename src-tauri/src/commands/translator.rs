@@ -9,6 +9,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 
+use super::url_utils::{normalize_api_url, ApiEndpointType};
+
 /// 翻译配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TranslationConfig {
@@ -244,9 +246,13 @@ impl TranslationService {
 
         debug!("Sending translation request for text: {}", text);
 
+        // 智能规范化 API URL（支持用户输入简化的基础 URL）
+        let api_url = normalize_api_url(&self.config.api_base_url, ApiEndpointType::OpenAI);
+        debug!("Using normalized API URL: {}", api_url);
+
         let response = self
             .client
-            .post(&format!("{}/chat/completions", self.config.api_base_url))
+            .post(&api_url)
             .header("Authorization", format!("Bearer {}", self.config.api_key))
             .header("Content-Type", "application/json")
             .json(&request_body)

@@ -4,6 +4,8 @@ use std::fs;
 use std::path::PathBuf;
 use tauri::{command, AppHandle};
 
+use super::url_utils::{normalize_api_url, normalize_base_url, ApiEndpointType};
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ProviderConfig {
     pub id: String,
@@ -288,10 +290,19 @@ pub async fn switch_provider_config(
     env_obj.remove("API_TIMEOUT_MS");
     env_obj.remove("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC");
 
+    // 智能规范化 base_url（支持用户输入简化的基础 URL）
+    // 提取纯净的基础 URL，移除可能存在的端点后缀
+    let normalized_base = normalize_base_url(&config.base_url);
+    log::info!(
+        "URL 规范化: '{}' -> '{}'",
+        config.base_url,
+        normalized_base
+    );
+
     // 设置新的环境变量
     env_obj.insert(
         "ANTHROPIC_BASE_URL".to_string(),
-        serde_json::Value::String(config.base_url.clone()),
+        serde_json::Value::String(normalized_base.clone()),
     );
 
     // 确定要使用的认证令牌值
@@ -327,9 +338,9 @@ pub async fn switch_provider_config(
         }
     }
 
-    // 添加Claude Code 2025的��准环境变量
-    // 为第三方API优化超时设置
-    if config.base_url != "https://api.anthropic.com" {
+    // 添加Claude Code 2025的标准环境变量
+    // 为第三方API优化超时设置（使用规范化后的 URL 进行判断）
+    if normalized_base != "https://api.anthropic.com" {
         env_obj.insert(
             "API_TIMEOUT_MS".to_string(),
             serde_json::Value::String("600000".to_string()),
@@ -453,12 +464,10 @@ pub async fn clear_provider_config(_app: AppHandle) -> Result<String, String> {
 // 测试代理商连接
 #[command]
 pub fn test_provider_connection(base_url: String) -> Result<String, String> {
-    // 简单的连接测试 - 尝试访问API端点
-    let test_url = if base_url.ends_with('/') {
-        format!("{}v1/messages", base_url)
-    } else {
-        format!("{}/v1/messages", base_url)
-    };
+    // 智能规范化 API URL（支持用户输入简化的基础 URL）
+    let test_url = normalize_api_url(&base_url, ApiEndpointType::Anthropic);
+
+    log::info!("测试连接 URL: {} -> {}", base_url, test_url);
 
     // 这里可以实现实际的HTTP请求测试
     // 目前返回一个简单的成功消息
