@@ -2,6 +2,7 @@ import React from 'react';
 import { Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/contexts/ThemeContext';
+import { cn } from '@/lib/utils';
 import {
   Tooltip,
   TooltipContent,
@@ -40,7 +41,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
       variant="ghost"
       size={size}
       onClick={toggleTheme}
-      className={`transition-all hover:scale-105 rounded-full ${className}`}
+      className={cn("transition-all duration-200 hover:scale-105 rounded-full", className)}
     >
       {theme === 'dark' ? (
         <>

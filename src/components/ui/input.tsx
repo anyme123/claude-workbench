@@ -8,7 +8,7 @@ import { cva, type VariantProps } from "class-variance-authority";
  */
 
 const inputVariants = cva(
-  "flex w-full rounded-lg border px-3 py-2 text-[15px] transition-colors placeholder:text-muted-foreground",
+  "flex w-full rounded-lg border px-3 py-2 text-[15px] transition-colors duration-200 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
   {
     variants: {
       variant: {
@@ -52,7 +52,6 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         className={cn(
           inputVariants({ variant, inputSize }),
           "file:border-0 file:bg-transparent file:text-sm file:font-medium",
-          "focus-visible:outline-none",
           "disabled:cursor-not-allowed disabled:opacity-50",
           className
         )}

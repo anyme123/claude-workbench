@@ -43,8 +43,13 @@
   
   --color-success: oklch(0.68 0.20 145);
   --color-success-hover: oklch(0.64 0.22 145);
+  --color-success-foreground: oklch(0.98 0.005 145);
   --color-warning: oklch(0.75 0.18 75);
+  --color-warning-hover: oklch(0.70 0.20 75);
+  --color-warning-foreground: oklch(0.15 0.02 75);
   --color-info: oklch(0.65 0.22 250);
+  --color-info-hover: oklch(0.60 0.24 250);
+  --color-info-foreground: oklch(0.98 0.005 250);
   
   /* 🎨 UI Elements */
   --color-border: oklch(0.24 0.018 240);
@@ -158,9 +163,14 @@
   
   --color-success: oklch(0.60 0.22 145);
   --color-success-hover: oklch(0.55 0.24 145);
+  --color-success-foreground: oklch(0.99 0.002 145);
   --color-warning: oklch(0.70 0.20 75);
+  --color-warning-hover: oklch(0.65 0.22 75);
+  --color-warning-foreground: oklch(0.15 0.02 75);
   --color-info: oklch(0.55 0.24 250);
-  
+  --color-info-hover: oklch(0.50 0.26 250);
+  --color-info-foreground: oklch(0.99 0.002 250);
+
   /* 🎨 UI Elements */
   --color-border: oklch(0.88 0.006 240);
   --color-border-hover: oklch(0.82 0.009 240);

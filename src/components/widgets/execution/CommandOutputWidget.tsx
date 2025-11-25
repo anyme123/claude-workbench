@@ -85,15 +85,15 @@ export const CommandOutputWidget: React.FC<CommandOutputWidgetProps> = ({
   // /compact 命令成功的特殊渲染
   if (isCompactSuccess) {
     return (
-      <div className="rounded-lg border border-green-500/20 bg-green-500/5 overflow-hidden">
-        <div className="px-4 py-2 bg-green-900/20 flex items-center gap-2">
-          <CheckCircle2 className="h-3 w-3 text-green-500" />
-          <span className="text-xs font-mono text-green-400">/compact 命令成功</span>
+      <div className="rounded-lg border border-success/20 bg-success/5 overflow-hidden">
+        <div className="px-4 py-2 bg-success/10 flex items-center gap-2">
+          <CheckCircle2 className="h-3 w-3 text-success" />
+          <span className="text-xs font-mono text-success">/compact 命令成功</span>
         </div>
         <div className="p-3 space-y-2">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-green-500" />
-            <span className="text-sm font-medium text-green-600 dark:text-green-400">
+            <CheckCircle2 className="h-4 w-4 text-success" />
+            <span className="text-sm font-medium text-success">
               对话历史已压缩
             </span>
           </div>
@@ -101,7 +101,7 @@ export const CommandOutputWidget: React.FC<CommandOutputWidgetProps> = ({
             Claude 已将之前的对话内容压缩为更紧凑的格式，释放了上下文空间。
             压缩后的内容保留了重要信息，同时为后续对话腾出了更多空间。
           </p>
-          <pre className="text-xs font-mono text-zinc-400 bg-zinc-950/30 p-2 rounded border">
+          <pre className="text-xs font-mono text-muted-foreground bg-muted/30 p-2 rounded border">
             {output}
           </pre>
         </div>
@@ -113,8 +113,8 @@ export const CommandOutputWidget: React.FC<CommandOutputWidgetProps> = ({
   return (
     <div className="rounded-lg border bg-zinc-950/50 overflow-hidden">
       <div className="px-4 py-2 bg-zinc-700/30 flex items-center gap-2">
-        <ChevronRight className="h-3 w-3 text-green-500" />
-        <span className="text-xs font-mono text-green-400">输出</span>
+        <ChevronRight className="h-3 w-3 text-success" />
+        <span className="text-xs font-mono text-success">输出</span>
       </div>
       <div className="p-3">
         <pre className="text-sm font-mono text-zinc-300 whitespace-pre-wrap">

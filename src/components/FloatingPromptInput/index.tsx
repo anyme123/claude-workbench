@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { FilePicker } from "../FilePicker";
 import { SlashCommandPicker } from "../SlashCommandPicker";
@@ -589,21 +590,10 @@ const FloatingPromptInputInner = (
                                 <Code2 className="h-4 w-4 text-muted-foreground" />
                                 <span className="text-sm font-medium">启用项目上下文</span>
                               </div>
-                              <button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setEnableProjectContext(!enableProjectContext);
-                                }}
-                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                                  enableProjectContext ? 'bg-primary' : 'bg-gray-200 dark:bg-gray-700'
-                                }`}
-                              >
-                                <span
-                                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                    enableProjectContext ? 'translate-x-5' : 'translate-x-0.5'
-                                  }`}
-                                />
-                              </button>
+                              <Switch
+                                checked={enableProjectContext}
+                                onCheckedChange={setEnableProjectContext}
+                              />
                             </label>
                             <p className="text-xs text-muted-foreground mt-1 ml-6">
                               使用 acemcp 搜索相关代码
@@ -620,23 +610,13 @@ const FloatingPromptInputInner = (
                             <Zap className="h-4 w-4 text-muted-foreground" />
                             <span className="text-sm font-medium">智能上下文提取</span>
                           </div>
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              const newValue = !enableDualAPI;
-                              setEnableDualAPI(newValue);
-                              localStorage.setItem('enable_dual_api_enhancement', String(newValue));
+                          <Switch
+                            checked={enableDualAPI}
+                            onCheckedChange={(checked) => {
+                              setEnableDualAPI(checked);
+                              localStorage.setItem('enable_dual_api_enhancement', String(checked));
                             }}
-                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                              enableDualAPI ? 'bg-primary' : 'bg-gray-200 dark:bg-gray-700'
-                            }`}
-                          >
-                            <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                enableDualAPI ? 'translate-x-5' : 'translate-x-0.5'
-                              }`}
-                            />
-                          </button>
+                          />
                         </label>
                         <p className="text-xs text-muted-foreground mt-1 ml-6">
                           AI 智能筛选相关消息（提升 40% 准确性）
@@ -963,27 +943,10 @@ const FloatingPromptInputInner = (
                             </p>
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={enableProjectContext}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setEnableProjectContext(!enableProjectContext);
-                          }}
-                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
-                            enableProjectContext
-                              ? 'bg-blue-600 dark:bg-blue-500'
-                              : 'bg-gray-300 dark:bg-gray-600'
-                          }`}
-                        >
-                          <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
-                              enableProjectContext ? 'translate-x-[18px]' : 'translate-x-0.5'
-                            }`}
-                          />
-                        </button>
+                        <Switch
+                          checked={enableProjectContext}
+                          onCheckedChange={setEnableProjectContext}
+                        />
                       </label>
                     </div>
                     <DropdownMenuSeparator />
@@ -1004,29 +967,13 @@ const FloatingPromptInputInner = (
                         </p>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={enableDualAPI}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const newValue = !enableDualAPI;
-                        setEnableDualAPI(newValue);
-                        localStorage.setItem('enable_dual_api_enhancement', String(newValue));
+                    <Switch
+                      checked={enableDualAPI}
+                      onCheckedChange={(checked) => {
+                        setEnableDualAPI(checked);
+                        localStorage.setItem('enable_dual_api_enhancement', String(checked));
                       }}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
-                        enableDualAPI
-                          ? 'bg-blue-600 dark:bg-blue-500'
-                          : 'bg-gray-300 dark:bg-gray-600'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
-                          enableDualAPI ? 'translate-x-[18px]' : 'translate-x-0.5'
-                        }`}
-                      />
-                    </button>
+                    />
                   </label>
                 </div>
                 <DropdownMenuSeparator />

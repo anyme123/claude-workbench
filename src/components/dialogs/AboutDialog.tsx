@@ -1,7 +1,16 @@
 import { useState, useEffect } from "react";
-import { X, Info, RefreshCw, ExternalLink } from "lucide-react";
+import { Info, RefreshCw, ExternalLink } from "lucide-react";
 import { open as openUrl } from "@tauri-apps/plugin-shell";
 import { getVersion } from "@tauri-apps/api/app";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 interface AboutDialogProps {
   open: boolean;
@@ -30,10 +39,6 @@ export function AboutDialog({ open, onClose, onCheckUpdate }: AboutDialogProps) 
     }
   }, [open]);
 
-  if (!open) {
-    return null;
-  }
-
   const handleOpenProject = async () => {
     try {
       await openUrl(PROJECT_URL);
@@ -43,84 +48,57 @@ export function AboutDialog({ open, onClose, onCheckUpdate }: AboutDialogProps) 
   };
 
   return (
-    <div
-      className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50"
-      onClick={onClose}
-    >
-      <div
-        className="bg-card rounded-lg shadow-2xl max-w-md w-full mx-4 overflow-hidden border border-border"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border">
-          <div className="flex items-center gap-2">
-            <Info className="w-5 h-5 text-primary" />
-            <h2 className="text-lg font-semibold text-foreground">
-              关于 Claude Workbench
-            </h2>
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader className="text-center sm:text-center">
+          <div className="mx-auto mb-4 inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10">
+            <Info className="w-8 h-8 text-primary" />
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg hover:bg-muted transition-colors"
-            aria-label="关闭"
+          <DialogTitle className="text-xl">Claude Workbench</DialogTitle>
+          <DialogDescription className="flex items-center justify-center gap-2">
+            <span>版本:</span>
+            <span className="font-mono font-semibold text-primary">
+              v{appVersion}
+            </span>
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Description */}
+        <div className="p-4 bg-muted/50 rounded-lg">
+          <p className="text-sm text-muted-foreground text-center">
+            Claude Workbench 是一个强大的 Claude AI 会话管理工具，
+            帮助您更好地组织和管理 Claude 对话。
+          </p>
+        </div>
+
+        {/* Actions */}
+        <DialogFooter className="flex-col gap-2 sm:flex-col">
+          <Button
+            variant="secondary"
+            onClick={onCheckUpdate}
+            className="w-full"
           >
-            <X className="w-5 h-5 text-muted-foreground" />
-          </button>
-        </div>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            检查更新
+          </Button>
 
-        {/* Content */}
-        <div className="p-6">
-          {/* Version Info */}
-          <div className="mb-6 text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
-              <Info className="w-8 h-8 text-primary" />
-            </div>
-            <h3 className="text-xl font-bold text-foreground mb-2">
-              Claude Workbench
-            </h3>
-            <div className="flex items-center justify-center gap-2">
-              <span className="text-sm text-muted-foreground">版本:</span>
-              <span className="text-base font-mono font-semibold text-primary">
-                v{appVersion}
-              </span>
-            </div>
-          </div>
-
-          {/* Description */}
-          <div className="mb-6 p-4 bg-muted/50 rounded-lg">
-            <p className="text-sm text-muted-foreground text-center">
-              Claude Workbench 是一个强大的 Claude AI 会话管理工具，
-              帮助您更好地组织和管理 Claude 对话。
-            </p>
-          </div>
-
-          {/* Actions */}
-          <div className="space-y-2">
-            <button
-              onClick={onCheckUpdate}
-              className="w-full px-4 py-2.5 text-sm font-medium text-foreground bg-muted hover:bg-muted/80 rounded-lg transition-colors flex items-center justify-center gap-2"
-            >
-              <RefreshCw className="w-4 h-4" />
-              检查更新
-            </button>
-
-            <button
-              onClick={handleOpenProject}
-              className="w-full px-4 py-2.5 text-sm font-medium text-primary hover:text-primary/80 border border-border hover:border-primary/30 rounded-lg transition-colors flex items-center justify-center gap-2"
-            >
-              <ExternalLink className="w-4 h-4" />
-              访问项目地址
-            </button>
-          </div>
-        </div>
+          <Button
+            variant="outline"
+            onClick={handleOpenProject}
+            className="w-full"
+          >
+            <ExternalLink className="w-4 h-4 mr-2" />
+            访问项目地址
+          </Button>
+        </DialogFooter>
 
         {/* Footer */}
-        <div className="p-4 bg-muted/50 border-t border-border text-center">
+        <div className="pt-4 border-t border-border text-center">
           <p className="text-xs text-muted-foreground">
             © 2025 Claude Workbench. All rights reserved.
           </p>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
