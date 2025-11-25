@@ -171,6 +171,7 @@ pub fn normalize_base_url(base_url: &str) -> String {
 /// 检测 URL 是否需要规范化
 ///
 /// 判断给定的 URL 是否已经是规范化的完整端点 URL
+#[allow(dead_code)]
 pub fn needs_normalization(url: &str, endpoint_type: ApiEndpointType) -> bool {
     let url = url.trim().trim_end_matches('/');
 
