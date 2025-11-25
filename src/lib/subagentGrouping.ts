@@ -84,80 +84,106 @@ export function getParentToolUseId(message: ClaudeStreamMessage): string | null 
 
 /**
  * 对消息列表进行分组
- * 
+ *
  * @param messages 原始消息列表
  * @returns 分组后的消息列表
+ *
+ * ✅ FIX: 支持并行 Task 调用
+ * 当 Claude 在一条消息中并行调用多个子代理时，每个 Task 都应该被正确分组
  */
 export function groupMessages(messages: ClaudeStreamMessage[]): MessageGroup[] {
   const groups: MessageGroup[] = [];
   const processedIndices = new Set<number>();
-  
+
   // 第一遍：识别所有 Task 工具调用
+  // 记录每个 Task ID 对应的消息和索引
   const taskToolUseMap = new Map<string, { message: ClaudeStreamMessage; index: number }>();
-  
+  // 记录每个消息索引对应的所有 Task ID（支持并行 Task）
+  const indexToTaskIds = new Map<number, string[]>();
+
   messages.forEach((message, index) => {
     const taskIds = extractTaskToolUseIds(message);
-    taskIds.forEach(taskId => {
-      taskToolUseMap.set(taskId, { message, index });
-    });
+    if (taskIds.length > 0) {
+      indexToTaskIds.set(index, taskIds);
+      taskIds.forEach(taskId => {
+        taskToolUseMap.set(taskId, { message, index });
+      });
+    }
   });
-  
+
   // 第二遍：为每个 Task 收集子代理消息
+  // ✅ FIX: 不再在遇到下一个 Task 时停止，而是遍历所有消息并根据 parent_tool_use_id 归类
   const subagentGroups = new Map<string, SubagentGroup>();
-  
+
   taskToolUseMap.forEach((taskInfo, taskId) => {
     const subagentMessages: ClaudeStreamMessage[] = [];
-    let minIndex = taskInfo.index;
     let maxIndex = taskInfo.index;
-    
-    // 从 Task 后面的消息中查找子代理消息
+
+    // 遍历所有后续消息，根据 parent_tool_use_id 匹配
     for (let i = taskInfo.index + 1; i < messages.length; i++) {
       const msg = messages[i];
       const parentId = getParentToolUseId(msg);
-      
+
+      // ✅ FIX: 只根据 parent_tool_use_id 判断归属，不提前停止
       if (parentId === taskId) {
         subagentMessages.push(msg);
-        maxIndex = i;
-      }
-      
-      // 如果遇到下一个 Task 调用，停止收集
-      if (i > taskInfo.index && hasTaskToolCall(msg)) {
-        break;
+        maxIndex = Math.max(maxIndex, i);
       }
     }
-    
+
     if (subagentMessages.length > 0) {
       subagentGroups.set(taskId, {
         id: taskId,
         taskMessage: taskInfo.message,
         taskToolUseId: taskId,
         subagentMessages,
-        startIndex: minIndex,
+        startIndex: taskInfo.index,
         endIndex: maxIndex,
       });
-      
-      // 标记已处理的索引
-      processedIndices.add(minIndex);
-      for (let i = minIndex + 1; i <= maxIndex; i++) {
-        const parentId = getParentToolUseId(messages[i]);
-        if (parentId === taskId) {
-          processedIndices.add(i);
-        }
-      }
     }
   });
-  
+
+  // 标记所有子代理消息的索引（避免重复渲染）
+  messages.forEach((message, index) => {
+    const parentId = getParentToolUseId(message);
+    if (parentId && subagentGroups.has(parentId)) {
+      processedIndices.add(index);
+    }
+  });
+
+  // 记录已添加的 Task 组（避免重复）
+  const addedTaskGroups = new Set<string>();
+
   // 第三遍：构建最终的分组列表
   messages.forEach((message, index) => {
+    // 跳过已被归入子代理组的消息
     if (processedIndices.has(index)) {
-      // 如果是 Task 消息，添加整个子代理组
-      const taskIds = extractTaskToolUseIds(message);
-      const taskId = taskIds[0];
-      
-      if (taskId && subagentGroups.has(taskId)) {
+      return;
+    }
+
+    // 检查是否是包含 Task 调用的消息
+    const taskIds = indexToTaskIds.get(index);
+
+    if (taskIds && taskIds.length > 0) {
+      // ✅ FIX: 遍历所有 Task ID，为每个有子代理消息的 Task 创建分组
+      taskIds.forEach(taskId => {
+        if (subagentGroups.has(taskId) && !addedTaskGroups.has(taskId)) {
+          groups.push({
+            type: 'subagent',
+            group: subagentGroups.get(taskId)!,
+          });
+          addedTaskGroups.add(taskId);
+        }
+      });
+
+      // 如果该消息的所有 Task 都没有子代理消息（可能是正在执行中），
+      // 仍然作为普通消息显示
+      const hasAnySubagentGroup = taskIds.some(id => subagentGroups.has(id));
+      if (!hasAnySubagentGroup) {
         groups.push({
-          type: 'subagent',
-          group: subagentGroups.get(taskId)!,
+          type: 'normal',
+          message,
+          index,
         });
       }
     } else {
@@ -169,7 +195,7 @@ export function groupMessages(messages: ClaudeStreamMessage[]): MessageGroup[] {
       });
     }
   });
-  
+
   return groups;
 }
 
