@@ -613,29 +613,91 @@ impl AcemcpClient {
 // 关键词提取
 // ============================================================================
 
-/// 从提示词中提取技术关键词
+/// 从提示词中提取技术关键词（优化版）
+///
+/// 支持从中英文混合文本中智能提取：
+/// - 英文单词（如 codex, claude）
+/// - 驼峰命名（如 getUserInfo → get, User, Info）
+/// - 下划线命名（如 get_user_info → get, user, info）
+/// - 文件路径中的关键部分
 fn extract_keywords(prompt: &str) -> String {
-    // 简单的关键词提取策略：
-    // 1. 移除常见的停用词
-    // 2. 保留技术术语和名词
-    // 3. 限制长度
+    lazy_static::lazy_static! {
+        // 匹配英文单词（至少3个字符）
+        static ref ENGLISH_WORD_RE: Regex = Regex::new(
+            r"[a-zA-Z][a-zA-Z0-9]{2,}"
+        ).unwrap();
 
-    let stopwords = [
-        "请", "帮我", "我想", "如何", "怎么", "能否", "可以",
-        "the", "a", "an", "is", "are", "was", "were",
-        "please", "help", "me", "i", "want", "how", "can",
-    ];
+        // 匹配驼峰命名中的各部分（如 getUserInfo → get, User, Info）
+        static ref CAMEL_CASE_RE: Regex = Regex::new(
+            r"[a-z]+|[A-Z][a-z]*|[A-Z]+"
+        ).unwrap();
 
-    let words: Vec<&str> = prompt
-        .split_whitespace()
-        .filter(|w| {
-            // 过滤停用词和过短的词
-            w.len() > 2 && !stopwords.contains(&w.to_lowercase().as_str())
-        })
-        .take(10) // 最多取10个关键词
-        .collect();
+        // 匹配下划线命名（如 get_user_info）
+        static ref SNAKE_CASE_RE: Regex = Regex::new(
+            r"[a-zA-Z][a-zA-Z0-9]*(?:_[a-zA-Z0-9]+)+"
+        ).unwrap();
+    }
 
-    words.join(" ")
+    // 英文停用词（小写）
+    let stopwords: HashSet<&str> = [
+        "the", "a", "an", "is", "are", "was", "were", "be", "been",
+        "please", "help", "me", "i", "want", "how", "can", "could",
+        "would", "should", "will", "shall", "may", "might", "must",
+        "have", "has", "had", "do", "does", "did", "this", "that",
+        "these", "those", "and", "or", "but", "not", "with", "for",
+        "from", "into", "about", "after", "before", "between",
+        "get", "set", "new", "add", "use", "let", "var", "const",
+    ].into_iter().collect();
+
+    let mut keywords: Vec<String> = Vec::new();
+    let mut seen: HashSet<String> = HashSet::new();
+
+    // 1️⃣ 提取下划线命名（优先，因为更具体）
+    for cap in SNAKE_CASE_RE.captures_iter(prompt) {
+        let snake_word = cap[0].to_string();
+        // 拆分下划线命名
+        for part in snake_word.split('_') {
+            let lower = part.to_lowercase();
+            if lower.len() >= 3 && !stopwords.contains(lower.as_str()) && !seen.contains(&lower) {
+                seen.insert(lower.clone());
+                keywords.push(lower);
+            }
+        }
+    }
+
+    // 2️⃣ 提取英文单词（包括驼峰命名）
+    for cap in ENGLISH_WORD_RE.captures_iter(prompt) {
+        let word = &cap[0];
+
+        // 检查是否是驼峰命名
+        let has_mixed_case = word.chars().any(|c| c.is_lowercase())
+                          && word.chars().any(|c| c.is_uppercase());
+
+        if has_mixed_case {
+            // 拆分驼峰命名
+            for part_cap in CAMEL_CASE_RE.captures_iter(word) {
+                let part = part_cap[0].to_lowercase();
+                if part.len() >= 3 && !stopwords.contains(part.as_str()) && !seen.contains(&part) {
+                    seen.insert(part.clone());
+                    keywords.push(part);
+                }
+            }
+        } else {
+            // 普通英文单词
+            let lower = word.to_lowercase();
+            if lower.len() >= 3 && !stopwords.contains(lower.as_str()) && !seen.contains(&lower) {
+                seen.insert(lower.clone());
+                keywords.push(lower);
+            }
+        }
+    }
+
+    // 3️⃣ 限制关键词数量（最多 15 个）
+    keywords.truncate(15);
+
+    let result = keywords.join(" ");
+    debug!("Extracted keywords from prompt: {}", result);
+    result
 }
 
 // ============================================================================
