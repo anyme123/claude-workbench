@@ -15,7 +15,7 @@
 
 import { ClaudeStreamMessage } from '@/types/claude';
 import { extractTextFromContent } from './sessionHelpers';
-import { PromptEnhancementProvider, callEnhancementAPI } from './promptEnhancementService';
+import { PromptEnhancementProvider, callEnhancementAPI, normalizeOpenAIUrl } from './promptEnhancementService';
 import { loadContextConfig } from './promptContextConfig';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 
@@ -349,9 +349,11 @@ async function callOpenAIFormatRaw(
     requestBody.max_tokens = provider.maxTokens;
   }
 
-  const baseUrl = provider.apiUrl.endsWith('/') ? provider.apiUrl.slice(0, -1) : provider.apiUrl;
+  // 🔧 使用 normalizeOpenAIUrl 确保 URL 格式正确（添加 /v1 前缀）
+  const normalizedUrl = normalizeOpenAIUrl(provider.apiUrl);
+  const fullEndpoint = `${normalizedUrl}/chat/completions`;
 
-  const response = await tauriFetch(`${baseUrl}/chat/completions`, {
+  const response = await tauriFetch(fullEndpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
