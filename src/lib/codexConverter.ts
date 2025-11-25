@@ -374,8 +374,7 @@ export class CodexEventConverter {
         return this.convertCommandExecution(item, phase, metadata, eventTimestamp);
 
       case 'file_change':
-      case 'edit_file': // alias for file edits, normalize to file_change handler
-        return this.convertFileChange(item as any, phase, metadata, eventTimestamp);
+        return this.convertFileChange(item, phase, metadata, eventTimestamp);
 
       case 'mcp_tool_call':
         // Only show tool calls when completed (to avoid "executing" state)
