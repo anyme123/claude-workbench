@@ -22,6 +22,21 @@ import { codexConverter } from '@/lib/codexConverter';
 import type { CodexExecutionMode } from '@/types/codex';
 
 // ============================================================================
+// Global Type Declarations
+// ============================================================================
+
+// Extend window object for Codex pending prompt tracking
+declare global {
+  interface Window {
+    __codexPendingPrompt?: {
+      sessionId: string;
+      projectPath: string;
+      promptIndex: number;
+    };
+  }
+}
+
+// ============================================================================
 // Type Definitions
 // ============================================================================
 
@@ -252,10 +267,27 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
           });
 
           // Listen for Codex completion
-          const codexCompleteUnlisten = await listen<boolean>('codex-complete', (_evt) => {
+          const codexCompleteUnlisten = await listen<boolean>('codex-complete', async (_evt) => {
             setIsLoading(false);
             hasActiveSessionRef.current = false;
             isListeningRef.current = false;
+
+            // 🆕 Record prompt completion for rewind support
+            if (window.__codexPendingPrompt) {
+              const pendingPrompt = window.__codexPendingPrompt;
+              try {
+                await api.recordCodexPromptCompleted(
+                  pendingPrompt.sessionId,
+                  pendingPrompt.projectPath,
+                  pendingPrompt.promptIndex
+                );
+                console.log('[usePromptExecution] Recorded Codex prompt completion #', pendingPrompt.promptIndex);
+              } catch (err) {
+                console.warn('[usePromptExecution] Failed to record Codex prompt completion:', err);
+              }
+              // Clear the pending prompt
+              delete window.__codexPendingPrompt;
+            }
 
             // Process queued prompts
             if (queuedPromptsRef.current.length > 0) {
@@ -619,6 +651,23 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
         // ====================================================================
         // 🆕 Codex Execution Branch
         // ====================================================================
+
+        // 🆕 Record prompt for rewind support (before execution)
+        let codexPromptIndex: number | undefined;
+        if (effectiveSession) {
+          try {
+            codexPromptIndex = await api.recordCodexPromptSent(
+              effectiveSession.id,
+              projectPath,
+              processedPrompt
+            );
+            console.log('[usePromptExecution] Recorded Codex prompt #', codexPromptIndex);
+          } catch (recordError) {
+            console.warn('[usePromptExecution] Failed to record Codex prompt:', recordError);
+            // Continue anyway - recording is optional for basic functionality
+          }
+        }
+
         if (effectiveSession && !isFirstPrompt) {
           // Resume existing Codex session
           try {
@@ -649,6 +698,17 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
             model: codexModel || model,
             json: true
           });
+        }
+
+        // 🆕 Note: Prompt completion recording is handled in the codex-complete event listener
+        // Store the prompt index for later use in completion recording
+        if (codexPromptIndex !== undefined && effectiveSession) {
+          // Store in a ref or state for the completion handler to access
+          window.__codexPendingPrompt = {
+            sessionId: effectiveSession.id,
+            projectPath,
+            promptIndex: codexPromptIndex
+          };
         }
       } else {
         // ====================================================================

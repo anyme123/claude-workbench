@@ -9,13 +9,20 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::process::Stdio;
 use std::sync::Arc;
+use std::path::PathBuf;
+use std::fs;
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
+use chrono::Utc;
 
 // Import platform-specific utilities for window hiding
 use crate::commands::claude::apply_no_window_async;
+// Import simple_git for rewind operations
+use super::simple_git;
+// Import RewindMode and load_execution_config from prompt_tracker
+use super::prompt_tracker::{RewindMode, load_execution_config};
 
 // ============================================================================
 // Type Definitions
@@ -138,6 +145,38 @@ impl Default for CodexProcessState {
             last_session_id: Arc::new(Mutex::new(None)),
         }
     }
+}
+
+// ============================================================================
+// Codex Rewind Types (Git Record Tracking)
+// ============================================================================
+
+/// Codex prompt record for rewind tracking
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexPromptRecord {
+    pub index: usize,
+    pub timestamp: String,
+    pub text: String,
+}
+
+/// Codex Git state record for each prompt
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexPromptGitRecord {
+    pub prompt_index: usize,
+    pub commit_before: String,
+    pub commit_after: Option<String>,
+    pub timestamp: String,
+}
+
+/// Collection of Git records for a Codex session
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexGitRecords {
+    pub session_id: String,
+    pub project_path: String,
+    pub records: Vec<CodexPromptGitRecord>,
 }
 
 // ============================================================================
@@ -839,3 +878,393 @@ async fn execute_codex_process(
 
     Ok(())
 }
+
+// ============================================================================
+// Codex Rewind Implementation
+// ============================================================================
+
+/// Get the Codex git records directory
+fn get_codex_git_records_dir() -> Result<PathBuf, String> {
+    let home_dir = dirs::home_dir()
+        .ok_or_else(|| "Failed to get home directory".to_string())?;
+
+    let records_dir = home_dir.join(".codex").join("git-records");
+
+    // Create directory if it doesn't exist
+    if !records_dir.exists() {
+        fs::create_dir_all(&records_dir)
+            .map_err(|e| format!("Failed to create git records directory: {}", e))?;
+    }
+
+    Ok(records_dir)
+}
+
+/// Get the Codex sessions directory
+fn get_codex_sessions_dir() -> Result<PathBuf, String> {
+    let home_dir = dirs::home_dir()
+        .ok_or_else(|| "Failed to get home directory".to_string())?;
+
+    Ok(home_dir.join(".codex").join("sessions"))
+}
+
+/// Load Git records for a Codex session
+fn load_codex_git_records(session_id: &str) -> Result<CodexGitRecords, String> {
+    let records_dir = get_codex_git_records_dir()?;
+    let records_file = records_dir.join(format!("{}.json", session_id));
+
+    if !records_file.exists() {
+        return Ok(CodexGitRecords {
+            session_id: session_id.to_string(),
+            project_path: String::new(),
+            records: Vec::new(),
+        });
+    }
+
+    let content = fs::read_to_string(&records_file)
+        .map_err(|e| format!("Failed to read git records: {}", e))?;
+
+    serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse git records: {}", e))
+}
+
+/// Save Git records for a Codex session
+fn save_codex_git_records(session_id: &str, records: &CodexGitRecords) -> Result<(), String> {
+    let records_dir = get_codex_git_records_dir()?;
+    let records_file = records_dir.join(format!("{}.json", session_id));
+
+    let content = serde_json::to_string_pretty(records)
+        .map_err(|e| format!("Failed to serialize git records: {}", e))?;
+
+    fs::write(&records_file, content)
+        .map_err(|e| format!("Failed to write git records: {}", e))?;
+
+    log::debug!("Saved Codex git records for session: {}", session_id);
+    Ok(())
+}
+
+/// Truncate Git records after a specific prompt index
+fn truncate_codex_git_records(session_id: &str, prompt_index: usize) -> Result<(), String> {
+    let mut git_records = load_codex_git_records(session_id)?;
+
+    // Keep only records up to and including prompt_index
+    git_records.records.retain(|r| r.prompt_index <= prompt_index);
+
+    save_codex_git_records(session_id, &git_records)?;
+    log::info!("[Codex Rewind] Truncated git records after prompt #{}", prompt_index);
+
+    Ok(())
+}
+
+/// Get prompt text from Codex session file
+fn get_codex_prompt_text(session_id: &str, prompt_index: usize) -> Result<String, String> {
+    let sessions_dir = get_codex_sessions_dir()?;
+    let session_file = find_session_file(&sessions_dir, session_id)
+        .ok_or_else(|| format!("Session file not found for: {}", session_id))?;
+
+    use std::io::{BufRead, BufReader};
+    let file = fs::File::open(&session_file)
+        .map_err(|e| format!("Failed to open session file: {}", e))?;
+
+    let reader = BufReader::new(file);
+    let mut user_message_count = 0;
+
+    for line in reader.lines() {
+        let line = line.map_err(|e| format!("Failed to read line: {}", e))?;
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        if let Ok(event) = serde_json::from_str::<serde_json::Value>(&line) {
+            if event["type"].as_str() == Some("response_item") {
+                if event["payload"]["role"].as_str() == Some("user") {
+                    if user_message_count == prompt_index {
+                        // Extract text from content array
+                        if let Some(content) = event["payload"]["content"].as_array() {
+                            for item in content {
+                                if item["type"].as_str() == Some("input_text") {
+                                    if let Some(text) = item["text"].as_str() {
+                                        // Skip system messages
+                                        if !text.contains("<environment_context>")
+                                            && !text.contains("# AGENTS.md instructions")
+                                            && !text.is_empty() {
+                                            return Ok(text.to_string());
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    user_message_count += 1;
+                }
+            }
+        }
+    }
+
+    Err(format!("Prompt #{} not found in session", prompt_index))
+}
+
+/// Truncate Codex session file to before a specific prompt
+fn truncate_codex_session_to_prompt(session_id: &str, prompt_index: usize) -> Result<(), String> {
+    let sessions_dir = get_codex_sessions_dir()?;
+    let session_file = find_session_file(&sessions_dir, session_id)
+        .ok_or_else(|| format!("Session file not found for: {}", session_id))?;
+
+    let content = fs::read_to_string(&session_file)
+        .map_err(|e| format!("Failed to read session file: {}", e))?;
+
+    let lines: Vec<&str> = content.lines().collect();
+    let total_lines = lines.len();
+
+    // Find the line index to truncate at
+    let mut user_message_count = 0;
+    let mut truncate_at_line = 0;
+    let mut found_target = false;
+
+    for (idx, line) in lines.iter().enumerate() {
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        if let Ok(event) = serde_json::from_str::<serde_json::Value>(line) {
+            if event["type"].as_str() == Some("response_item") {
+                if event["payload"]["role"].as_str() == Some("user") {
+                    if user_message_count == prompt_index {
+                        truncate_at_line = idx;
+                        found_target = true;
+                        break;
+                    }
+                    user_message_count += 1;
+                }
+            }
+        }
+    }
+
+    if !found_target {
+        return Err(format!("Prompt #{} not found in session", prompt_index));
+    }
+
+    log::info!("[Codex Rewind] Total lines: {}, truncating at line {} (prompt #{})",
+        total_lines, truncate_at_line, prompt_index);
+
+    // Truncate to the line before this prompt
+    let truncated_lines: Vec<&str> = lines.into_iter().take(truncate_at_line).collect();
+
+    let new_content = if truncated_lines.is_empty() {
+        String::new()
+    } else {
+        truncated_lines.join("\n") + "\n"
+    };
+
+    fs::write(&session_file, new_content)
+        .map_err(|e| format!("Failed to write truncated session: {}", e))?;
+
+    log::info!("[Codex Rewind] Truncated session: kept {} lines, deleted {} lines",
+        truncate_at_line, total_lines - truncate_at_line);
+
+    Ok(())
+}
+
+/// Record a Codex prompt being sent (called before execution)
+#[tauri::command]
+pub async fn record_codex_prompt_sent(
+    session_id: String,
+    project_path: String,
+    _prompt_text: String,
+) -> Result<usize, String> {
+    log::info!("[Codex Record] Recording prompt sent for session: {}", session_id);
+
+    // Ensure Git repository is initialized
+    simple_git::ensure_git_repo(&project_path)
+        .map_err(|e| format!("Failed to ensure Git repo: {}", e))?;
+
+    // Get current commit (state before prompt execution)
+    let commit_before = simple_git::git_current_commit(&project_path)
+        .map_err(|e| format!("Failed to get current commit: {}", e))?;
+
+    // Load existing records
+    let mut git_records = load_codex_git_records(&session_id)?;
+
+    // Update project path if needed
+    if git_records.project_path.is_empty() {
+        git_records.project_path = project_path.clone();
+    }
+
+    // Calculate prompt index
+    let prompt_index = git_records.records.len();
+
+    // Create new record
+    let record = CodexPromptGitRecord {
+        prompt_index,
+        commit_before: commit_before.clone(),
+        commit_after: None,
+        timestamp: Utc::now().to_rfc3339(),
+    };
+
+    git_records.records.push(record);
+    save_codex_git_records(&session_id, &git_records)?;
+
+    log::info!("[Codex Record] Recorded prompt #{} with commit_before: {}",
+        prompt_index, &commit_before[..8.min(commit_before.len())]);
+
+    Ok(prompt_index)
+}
+
+/// Record a Codex prompt completion (called after AI response)
+#[tauri::command]
+pub async fn record_codex_prompt_completed(
+    session_id: String,
+    project_path: String,
+    prompt_index: usize,
+) -> Result<(), String> {
+    log::info!("[Codex Record] Recording prompt #{} completed for session: {}",
+        prompt_index, session_id);
+
+    // Auto-commit any changes made by AI
+    let commit_message = format!("[Codex] After prompt #{}", prompt_index);
+    match simple_git::git_commit_changes(&project_path, &commit_message) {
+        Ok(true) => {
+            log::info!("[Codex Record] Auto-committed changes after prompt #{}", prompt_index);
+        }
+        Ok(false) => {
+            log::debug!("[Codex Record] No changes to commit after prompt #{}", prompt_index);
+        }
+        Err(e) => {
+            log::warn!("[Codex Record] Failed to auto-commit: {}", e);
+            // Continue anyway
+        }
+    }
+
+    // Get current commit (state after AI completion)
+    let commit_after = simple_git::git_current_commit(&project_path)
+        .map_err(|e| format!("Failed to get current commit: {}", e))?;
+
+    // Update the record
+    let mut git_records = load_codex_git_records(&session_id)?;
+
+    if let Some(record) = git_records.records.iter_mut().find(|r| r.prompt_index == prompt_index) {
+        record.commit_after = Some(commit_after.clone());
+        save_codex_git_records(&session_id, &git_records)?;
+
+        log::info!("[Codex Record] Updated prompt #{} with commit_after: {}",
+            prompt_index, &commit_after[..8.min(commit_after.len())]);
+    } else {
+        log::warn!("[Codex Record] Record not found for prompt #{}", prompt_index);
+    }
+
+    Ok(())
+}
+
+/// Revert Codex session to a specific prompt
+#[tauri::command]
+pub async fn revert_codex_to_prompt(
+    session_id: String,
+    project_path: String,
+    prompt_index: usize,
+    mode: RewindMode,
+) -> Result<String, String> {
+    log::info!("[Codex Rewind] Reverting session {} to prompt #{} with mode: {:?}",
+        session_id, prompt_index, mode);
+
+    // Load execution config to check if Git operations are disabled
+    let execution_config = load_execution_config()
+        .map_err(|e| format!("Failed to load execution config: {}", e))?;
+
+    let git_operations_disabled = execution_config.disable_rewind_git_operations;
+
+    if git_operations_disabled {
+        log::warn!("[Codex Rewind] Git operations are disabled in config");
+    }
+
+    // Load Git records
+    let git_records = load_codex_git_records(&session_id)?;
+    let git_record = git_records.records.iter().find(|r| r.prompt_index == prompt_index);
+
+    // Validate mode compatibility
+    match mode {
+        RewindMode::CodeOnly | RewindMode::Both => {
+            if git_operations_disabled {
+                return Err(
+                    "无法回滚代码：Git 操作已在配置中禁用。只能撤回对话历史，无法回滚代码变更。".into()
+                );
+            }
+            if git_record.is_none() {
+                return Err(format!(
+                    "无法回滚代码：提示词 #{} 没有关联的 Git 记录",
+                    prompt_index
+                ));
+            }
+        }
+        RewindMode::ConversationOnly => {}
+    }
+
+    // Execute revert based on mode
+    match mode {
+        RewindMode::ConversationOnly => {
+            log::info!("[Codex Rewind] Reverting conversation only");
+
+            // Truncate session messages
+            truncate_codex_session_to_prompt(&session_id, prompt_index)?;
+
+            // Truncate git records
+            if !git_operations_disabled {
+                truncate_codex_git_records(&session_id, prompt_index)?;
+            }
+
+            log::info!("[Codex Rewind] Successfully reverted conversation to prompt #{}", prompt_index);
+        }
+
+        RewindMode::CodeOnly => {
+            log::info!("[Codex Rewind] Reverting code only");
+
+            let record = git_record.unwrap();
+
+            // Stash uncommitted changes
+            simple_git::git_stash_save(&project_path,
+                &format!("Auto-stash before Codex code revert to prompt #{}", prompt_index))
+                .map_err(|e| format!("Failed to stash changes: {}", e))?;
+
+            // Reset to commit before this prompt
+            simple_git::git_reset_hard(&project_path, &record.commit_before)
+                .map_err(|e| format!("Failed to reset code: {}", e))?;
+
+            log::info!("[Codex Rewind] Successfully reverted code to prompt #{}", prompt_index);
+        }
+
+        RewindMode::Both => {
+            log::info!("[Codex Rewind] Reverting both conversation and code");
+
+            let record = git_record.unwrap();
+
+            // Stash uncommitted changes
+            simple_git::git_stash_save(&project_path,
+                &format!("Auto-stash before Codex full revert to prompt #{}", prompt_index))
+                .map_err(|e| format!("Failed to stash changes: {}", e))?;
+
+            // Reset code
+            simple_git::git_reset_hard(&project_path, &record.commit_before)
+                .map_err(|e| format!("Failed to reset code: {}", e))?;
+
+            // Truncate session
+            truncate_codex_session_to_prompt(&session_id, prompt_index)?;
+
+            // Truncate git records
+            if !git_operations_disabled {
+                truncate_codex_git_records(&session_id, prompt_index)?;
+            }
+
+            log::info!("[Codex Rewind] Successfully reverted both to prompt #{}", prompt_index);
+        }
+    }
+
+    // Return the prompt text for restoring to input
+    get_codex_prompt_text(&session_id, prompt_index).unwrap_or_default()
+        .pipe(Ok)
+}
+
+// Helper trait for pipe syntax
+trait Pipe: Sized {
+    fn pipe<T, F: FnOnce(Self) -> T>(self, f: F) -> T {
+        f(self)
+    }
+}
+impl<T> Pipe for T {}

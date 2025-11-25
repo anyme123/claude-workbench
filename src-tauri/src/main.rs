@@ -70,6 +70,8 @@ use commands::codex::{
     list_codex_sessions, delete_codex_session,
     load_codex_session_history,
     check_codex_availability,
+    // Codex rewind commands
+    record_codex_prompt_sent, record_codex_prompt_completed, revert_codex_to_prompt,
     CodexProcessState,
 };
 use process::ProcessRegistryState;
@@ -295,6 +297,10 @@ fn main() {
             delete_codex_session,
             load_codex_session_history,
             check_codex_availability,
+            // Codex Rewind Commands
+            record_codex_prompt_sent,
+            record_codex_prompt_completed,
+            revert_codex_to_prompt,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

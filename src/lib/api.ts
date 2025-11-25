@@ -2642,4 +2642,82 @@ export const api = {
     }
   },
 
+  // ============================================================================
+  // Codex Rewind Commands
+  // ============================================================================
+
+  /**
+   * Records a Codex prompt being sent (called before execution)
+   * @param sessionId - The Codex session ID
+   * @param projectPath - The project path
+   * @param promptText - The prompt text
+   * @returns Promise resolving to the prompt index
+   */
+  async recordCodexPromptSent(
+    sessionId: string,
+    projectPath: string,
+    promptText: string
+  ): Promise<number> {
+    try {
+      return await invoke<number>("record_codex_prompt_sent", {
+        sessionId,
+        projectPath,
+        promptText
+      });
+    } catch (error) {
+      console.error("Failed to record Codex prompt sent:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Records a Codex prompt completion (called after AI response)
+   * @param sessionId - The Codex session ID
+   * @param projectPath - The project path
+   * @param promptIndex - The prompt index to complete
+   */
+  async recordCodexPromptCompleted(
+    sessionId: string,
+    projectPath: string,
+    promptIndex: number
+  ): Promise<void> {
+    try {
+      await invoke("record_codex_prompt_completed", {
+        sessionId,
+        projectPath,
+        promptIndex
+      });
+    } catch (error) {
+      console.error("Failed to record Codex prompt completed:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Reverts a Codex session to a specific prompt
+   * @param sessionId - The Codex session ID
+   * @param projectPath - The project path
+   * @param promptIndex - The prompt index to revert to
+   * @param mode - The rewind mode (conversation_only, code_only, or both)
+   * @returns Promise resolving to the prompt text (for restoring to input)
+   */
+  async revertCodexToPrompt(
+    sessionId: string,
+    projectPath: string,
+    promptIndex: number,
+    mode: RewindMode = "both"
+  ): Promise<string> {
+    try {
+      return await invoke<string>("revert_codex_to_prompt", {
+        sessionId,
+        projectPath,
+        promptIndex,
+        mode
+      });
+    } catch (error) {
+      console.error("Failed to revert Codex to prompt:", error);
+      throw error;
+    }
+  },
+
 };
