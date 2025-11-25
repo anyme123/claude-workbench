@@ -613,6 +613,32 @@ impl AcemcpClient {
 // 关键词提取
 // ============================================================================
 
+/// 英文技术缩写词库 - 常见2-3字符的技术术语
+const TECH_ABBREVIATIONS: &[&str] = &[
+    // UI/UX 设计
+    "ui", "ux", "css", "svg", "dom",
+    // 编程语言/运行时
+    "js", "ts", "py", "go", "rs", "rb", "php", "cpp", "jsx", "tsx",
+    // 框架/工具
+    "vue", "npm", "pnpm", "yarn", "git", "vim", "zsh", "wsl",
+    // 概念/架构
+    "api", "sdk", "cli", "gui", "ide", "orm", "mvc", "mvp", "mvvm",
+    "spa", "ssr", "ssg", "pwa", "cdn", "dns", "tcp", "udp", "http",
+    // AI/数据
+    "ai", "ml", "dl", "nlp", "llm", "gpt", "rag",
+    "db", "sql", "kv", "etl",
+    // 系统/运维
+    "io", "os", "vm", "k8s", "ci", "cd", "aws", "gcp",
+    // 安全/认证
+    "jwt", "ssh", "ssl", "tls", "rsa", "aes", "md5",
+    // 其他常用
+    "id", "url", "uri", "xml", "json", "yaml", "toml", "csv",
+    "rgb", "hex", "utf", "ascii", "base64",
+    "fps", "gpu", "cpu", "ram", "ssd", "hdd",
+    // 项目相关
+    "mcp", "acemcp",
+];
+
 /// 中文技术词库 - 常见编程/开发相关词汇
 const CHINESE_TECH_WORDS: &[&str] = &[
     // 动作词
@@ -730,7 +756,27 @@ fn extract_keywords_v2(prompt: &str) -> ExtractedKeywords {
         }
     }
 
-    // 3️⃣ 提取中文技术词汇（基于词库匹配）
+    // 3️⃣ 提取英文技术缩写词（如 ui, ux, api 等短词）
+    let prompt_lower = prompt.to_lowercase();
+    for &abbr in TECH_ABBREVIATIONS {
+        // 使用单词边界匹配，避免误匹配（如 "paid" 中的 "ai"）
+        // 检查缩写词前后是否为非字母数字字符
+        if let Some(pos) = prompt_lower.find(abbr) {
+            let before_ok = pos == 0 || !prompt_lower.chars().nth(pos - 1)
+                .map(|c| c.is_alphanumeric())
+                .unwrap_or(false);
+            let after_ok = pos + abbr.len() >= prompt_lower.len() || !prompt_lower.chars().nth(pos + abbr.len())
+                .map(|c| c.is_alphanumeric())
+                .unwrap_or(false);
+
+            if before_ok && after_ok && !seen.contains(abbr) {
+                seen.insert(abbr.to_string());
+                english_keywords.push(abbr.to_string());
+            }
+        }
+    }
+
+    // 4️⃣ 提取中文技术词汇（基于词库匹配）
     for &tech_word in CHINESE_TECH_WORDS {
         if prompt.contains(tech_word) && !seen.contains(tech_word) {
             seen.insert(tech_word.to_string());
@@ -738,11 +784,11 @@ fn extract_keywords_v2(prompt: &str) -> ExtractedKeywords {
         }
     }
 
-    // 4️⃣ 限制关键词数量
-    english_keywords.truncate(10);
+    // 5️⃣ 限制关键词数量
+    english_keywords.truncate(12);  // 增加限制，因为缩写词也算英文关键词
     chinese_keywords.truncate(5);
 
-    // 5️⃣ 构建结果
+    // 6️⃣ 构建结果
     let mut all_keywords: Vec<String> = Vec::new();
     all_keywords.extend(english_keywords.clone());
     all_keywords.extend(chinese_keywords.clone());
