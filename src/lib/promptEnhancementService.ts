@@ -28,6 +28,96 @@ const STORAGE_KEY = 'prompt_enhancement_providers';
 const ENCRYPTION_KEY = 'prompt_enhancement_encryption_salt';
 
 /**
+ * URL 智能识别与规范化工具
+ */
+
+// 已知的 Gemini API 域名
+const GEMINI_DOMAINS = [
+  'generativelanguage.googleapis.com',
+  'aiplatform.googleapis.com',
+];
+
+/**
+ * 根据 URL 自动检测 API 格式
+ * @param apiUrl API 地址
+ * @returns 检测到的 API 格式
+ */
+export function detectApiFormat(apiUrl: string): 'openai' | 'gemini' {
+  const url = apiUrl.toLowerCase().trim();
+
+  // 检测是否为 Gemini API
+  for (const domain of GEMINI_DOMAINS) {
+    if (url.includes(domain)) {
+      return 'gemini';
+    }
+  }
+
+  // 默认使用 OpenAI 格式（最通用的兼容格式）
+  return 'openai';
+}
+
+/**
+ * 规范化 OpenAI 格式的 API URL
+ * 支持用户输入简化的基础 URL，自动补全端点路径
+ *
+ * @param baseUrl 用户输入的基础 URL
+ * @returns 规范化后的完整 API URL（不含 /chat/completions，因为会在调用时添加）
+ */
+export function normalizeOpenAIUrl(baseUrl: string): string {
+  let url = baseUrl.trim();
+
+  // 移除末尾斜杠
+  while (url.endsWith('/')) {
+    url = url.slice(0, -1);
+  }
+
+  // 如果已经包含 /chat/completions，移除它（因为调用时会添加）
+  if (url.endsWith('/chat/completions')) {
+    url = url.slice(0, -'/chat/completions'.length);
+  }
+
+  // 如果不包含 /v1，添加它
+  if (!url.endsWith('/v1')) {
+    // 检查是否包含其他版本路径如 /v2，如果有则不添加
+    if (!url.match(/\/v\d+$/)) {
+      url = `${url}/v1`;
+    }
+  }
+
+  return url;
+}
+
+/**
+ * 规范化 Gemini 格式的 API URL
+ *
+ * @param baseUrl 用户输入的基础 URL
+ * @returns 规范化后的基础 URL
+ */
+export function normalizeGeminiUrl(baseUrl: string): string {
+  let url = baseUrl.trim();
+
+  // 移除末尾斜杠
+  while (url.endsWith('/')) {
+    url = url.slice(0, -1);
+  }
+
+  return url;
+}
+
+/**
+ * 根据 API 格式规范化 URL
+ */
+export function normalizeApiUrl(apiUrl: string, apiFormat?: 'openai' | 'gemini'): string {
+  const format = apiFormat || detectApiFormat(apiUrl);
+
+  if (format === 'gemini') {
+    return normalizeGeminiUrl(apiUrl);
+  } else {
+    return normalizeOpenAIUrl(apiUrl);
+  }
+}
+
+/**
  * 预设提供商模板
  */
 export const PRESET_PROVIDERS = {
@@ -174,11 +264,14 @@ async function callOpenAIFormat(
     requestBody.max_tokens = provider.maxTokens;
   }
 
-  // ⚡ 修复：处理 apiUrl 末尾可能有的斜杠
-  const baseUrl = provider.apiUrl.endsWith('/') ? provider.apiUrl.slice(0, -1) : provider.apiUrl;
+  // ⚡ 智能规范化 API URL（支持用户输入简化的基础 URL）
+  const normalizedUrl = normalizeOpenAIUrl(provider.apiUrl);
+  const fullEndpoint = `${normalizedUrl}/chat/completions`;
+
+  console.log('[PromptEnhancement] OpenAI URL normalized:', provider.apiUrl, '->', fullEndpoint);
 
   // ⚡ 使用 Tauri HTTP 客户端绕过 CORS 限制
-  const response = await tauriFetch(`${baseUrl}/chat/completions`, {
+  const response = await tauriFetch(fullEndpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -337,11 +430,14 @@ ${context && context.length > 0 ? `\n【当前对话上下文】\n${context.join
 
   const userPrompt = `请优化以下提示词：\n\n${prompt}`;
 
-  console.log('[PromptEnhancement] Calling API:', provider.name, provider.apiFormat || 'openai');
+  // ⚡ 智能检测 API 格式：优先使用用户指定的格式，否则自动检测
+  const effectiveFormat = provider.apiFormat || detectApiFormat(provider.apiUrl);
+
+  console.log('[PromptEnhancement] Calling API:', provider.name, 'format:', effectiveFormat, '(user specified:', provider.apiFormat || 'auto-detect', ')');
 
   try {
     // 根据API格式调用不同的函数
-    if (provider.apiFormat === 'gemini') {
+    if (effectiveFormat === 'gemini') {
       return await callGeminiFormat(provider, systemPrompt, userPrompt);
     } else {
       // 默认使用 OpenAI 格式

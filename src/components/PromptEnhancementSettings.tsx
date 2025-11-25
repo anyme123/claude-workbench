@@ -23,6 +23,7 @@ import {
   deleteProvider,
   testAPIConnection,
   PRESET_PROVIDERS,
+  detectApiFormat,
   type PromptEnhancementProvider,
 } from "@/lib/promptEnhancementService";
 import { cn } from "@/lib/utils";
@@ -219,7 +220,11 @@ export const PromptEnhancementSettings: React.FC<PromptEnhancementSettingsProps>
                     <div>模型: {provider.model}</div>
                     <div className="truncate">API: {provider.apiUrl}</div>
                     <div className="flex items-center gap-2">
-                      <span>格式: {provider.apiFormat === 'gemini' ? 'Gemini' : 'OpenAI'}</span>
+                      <span>格式: {
+                        provider.apiFormat
+                          ? (provider.apiFormat === 'gemini' ? 'Gemini' : 'OpenAI')
+                          : `自动 (${detectApiFormat(provider.apiUrl) === 'gemini' ? 'Gemini' : 'OpenAI'})`
+                      }</span>
                       {provider.temperature !== undefined && <span>| 温度: {provider.temperature}</span>}
                       {provider.maxTokens !== undefined && <span>| Token: {provider.maxTokens}</span>}
                     </div>
@@ -308,8 +313,11 @@ export const PromptEnhancementSettings: React.FC<PromptEnhancementSettingsProps>
                 <Input
                   value={editingProvider.apiUrl}
                   onChange={(e) => setEditingProvider({ ...editingProvider, apiUrl: e.target.value })}
-                  placeholder="https://api.openai.com/v1"
+                  placeholder="例如: https://api.openai.com 或 http://localhost:3001"
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  支持简化输入，系统会自动补全 /v1/chat/completions 等端点路径
+                </p>
               </div>
 
               <div>
@@ -334,17 +342,26 @@ export const PromptEnhancementSettings: React.FC<PromptEnhancementSettingsProps>
               <div>
                 <Label>API 格式</Label>
                 <Select
-                  value={editingProvider.apiFormat || 'openai'}
-                  onValueChange={(value) => setEditingProvider({ ...editingProvider, apiFormat: value as 'openai' | 'gemini' })}
+                  value={editingProvider.apiFormat || 'auto'}
+                  onValueChange={(value) => setEditingProvider({
+                    ...editingProvider,
+                    apiFormat: value === 'auto' ? undefined : value as 'openai' | 'gemini'
+                  })}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="auto">
+                      自动检测 {editingProvider.apiUrl ? `(${detectApiFormat(editingProvider.apiUrl) === 'gemini' ? 'Gemini' : 'OpenAI'})` : ''}
+                    </SelectItem>
                     <SelectItem value="openai">OpenAI 格式</SelectItem>
                     <SelectItem value="gemini">Google Gemini 格式</SelectItem>
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  系统会根据 URL 自动识别 API 格式，也可手动指定
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
