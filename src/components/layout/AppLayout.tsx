@@ -24,7 +24,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const [showAboutDialog, setShowAboutDialog] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
 
   const sidebarWidth = isSidebarOpen ? "4rem" : "0px";
 
@@ -35,15 +34,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const headerVisibilityRef = useRef(isHeaderVisible);
   headerVisibilityRef.current = isHeaderVisible;
 
-  // 移动端检测
-  React.useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 640);
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  // 优化的 Header 自动隐藏逻辑（带 RAF 节流和触摸支持）
+  // 优化的 Header 自动隐藏逻辑（带 RAF 节流）
   React.useEffect(() => {
     if (!isSessionPage) {
       setIsHeaderVisible(true);
@@ -71,18 +62,11 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       });
     };
 
-    // 触摸设备支持：触摸时显示 Header
-    const handleTouchStart = () => {
-      setIsHeaderVisible(true);
-    };
-
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
-    window.addEventListener('touchstart', handleTouchStart, { passive: true });
 
     return () => {
       cancelAnimationFrame(rafId);
       window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('touchstart', handleTouchStart);
     };
   }, [isSessionPage]);
 
@@ -99,22 +83,11 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         }}
       />
 
-      {/* Mobile Overlay Backdrop */}
-      {isMobile && isSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 sm:hidden transition-opacity duration-250"
-          onClick={() => setIsSidebarOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-
       {/* Sidebar */}
       <div
         id="app-sidebar"
         className={cn(
-          "flex-shrink-0 transition-all duration-250 ease-[cubic-bezier(0.2,0,0,1)] overflow-hidden",
-          // 移动端使用 fixed 定位实现 Overlay 抽屉模式
-          isMobile ? "fixed inset-y-0 left-0 z-50" : "relative z-50",
+          "z-50 flex-shrink-0 transition-all duration-250 ease-[cubic-bezier(0.2,0,0,1)] overflow-hidden",
           isSidebarOpen
             ? "w-16 opacity-100 translate-x-0"
             : "w-0 opacity-0 -translate-x-full"
@@ -122,11 +95,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       >
         <Sidebar
           currentView={currentView}
-          onNavigate={(view) => {
-            navigateTo(view);
-            // 移动端导航后自动收起侧边栏
-            if (isMobile) setIsSidebarOpen(false);
-          }}
+          onNavigate={navigateTo}
           className="w-16"
         />
       </div>
