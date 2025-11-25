@@ -34,7 +34,8 @@ export const SubagentMessageGroup: React.FC<SubagentMessageGroupProps> = ({
   className,
   onLinkDetected,
 }) => {
-  const [isExpanded, setIsExpanded] = useState(true);
+  // 🔄 默认折叠子代理执行过程，减少视觉干扰
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // 🛡️ 防御性编程：验证 subagentMessages 数组
   const subagentMessages = Array.isArray(group.subagentMessages) ? group.subagentMessages : [];
