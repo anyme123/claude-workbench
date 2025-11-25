@@ -34,6 +34,7 @@ import { useMessageTranslation } from '@/hooks/useMessageTranslation';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { usePromptExecution } from '@/hooks/usePromptExecution';
 import { MessagesProvider, useMessagesContext } from '@/contexts/MessagesContext';
+import { codexConverter } from '@/lib/codexConverter';
 
 import * as SessionHelpers from '@/lib/sessionHelpers';
 
@@ -729,24 +730,47 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
     try {
       console.log('[Prompt Revert] Reverting to prompt #', promptIndex, 'with mode:', mode);
 
+      const sessionEngine = effectiveSession.engine || executionEngineConfig.engine || 'claude';
+      const isCodex = sessionEngine === 'codex';
+
       // 调用后端撤回（返回提示词文本）
-      const promptText = await api.revertToPrompt(
-        effectiveSession.id,
-        effectiveSession.project_id,
-        projectPath,
-        promptIndex,
-        mode
-      );
+      const promptText = isCodex
+        ? await api.revertCodexToPrompt(
+            effectiveSession.id,
+            projectPath,
+            promptIndex,
+            mode
+          )
+        : await api.revertToPrompt(
+            effectiveSession.id,
+            effectiveSession.project_id,
+            projectPath,
+            promptIndex,
+            mode
+          );
 
       console.log('[Prompt Revert] Revert successful, reloading messages...');
 
       // 重新加载消息历史
       const history = await api.loadSessionHistory(
         effectiveSession.id,
-        effectiveSession.project_id
+        effectiveSession.project_id,
+        sessionEngine as any
       );
 
-      if (Array.isArray(history)) {
+      if (sessionEngine === 'codex' && Array.isArray(history)) {
+        // 将 Codex 事件转换为消息格式（与 useSessionLifecycle 保持一致）
+        codexConverter.reset();
+        const convertedMessages: any[] = [];
+        for (const event of history) {
+          const msg = codexConverter.convertEventObject(event as any);
+          if (msg) convertedMessages.push(msg);
+        }
+        setMessages(convertedMessages);
+        console.log('[Prompt Revert] Loaded Codex messages:', {
+          total: convertedMessages.length,
+        });
+      } else if (Array.isArray(history)) {
         setMessages(history);
         console.log('[Prompt Revert] Loaded messages:', {
           total: history.length,
@@ -781,7 +805,7 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
       console.error('[Prompt Revert] Failed to revert:', error);
       setError('撤回失败：' + error);
     }
-  }, [effectiveSession, projectPath, claudeSettings?.hideWarmupMessages]);
+  }, [effectiveSession, projectPath, claudeSettings?.hideWarmupMessages, executionEngineConfig.engine]);
 
   // Cleanup event listeners and track mount state
   // ⚠️ IMPORTANT: No dependencies! Only cleanup on real unmount
@@ -1253,6 +1277,7 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
           <RevertPromptPicker
             sessionId={effectiveSession.id}
             projectId={effectiveSession.project_id}
+            engine={effectiveSession.engine || executionEngineConfig.engine || 'claude'}
             onSelect={handleRevert}
             onClose={() => setShowRevertPicker(false)}
           />

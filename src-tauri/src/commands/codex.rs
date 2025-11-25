@@ -21,8 +21,11 @@ use chrono::Utc;
 use crate::commands::claude::apply_no_window_async;
 // Import simple_git for rewind operations
 use super::simple_git;
-// Import RewindMode and load_execution_config from prompt_tracker
-use super::prompt_tracker::{RewindMode, load_execution_config};
+// Import rewind helpers/types shared with Claude
+use super::prompt_tracker::{RewindMode, RewindCapabilities, PromptRecord as ClaudePromptRecord, load_execution_config};
+
+// Align Codex prompt record type with Claude prompt tracker representation
+type PromptRecord = ClaudePromptRecord;
 
 // ============================================================================
 // Type Definitions
@@ -152,6 +155,8 @@ impl Default for CodexProcessState {
 // ============================================================================
 
 /// Codex prompt record for rewind tracking
+/// Note: Reserved for future use (e.g., prompt history display)
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CodexPromptRecord {
@@ -955,6 +960,162 @@ fn truncate_codex_git_records(session_id: &str, prompt_index: usize) -> Result<(
     Ok(())
 }
 
+/// Extract all user prompts from a Codex session JSONL
+/// This mirrors Claude prompt extraction so indices stay consistent
+fn extract_codex_prompts(session_id: &str) -> Result<Vec<PromptRecord>, String> {
+    let sessions_dir = get_codex_sessions_dir()?;
+    let session_file = find_session_file(&sessions_dir, session_id)
+        .ok_or_else(|| format!("Session file not found for: {}", session_id))?;
+
+    let content = fs::read_to_string(&session_file)
+        .map_err(|e| format!("Failed to read session file: {}", e))?;
+
+    let mut prompts: Vec<PromptRecord> = Vec::new();
+    let mut prompt_index = 0;
+
+    for line in content.lines() {
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        if let Ok(event) = serde_json::from_str::<serde_json::Value>(line) {
+            if event["type"].as_str() == Some("response_item")
+                && event["payload"]["role"].as_str() == Some("user")
+            {
+                // Extract the actual user text (skip system/context injections)
+                let mut prompt_text: Option<String> = None;
+                if let Some(content) = event["payload"]["content"].as_array() {
+                    for item in content {
+                        if item["type"].as_str() == Some("input_text") {
+                            if let Some(text) = item["text"].as_str() {
+                                if !text.contains("<environment_context>")
+                                    && !text.contains("# AGENTS.md instructions")
+                                    && !text.trim().is_empty()
+                                {
+                                    prompt_text = Some(text.to_string());
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if let Some(text) = prompt_text {
+                    let timestamp = event["timestamp"]
+                        .as_str()
+                        .and_then(|ts| chrono::DateTime::parse_from_rfc3339(ts).ok())
+                        .map(|dt| dt.timestamp())
+                        .unwrap_or_else(|| chrono::Utc::now().timestamp());
+
+                    prompts.push(PromptRecord {
+                        index: prompt_index,
+                        text,
+                        git_commit_before: String::new(),
+                        git_commit_after: None,
+                        timestamp,
+                        source: "cli".to_string(), // default to CLI; update below if git record exists
+                    });
+                    prompt_index += 1;
+                }
+            }
+        }
+    }
+
+    // Enrich with git records (if present)
+    let git_records = load_codex_git_records(session_id)?;
+    for prompt in prompts.iter_mut() {
+        if let Some(record) = git_records
+            .records
+            .iter()
+            .find(|r| r.prompt_index == prompt.index)
+        {
+            prompt.git_commit_before = record.commit_before.clone();
+            prompt.git_commit_after = record.commit_after.clone();
+            prompt.source = "project".to_string();
+
+            if prompt.timestamp == 0 {
+                if let Ok(ts) = chrono::DateTime::parse_from_rfc3339(&record.timestamp) {
+                    prompt.timestamp = ts.timestamp();
+                }
+            }
+        }
+    }
+
+    Ok(prompts)
+}
+
+/// Get prompt list for Codex sessions (for revert picker)
+#[tauri::command]
+pub async fn get_codex_prompt_list(session_id: String) -> Result<Vec<PromptRecord>, String> {
+    extract_codex_prompts(&session_id)
+}
+
+/// Check rewind capabilities for Codex prompt (conversation/code/both)
+#[tauri::command]
+pub async fn check_codex_rewind_capabilities(
+    session_id: String,
+    prompt_index: usize,
+) -> Result<RewindCapabilities, String> {
+    log::info!(
+        "[Codex Rewind] Checking capabilities for session {} prompt #{}",
+        session_id,
+        prompt_index
+    );
+
+    // Respect global execution config for git operations
+    let execution_config = load_execution_config()
+        .map_err(|e| format!("Failed to load execution config: {}", e))?;
+    let git_operations_disabled = execution_config.disable_rewind_git_operations;
+
+    // Extract prompts to validate index and source
+    let prompts = extract_codex_prompts(&session_id)?;
+    let prompt = prompts
+        .get(prompt_index)
+        .ok_or_else(|| format!("Prompt #{} not found", prompt_index))?;
+
+    if git_operations_disabled {
+        return Ok(RewindCapabilities {
+            conversation: true,
+            code: false,
+            both: false,
+            warning: Some("Git 操作已在配置中禁用。只能撤回对话历史，无法回滚代码变更。".to_string()),
+            source: prompt.source.clone(),
+        });
+    }
+
+    // Look up git record for this prompt index
+    let git_records = load_codex_git_records(&session_id)?;
+    let git_record = git_records
+        .records
+        .iter()
+        .find(|r| r.prompt_index == prompt_index);
+
+    if let Some(record) = git_record {
+        let has_valid_commit = !record.commit_before.is_empty();
+        Ok(RewindCapabilities {
+            conversation: true,
+            code: has_valid_commit,
+            both: has_valid_commit,
+            warning: if has_valid_commit {
+                None
+            } else {
+                Some("此提示词没有关联的 Git 记录，只能删除对话历史。".to_string())
+            },
+            source: "project".to_string(),
+        })
+    } else {
+        Ok(RewindCapabilities {
+            conversation: true,
+            code: false,
+            both: false,
+            warning: Some(
+                "此提示词没有关联的 Git 记录（可能来自 CLI），只能删除对话历史。".to_string(),
+            ),
+            source: prompt.source.clone(),
+        })
+    }
+}
+
 /// Get prompt text from Codex session file
 fn get_codex_prompt_text(session_id: &str, prompt_index: usize) -> Result<String, String> {
     let sessions_dir = get_codex_sessions_dir()?;
@@ -1028,6 +1189,29 @@ fn truncate_codex_session_to_prompt(session_id: &str, prompt_index: usize) -> Re
         if let Ok(event) = serde_json::from_str::<serde_json::Value>(line) {
             if event["type"].as_str() == Some("response_item") {
                 if event["payload"]["role"].as_str() == Some("user") {
+                    // Extract user text and skip system injections
+                    let mut prompt_text: Option<String> = None;
+                    if let Some(content) = event["payload"]["content"].as_array() {
+                        for item in content {
+                            if item["type"].as_str() == Some("input_text") {
+                                if let Some(text) = item["text"].as_str() {
+                                    if !text.contains("<environment_context>")
+                                        && !text.contains("# AGENTS.md instructions")
+                                        && !text.trim().is_empty()
+                                    {
+                                        prompt_text = Some(text.to_string());
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Skip non-user prompts (e.g., AGENTS/system context)
+                    if prompt_text.is_none() {
+                        continue;
+                    }
+
                     if user_message_count == prompt_index {
                         truncate_at_line = idx;
                         found_target = true;
@@ -1175,6 +1359,12 @@ pub async fn revert_codex_to_prompt(
         log::warn!("[Codex Rewind] Git operations are disabled in config");
     }
 
+    // Extract prompts to validate index and retrieve text
+    let prompts = extract_codex_prompts(&session_id)?;
+    let prompt = prompts
+        .get(prompt_index)
+        .ok_or_else(|| format!("Prompt #{} not found in session", prompt_index))?;
+
     // Load Git records
     let git_records = load_codex_git_records(&session_id)?;
     let git_record = git_records.records.iter().find(|r| r.prompt_index == prompt_index);
@@ -1257,8 +1447,7 @@ pub async fn revert_codex_to_prompt(
     }
 
     // Return the prompt text for restoring to input
-    get_codex_prompt_text(&session_id, prompt_index).unwrap_or_default()
-        .pipe(Ok)
+    Ok(prompt.text.clone())
 }
 
 // Helper trait for pipe syntax

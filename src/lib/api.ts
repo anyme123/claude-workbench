@@ -2694,6 +2694,45 @@ export const api = {
   },
 
   /**
+   * Gets Codex prompt list for a session (used by revert picker)
+   */
+  async getCodexPromptList(sessionId: string): Promise<PromptRecord[]> {
+    try {
+      return await invoke<PromptRecord[]>("get_codex_prompt_list", { sessionId });
+    } catch (error) {
+      console.error("Failed to get Codex prompt list:", error);
+      return [];
+    }
+  },
+
+  /**
+   * Checks rewind capabilities for a Codex prompt
+   * @param sessionId - Codex session ID
+   * @param promptIndex - Prompt index to check
+   */
+  async checkCodexRewindCapabilities(
+    sessionId: string,
+    promptIndex: number
+  ): Promise<RewindCapabilities> {
+    try {
+      return await invoke<RewindCapabilities>("check_codex_rewind_capabilities", {
+        sessionId,
+        promptIndex,
+      });
+    } catch (error) {
+      console.error("Failed to check Codex rewind capabilities:", error);
+      // Fallback to conversation-only to keep UI functional
+      return {
+        conversation: true,
+        code: false,
+        both: false,
+        warning: "无法获取 Codex 撤回能力，只能删除对话记录。",
+        source: "cli",
+      };
+    }
+  },
+
+  /**
    * Reverts a Codex session to a specific prompt
    * @param sessionId - The Codex session ID
    * @param projectPath - The project path

@@ -457,42 +457,52 @@ export class CodexEventConverter {
     const toolUseId = `codex_cmd_${item.id}`;
     const ts = eventTimestamp || new Date().toISOString();
 
+    const toolUseBlock = {
+      type: 'tool_use',
+      id: toolUseId,
+      name: 'bash',
+      input: { command: item.command },
+    };
+
     if (!isComplete) {
-      // Return tool_use for started/updated
+      // Stream a tool_use inside an assistant message so UI renders immediately
       return {
-        type: 'tool_use',
-        subtype: 'tool_use',
-        tool_use: {
-          id: toolUseId,
-          name: 'bash',
-          input: { command: item.command },
-          type: 'tool_use',
+        type: 'assistant',
+        message: {
+          role: 'assistant',
+          content: [toolUseBlock],
         },
         timestamp: ts,
         receivedAt: ts,
-        codexMetadata: metadata,
-      };
-    } else {
-      // Return tool_result for completed
-      return {
-        type: 'tool_use',
-        subtype: 'tool_result',
-        tool_result: {
-          tool_use_id: toolUseId,
-          content: [
-            {
-              type: 'text',
-              text: item.aggregated_output || '',
-            },
-          ],
-          is_error: item.status === 'failed',
-          type: 'tool_result',
-        },
-        timestamp: ts,
-        receivedAt: ts,
+        engine: 'codex' as const,
         codexMetadata: metadata,
       };
     }
+
+    // Completed -> assistant message containing both tool_use + tool_result
+    const toolResultBlock = {
+      type: 'tool_result',
+      tool_use_id: toolUseId,
+      content: [
+        {
+          type: 'text',
+          text: item.aggregated_output || '',
+        },
+      ],
+      is_error: item.status === 'failed',
+    };
+
+    return {
+      type: 'assistant',
+      message: {
+        role: 'assistant',
+        content: [toolUseBlock, toolResultBlock],
+      },
+      timestamp: ts,
+      receivedAt: ts,
+      engine: 'codex' as const,
+      codexMetadata: metadata,
+    };
   }
 
   /**
@@ -508,30 +518,49 @@ export class CodexEventConverter {
     const toolUseId = `codex_file_${item.id}`;
     const toolName = item.change_type === 'create' ? 'write' : item.change_type === 'delete' ? 'bash' : 'edit';
 
-    return {
+    const toolUseBlock = {
       type: 'tool_use',
-      subtype: phase === 'completed' ? 'tool_result' : 'tool_use',
-      tool_use: phase !== 'completed' ? {
-        id: toolUseId,
-        name: toolName,
-        input: {
-          file_path: item.file_path,
-          content: item.content,
-          change_type: item.change_type,
+      id: toolUseId,
+      name: toolName,
+      input: {
+        file_path: item.file_path,
+        content: item.content,
+        change_type: item.change_type,
+      },
+    };
+
+    if (phase !== 'completed') {
+      return {
+        type: 'assistant',
+        message: {
+          role: 'assistant',
+          content: [toolUseBlock],
         },
-        type: 'tool_use',
-      } : undefined,
-      tool_result: phase === 'completed' ? {
-        tool_use_id: toolUseId,
-        content: [
-          {
-            type: 'text',
-            text: `File ${item.change_type}: ${item.file_path}`,
-          },
-        ],
-        is_error: item.status === 'failed',
-        type: 'tool_result',
-      } : undefined,
+        timestamp: ts,
+        receivedAt: ts,
+        engine: 'codex' as const,
+        codexMetadata: metadata,
+      };
+    }
+
+    const toolResultBlock = {
+      type: 'tool_result',
+      tool_use_id: toolUseId,
+      content: [
+        {
+          type: 'text',
+          text: `File ${item.change_type}: ${item.file_path}`,
+        },
+      ],
+      is_error: item.status === 'failed',
+    };
+
+    return {
+      type: 'assistant',
+      message: {
+        role: 'assistant',
+        content: [toolUseBlock, toolResultBlock],
+      },
       timestamp: ts,
       receivedAt: ts,
       engine: 'codex' as const,
@@ -615,40 +644,44 @@ export class CodexEventConverter {
     const ts = eventTimestamp || new Date().toISOString();
     const toolUseId = `codex_search_${item.id}`;
 
+    const toolUseBlock = {
+      type: 'tool_use',
+      id: toolUseId,
+      name: 'web_search',
+      input: { query: item.query },
+    };
+
     if (phase !== 'completed') {
       return {
-        type: 'tool_use',
-        subtype: 'tool_use',
-        tool_use: {
-          id: toolUseId,
-          name: 'web_search',
-          input: { query: item.query },
-          type: 'tool_use',
-        },
+        type: 'assistant',
+        message: { role: 'assistant', content: [toolUseBlock] },
         timestamp: ts,
         receivedAt: ts,
-        codexMetadata: metadata,
-      };
-    } else {
-      return {
-        type: 'tool_use',
-        subtype: 'tool_result',
-        tool_result: {
-          tool_use_id: toolUseId,
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify(item.results, null, 2),
-            },
-          ],
-          is_error: item.status === 'failed',
-          type: 'tool_result',
-        },
-        timestamp: ts,
-        receivedAt: ts,
+        engine: 'codex' as const,
         codexMetadata: metadata,
       };
     }
+
+    const toolResultBlock = {
+      type: 'tool_result',
+      tool_use_id: toolUseId,
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(item.results, null, 2),
+        },
+      ],
+      is_error: item.status === 'failed',
+    };
+
+    return {
+      type: 'assistant',
+      message: { role: 'assistant', content: [toolUseBlock, toolResultBlock] },
+      timestamp: ts,
+      receivedAt: ts,
+      engine: 'codex' as const,
+      codexMetadata: metadata,
+    };
   }
 
   /**

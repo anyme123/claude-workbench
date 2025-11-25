@@ -68,7 +68,7 @@ use commands::git_stats::{get_git_diff_stats, get_session_code_changes};
 use commands::codex::{
     execute_codex, resume_codex, resume_last_codex, cancel_codex,
     list_codex_sessions, delete_codex_session,
-    load_codex_session_history,
+    load_codex_session_history, get_codex_prompt_list, check_codex_rewind_capabilities,
     check_codex_availability,
     // Codex rewind commands
     record_codex_prompt_sent, record_codex_prompt_completed, revert_codex_to_prompt,
@@ -296,6 +296,8 @@ fn main() {
             list_codex_sessions,
             delete_codex_session,
             load_codex_session_history,
+            get_codex_prompt_list,
+            check_codex_rewind_capabilities,
             check_codex_availability,
             // Codex Rewind Commands
             record_codex_prompt_sent,

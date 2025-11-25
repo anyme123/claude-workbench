@@ -32,6 +32,8 @@ interface RevertPromptPickerProps {
   sessionId: string;
   /** 项目ID */
   projectId: string;
+  /** 会话引擎（claude/codex），用于选择正确的撤回接口 */
+  engine?: 'claude' | 'codex';
   /** 选择回调 */
   onSelect: (promptIndex: number, mode: RewindMode) => void;
   /** 关闭回调 */
@@ -54,6 +56,7 @@ const truncateText = (text: string, maxLength: number = 80): string => {
 export const RevertPromptPicker: React.FC<RevertPromptPickerProps> = ({
   sessionId,
   projectId,
+  engine = 'claude',
   onSelect,
   onClose,
   className,
@@ -63,13 +66,16 @@ export const RevertPromptPicker: React.FC<RevertPromptPickerProps> = ({
   const [prompts, setPrompts] = useState<PromptEntry[]>([]);
   const listRef = useRef<HTMLDivElement>(null);
   const selectedItemRef = useRef<HTMLDivElement>(null);
+  const isCodex = engine === 'codex';
 
   // 从后端加载准确的提示词列表
   useEffect(() => {
     const loadPrompts = async () => {
       try {
         // 调用后端获取准确的提示词列表（包含正确的 index）
-        const promptRecords = await api.getPromptList(sessionId, projectId);
+        const promptRecords = isCodex
+          ? await api.getCodexPromptList(sessionId)
+          : await api.getPromptList(sessionId, projectId);
 
         console.log('[RevertPromptPicker] Loaded prompts from backend:', promptRecords);
 
@@ -96,7 +102,7 @@ export const RevertPromptPicker: React.FC<RevertPromptPickerProps> = ({
     };
 
     loadPrompts();
-  }, [sessionId, projectId, onClose]);
+  }, [sessionId, projectId, onClose, isCodex]);
 
   // 异步加载每个提示词的撤回能力
   useEffect(() => {
@@ -104,11 +110,13 @@ export const RevertPromptPicker: React.FC<RevertPromptPickerProps> = ({
       for (const prompt of prompts) {
         if (prompt.loading && !prompt.capabilities) {
           try {
-            const capabilities = await api.checkRewindCapabilities(
-              sessionId,
-              projectId,
-              prompt.index
-            );
+            const capabilities = isCodex
+              ? await api.checkCodexRewindCapabilities(sessionId, prompt.index)
+              : await api.checkRewindCapabilities(
+                  sessionId,
+                  projectId,
+                  prompt.index
+                );
 
             setPrompts(prev =>
               prev.map(p =>
@@ -145,7 +153,7 @@ export const RevertPromptPicker: React.FC<RevertPromptPickerProps> = ({
     if (prompts.length > 0) {
       loadCapabilities();
     }
-  }, [prompts, sessionId, projectId]);
+  }, [prompts, sessionId, projectId, isCodex]);
 
   // 当前选中提示词的撤回能力
   const currentCapabilities = useMemo(() => {

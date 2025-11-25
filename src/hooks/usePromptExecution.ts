@@ -190,6 +190,12 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
       const isUserInitiated = !prompt.includes('Warmup') 
         && !prompt.includes('<command-name>')
         && !prompt.includes('Launching skill:');
+      const codexPendingInfo = executionEngine === 'codex' ? {
+        sessionId: effectiveSession?.id || null,
+        projectPath,
+        promptText: prompt,
+        promptIndex: undefined as number | undefined,
+      } : undefined;
       
       // 对于已有会话，立即记录；对于新会话，在收到 session_id 后记录
       if (effectiveSession && isUserInitiated) {
@@ -201,6 +207,10 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
             prompt
           );
           console.log('[Prompt Revert] [OK] Recorded user prompt #', recordedPromptIndex, '(existing session)');
+          if (executionEngine === 'codex' && codexPendingInfo) {
+            codexPendingInfo.promptIndex = recordedPromptIndex;
+            codexPendingInfo.sessionId = effectiveSession.id;
+          }
         } catch (err) {
           console.error('[Prompt Revert] [ERROR] Failed to record prompt:', err);
         }
@@ -257,6 +267,31 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
 
                 // Mark as not first prompt anymore
                 setIsFirstPrompt(false);
+
+                // If this is a new Codex session and prompt not yet recorded, record now
+                if (isUserInitiated && codexPendingInfo && codexPendingInfo.promptIndex === undefined) {
+                  api.recordCodexPromptSent(codexSessionId, projectPath, codexPendingInfo.promptText)
+                    .then((idx) => {
+                      codexPendingInfo.promptIndex = idx;
+                      codexPendingInfo.sessionId = codexSessionId;
+                      window.__codexPendingPrompt = {
+                        sessionId: codexSessionId,
+                        projectPath,
+                        promptIndex: idx
+                      };
+                      console.log('[usePromptExecution] Recorded Codex prompt after init with index', idx);
+                    })
+                    .catch(err => {
+                      console.warn('[usePromptExecution] Failed to record Codex prompt after init:', err);
+                    });
+                } else if (codexPendingInfo && codexPendingInfo.promptIndex !== undefined) {
+                  // Update pending sessionId for completion handler
+                  window.__codexPendingPrompt = {
+                    sessionId: codexSessionId,
+                    projectPath,
+                    promptIndex: codexPendingInfo.promptIndex
+                  };
+                }
               }
             }
           });
@@ -631,6 +666,7 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
             ]
           },
           sentAt: new Date().toISOString(),
+          ...(executionEngine === 'codex' ? { engine: 'codex' as const } : {}),
           // Add translation metadata for debugging/info
           translationMeta: userInputTranslation ? {
             wasTranslated: userInputTranslation.wasTranslated,
@@ -702,13 +738,16 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
 
         // 🆕 Note: Prompt completion recording is handled in the codex-complete event listener
         // Store the prompt index for later use in completion recording
-        if (codexPromptIndex !== undefined && effectiveSession) {
-          // Store in a ref or state for the completion handler to access
-          window.__codexPendingPrompt = {
-            sessionId: effectiveSession.id,
-            projectPath,
-            promptIndex: codexPromptIndex
-          };
+        if (executionEngine === 'codex') {
+          const pendingIndex = codexPromptIndex ?? codexPendingInfo?.promptIndex;
+          const pendingSessionId = effectiveSession?.id || codexPendingInfo?.sessionId || null;
+          if (pendingIndex !== undefined && pendingSessionId) {
+            window.__codexPendingPrompt = {
+              sessionId: pendingSessionId,
+              projectPath,
+              promptIndex: pendingIndex
+            };
+          }
         }
       } else {
         // ====================================================================

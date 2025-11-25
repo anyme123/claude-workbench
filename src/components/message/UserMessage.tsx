@@ -132,6 +132,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
   projectId,
   onRevert
 }) => {
+  const engine = (message as any).engine || 'claude';
   const text = extractUserText(message);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [capabilities, setCapabilities] = useState<RewindCapabilities | null>(null);
@@ -170,11 +171,14 @@ export const UserMessage: React.FC<UserMessageProps> = ({
   // 检测撤回能力
   useEffect(() => {
     const loadCapabilities = async () => {
-      if (promptIndex === undefined || !sessionId || !projectId) return;
+      if (promptIndex === undefined || !sessionId) return;
+      if (engine !== 'codex' && !projectId) return;
 
       setIsLoadingCapabilities(true);
       try {
-        const caps = await api.checkRewindCapabilities(sessionId, projectId, promptIndex);
+        const caps = engine === 'codex'
+          ? await api.checkCodexRewindCapabilities(sessionId, promptIndex)
+          : await api.checkRewindCapabilities(sessionId, projectId!, promptIndex);
         setCapabilities(caps);
       } catch (error) {
         console.error('Failed to check rewind capabilities:', error);
@@ -186,7 +190,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
     if (showConfirmDialog) {
       loadCapabilities();
     }
-  }, [showConfirmDialog, promptIndex, sessionId, projectId]);
+  }, [showConfirmDialog, promptIndex, sessionId, projectId, engine]);
 
   const handleRevertClick = (e: React.MouseEvent) => {
     e.stopPropagation();
