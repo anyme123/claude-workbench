@@ -228,6 +228,8 @@ async function callContextExtractionAPI(
   // 根据 API 格式选择调用方式
   if (provider.apiFormat === 'gemini') {
     return await callGeminiFormatRaw(provider, systemPrompt, userPrompt);
+  } else if (provider.apiFormat === 'anthropic') {
+    return await callAnthropicFormatRaw(provider, systemPrompt, userPrompt);
   } else {
     return await callOpenAIFormatRaw(provider, systemPrompt, userPrompt);
   }
@@ -281,6 +283,76 @@ async function callOpenAIFormatRaw(
   }
 
   return content.trim();
+}
+
+/**
+ * 原始 Anthropic 格式调用（/v1/messages）
+ */
+async function callAnthropicFormatRaw(
+  provider: PromptEnhancementProvider,
+  systemPrompt: string,
+  userPrompt: string
+): Promise<string> {
+  const requestBody: any = {
+    model: provider.model,
+    max_tokens: provider.maxTokens || 4096,
+    system: systemPrompt,
+    messages: [
+      { role: 'user', content: userPrompt }
+    ],
+  };
+
+  if (provider.temperature !== undefined && provider.temperature !== null) {
+    requestBody.temperature = provider.temperature;
+  }
+
+  // 规范化 URL
+  let baseUrl = provider.apiUrl.trim();
+  while (baseUrl.endsWith('/')) {
+    baseUrl = baseUrl.slice(0, -1);
+  }
+  // 移除可能存在的 /messages 后缀
+  if (baseUrl.endsWith('/messages')) {
+    baseUrl = baseUrl.slice(0, -'/messages'.length);
+  }
+  // 确保有 /v1
+  if (!baseUrl.endsWith('/v1') && !baseUrl.match(/\/v\d+$/)) {
+    baseUrl = `${baseUrl}/v1`;
+  }
+
+  const endpoint = `${baseUrl}/messages`;
+
+  const response = await tauriFetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': provider.apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Anthropic API request failed: ${response.status} ${response.statusText}\n${errorText}`);
+  }
+
+  const data = await response.json();
+
+  // Anthropic 返回格式: { content: [{ type: 'text', text: '...' }] }
+  if (!data.content || data.content.length === 0) {
+    if (data.error) {
+      throw new Error(`Anthropic API error: ${JSON.stringify(data.error)}`);
+    }
+    throw new Error('Anthropic API returned no content');
+  }
+
+  const textContent = data.content.find((c: any) => c.type === 'text');
+  if (!textContent || !textContent.text) {
+    throw new Error('Anthropic API returned empty text content');
+  }
+
+  return textContent.text.trim();
 }
 
 /**
