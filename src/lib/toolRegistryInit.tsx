@@ -285,11 +285,18 @@ export function initializeToolRegistry(): void {
     // Bash - 执行命令
     {
       name: 'bash',
-      render: createToolAdapter(BashWidget, (props) => ({
-        command: props.input?.command || '',
-        description: props.input?.description,
-        result: props.result,
-      })),
+      render: createToolAdapter(BashWidget, (props) => {
+        const input = props.input || {};
+        // Support multiple parameter formats:
+        // - Claude Code: { command: "..." }
+        // - Codex shell_command: { cmd: "..." } or { command: "..." }
+        const command = input.command || input.cmd || '';
+        return {
+          command,
+          description: input.description,
+          result: props.result,
+        };
+      }),
       description: 'Bash 命令执行工具',
     },
 

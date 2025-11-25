@@ -19,6 +19,51 @@ import type {
 import type { ClaudeStreamMessage } from '@/types/claude';
 
 /**
+ * Maps Codex tool names to Claude Code tool names
+ * This ensures consistent tool rendering between realtime stream and history loading
+ */
+const CODEX_TOOL_NAME_MAP: Record<string, string> = {
+  // Command execution
+  'shell_command': 'bash',
+  'shell': 'bash',
+  'terminal': 'bash',
+  'execute': 'bash',
+  'run_command': 'bash',
+
+  // File operations
+  'edit_file': 'edit',
+  'modify_file': 'edit',
+  'update_file': 'edit',
+  'patch_file': 'edit',
+  'read_file': 'read',
+  'view_file': 'read',
+  'create_file': 'write',
+  'write_file': 'write',
+  'save_file': 'write',
+  'delete_file': 'bash', // Usually done via shell command
+
+  // Search operations
+  'search_files': 'grep',
+  'find_files': 'glob',
+  'list_files': 'ls',
+  'list_directory': 'ls',
+
+  // Web operations
+  'web_search': 'websearch',
+  'search_web': 'websearch',
+  'fetch_url': 'webfetch',
+  'get_url': 'webfetch',
+};
+
+/**
+ * Maps a Codex tool name to its Claude Code equivalent
+ */
+function mapCodexToolName(codexName: string): string {
+  const lowerName = codexName.toLowerCase();
+  return CODEX_TOOL_NAME_MAP[lowerName] || codexName;
+}
+
+/**
  * State manager for Codex event conversion
  * Maintains context across multiple events for proper message construction
  */
@@ -267,9 +312,17 @@ export class CodexEventConverter {
    */
   private convertFunctionCall(event: any): ClaudeStreamMessage {
     const payload = event.payload;
-    const toolName = payload.name || 'unknown_tool';
+    const rawToolName = payload.name || 'unknown_tool';
+    // Map Codex tool names to Claude Code equivalents for consistent rendering
+    const toolName = mapCodexToolName(rawToolName);
     const toolArgs = payload.arguments ? JSON.parse(payload.arguments) : {};
     const callId = payload.call_id || `call_${Date.now()}`;
+
+    // For shell_command, also normalize the input structure
+    let normalizedInput = toolArgs;
+    if (toolName === 'bash' && !toolArgs.command && toolArgs.cmd) {
+      normalizedInput = { command: toolArgs.cmd, ...toolArgs };
+    }
 
     return {
       type: 'assistant',
@@ -280,7 +333,7 @@ export class CodexEventConverter {
             type: 'tool_use',
             id: callId,
             name: toolName,
-            input: toolArgs,
+            input: normalizedInput,
           },
         ],
       },
