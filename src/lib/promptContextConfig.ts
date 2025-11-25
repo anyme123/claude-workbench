@@ -39,9 +39,14 @@ const STORAGE_KEY = 'prompt_context_config';
 
 /**
  * 默认配置
+ *
+ * maxMessages 说明：
+ * - 这是用户+助手的混合消息数量（不是纯用户消息）
+ * - 8 条 ≈ 4 轮对话，通常足以覆盖当前任务的上下文
+ * - 超过此阈值会触发 AI 智能筛选，而非简单截取
  */
 export const DEFAULT_CONTEXT_CONFIG: PromptContextConfig = {
-  maxMessages: 15,
+  maxMessages: 8,  // 降低阈值：更早触发 AI 筛选，提高上下文质量
   maxAssistantMessageLength: 2000,
   maxUserMessageLength: 1000,
   includeExecutionResults: true,
@@ -50,13 +55,18 @@ export const DEFAULT_CONTEXT_CONFIG: PromptContextConfig = {
 
 /**
  * 预设配置模板
+ *
+ * 阈值参考：
+ * - minimal: 4 条 ≈ 2 轮对话（快速任务）
+ * - balanced: 8 条 ≈ 4 轮对话（日常使用）
+ * - detailed: 16 条 ≈ 8 轮对话（复杂任务）
  */
 export const CONTEXT_PRESETS = {
   minimal: {
     name: '精简模式',
-    description: '最少上下文，适合简单任务',
+    description: '最少上下文，适合简单任务（2轮对话）',
     config: {
-      maxMessages: 5,
+      maxMessages: 4,  // 2 轮对话
       maxAssistantMessageLength: 500,
       maxUserMessageLength: 500,
       includeExecutionResults: false,
@@ -65,14 +75,14 @@ export const CONTEXT_PRESETS = {
   },
   balanced: {
     name: '平衡模式',
-    description: '默认配置，适合大多数场景',
+    description: '默认配置，适合大多数场景（4轮对话）',
     config: DEFAULT_CONTEXT_CONFIG,
   },
   detailed: {
     name: '详细模式',
-    description: '完整上下文，适合复杂任务',
+    description: '完整上下文，适合复杂任务（8轮对话）',
     config: {
-      maxMessages: 30,
+      maxMessages: 16,  // 8 轮对话
       maxAssistantMessageLength: 5000,
       maxUserMessageLength: 2000,
       includeExecutionResults: true,
