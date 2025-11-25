@@ -1117,6 +1117,7 @@ pub async fn check_codex_rewind_capabilities(
 }
 
 /// Get prompt text from Codex session file
+#[allow(dead_code)]
 fn get_codex_prompt_text(session_id: &str, prompt_index: usize) -> Result<String, String> {
     let sessions_dir = get_codex_sessions_dir()?;
     let session_file = find_session_file(&sessions_dir, session_id)
@@ -1451,9 +1452,11 @@ pub async fn revert_codex_to_prompt(
 }
 
 // Helper trait for pipe syntax
+#[allow(dead_code)]
 trait Pipe: Sized {
     fn pipe<T, F: FnOnce(Self) -> T>(self, f: F) -> T {
         f(self)
     }
 }
+#[allow(dead_code)]
 impl<T> Pipe for T {}
