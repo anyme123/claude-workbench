@@ -188,6 +188,10 @@ export const PromptEnhancementSettings: React.FC<PromptEnhancementSettingsProps>
             <Sparkles className="h-3 w-3 mr-1" />
             Google Gemini
           </Button>
+          <Button variant="outline" size="sm" onClick={() => handleUsePreset('anthropic')}>
+            <Sparkles className="h-3 w-3 mr-1" />
+            Anthropic Claude
+          </Button>
         </div>
       </Card>
 
@@ -222,8 +226,12 @@ export const PromptEnhancementSettings: React.FC<PromptEnhancementSettingsProps>
                     <div className="flex items-center gap-2">
                       <span>格式: {
                         provider.apiFormat
-                          ? (provider.apiFormat === 'gemini' ? 'Gemini' : 'OpenAI')
-                          : `自动 (${detectApiFormat(provider.apiUrl) === 'gemini' ? 'Gemini' : 'OpenAI'})`
+                          ? (provider.apiFormat === 'gemini' ? 'Gemini' :
+                             provider.apiFormat === 'anthropic' ? 'Anthropic' : 'OpenAI')
+                          : `自动 (${
+                              detectApiFormat(provider.apiUrl) === 'gemini' ? 'Gemini' :
+                              detectApiFormat(provider.apiUrl) === 'anthropic' ? 'Anthropic' : 'OpenAI'
+                            })`
                       }</span>
                       {provider.temperature !== undefined && <span>| 温度: {provider.temperature}</span>}
                       {provider.maxTokens !== undefined && <span>| Token: {provider.maxTokens}</span>}
@@ -345,7 +353,7 @@ export const PromptEnhancementSettings: React.FC<PromptEnhancementSettingsProps>
                   value={editingProvider.apiFormat || 'auto'}
                   onValueChange={(value) => setEditingProvider({
                     ...editingProvider,
-                    apiFormat: value === 'auto' ? undefined : value as 'openai' | 'gemini'
+                    apiFormat: value === 'auto' ? undefined : value as 'openai' | 'gemini' | 'anthropic'
                   })}
                 >
                   <SelectTrigger>
@@ -353,9 +361,13 @@ export const PromptEnhancementSettings: React.FC<PromptEnhancementSettingsProps>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="auto">
-                      自动检测 {editingProvider.apiUrl ? `(${detectApiFormat(editingProvider.apiUrl) === 'gemini' ? 'Gemini' : 'OpenAI'})` : ''}
+                      自动检测 {editingProvider.apiUrl ? `(${
+                        detectApiFormat(editingProvider.apiUrl) === 'gemini' ? 'Gemini' :
+                        detectApiFormat(editingProvider.apiUrl) === 'anthropic' ? 'Anthropic' : 'OpenAI'
+                      })` : ''}
                     </SelectItem>
-                    <SelectItem value="openai">OpenAI 格式</SelectItem>
+                    <SelectItem value="openai">OpenAI 格式 (/v1/chat/completions)</SelectItem>
+                    <SelectItem value="anthropic">Anthropic 格式 (/v1/messages)</SelectItem>
                     <SelectItem value="gemini">Google Gemini 格式</SelectItem>
                   </SelectContent>
                 </Select>
