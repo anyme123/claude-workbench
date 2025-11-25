@@ -36,6 +36,7 @@ export interface PromptContextConfig {
 }
 
 const STORAGE_KEY = 'prompt_context_config';
+const CONFIG_VERSION = 2;  // 🆕 配置版本号，修改此值会触发配置重置
 
 /**
  * 默认配置
@@ -93,15 +94,30 @@ export const CONTEXT_PRESETS = {
 
 /**
  * 加载配置
+ *
+ * 🆕 版本检查：如果保存的配置版本与当前版本不匹配，自动重置为默认值
  */
 export function loadContextConfig(): PromptContextConfig {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) {
+      // 首次使用，保存默认配置（带版本号）
+      saveConfigWithVersion(DEFAULT_CONTEXT_CONFIG);
       return DEFAULT_CONTEXT_CONFIG;
     }
-    
-    const config = JSON.parse(stored) as PromptContextConfig;
+
+    const parsed = JSON.parse(stored);
+
+    // 🆕 版本检查：如果版本不匹配，重置为默认配置
+    if (!parsed._version || parsed._version < CONFIG_VERSION) {
+      console.log(`[PromptContextConfig] Config version outdated (${parsed._version} < ${CONFIG_VERSION}), resetting to defaults`);
+      saveConfigWithVersion(DEFAULT_CONTEXT_CONFIG);
+      return DEFAULT_CONTEXT_CONFIG;
+    }
+
+    // 移除版本号字段，返回纯配置
+    const { _version, ...config } = parsed;
+
     // 合并默认值，确保新增字段有默认值
     return {
       ...DEFAULT_CONTEXT_CONFIG,
@@ -114,21 +130,32 @@ export function loadContextConfig(): PromptContextConfig {
 }
 
 /**
- * 保存配置
+ * 🆕 保存配置（带版本号）
  */
-export function saveContextConfig(config: PromptContextConfig): void {
+function saveConfigWithVersion(config: PromptContextConfig): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+    const configWithVersion = {
+      ...config,
+      _version: CONFIG_VERSION,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(configWithVersion));
   } catch (error) {
     console.error('[PromptContextConfig] Failed to save config:', error);
   }
 }
 
 /**
+ * 保存配置（公开接口，自动带版本号）
+ */
+export function saveContextConfig(config: PromptContextConfig): void {
+  saveConfigWithVersion(config);
+}
+
+/**
  * 重置为默认配置
  */
 export function resetContextConfig(): void {
-  saveContextConfig(DEFAULT_CONTEXT_CONFIG);
+  saveConfigWithVersion(DEFAULT_CONTEXT_CONFIG);
 }
 
 /**
