@@ -374,7 +374,8 @@ export class CodexEventConverter {
         return this.convertCommandExecution(item, phase, metadata, eventTimestamp);
 
       case 'file_change':
-        return this.convertFileChange(item, phase, metadata, eventTimestamp);
+      case 'edit_file': // alias for file edits, normalize to file_change handler
+        return this.convertFileChange(item as any, phase, metadata, eventTimestamp);
 
       case 'mcp_tool_call':
         // Only show tool calls when completed (to avoid "executing" state)
@@ -518,15 +519,21 @@ export class CodexEventConverter {
     const toolUseId = `codex_file_${item.id}`;
     const toolName = item.change_type === 'create' ? 'write' : item.change_type === 'delete' ? 'bash' : 'edit';
 
+    // Collect rich input so UI can show paths & diffs
+    const inputPayload: Record<string, any> = {
+      file_path: item.file_path,
+      change_type: item.change_type,
+    };
+    if (item.content) inputPayload.content = item.content;
+    if ((item as any).diff) inputPayload.diff = (item as any).diff;
+    if ((item as any).patch) inputPayload.patch = (item as any).patch;
+    if ((item as any).lines_changed) inputPayload.lines_changed = (item as any).lines_changed;
+
     const toolUseBlock = {
       type: 'tool_use',
       id: toolUseId,
       name: toolName,
-      input: {
-        file_path: item.file_path,
-        content: item.content,
-        change_type: item.change_type,
-      },
+      input: inputPayload,
     };
 
     if (phase !== 'completed') {
@@ -549,7 +556,7 @@ export class CodexEventConverter {
       content: [
         {
           type: 'text',
-          text: `File ${item.change_type}: ${item.file_path}`,
+          text: this.buildFileChangeSummary(item),
         },
       ],
       is_error: item.status === 'failed',
@@ -566,6 +573,17 @@ export class CodexEventConverter {
       engine: 'codex' as const,
       codexMetadata: metadata,
     };
+  }
+
+  private buildFileChangeSummary(item: CodexFileChangeItem): string {
+    const header = `File ${item.change_type}: ${item.file_path}`;
+    const diff = (item as any).patch || (item as any).diff || '';
+    const content = item.content || '';
+    const snippetSource = diff || content;
+    if (!snippetSource) return header;
+
+    const snippet = snippetSource.length > 800 ? `${snippetSource.slice(0, 800)}\n...[truncated]` : snippetSource;
+    return `${header}\n${snippet}`;
   }
 
   /**
