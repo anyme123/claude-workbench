@@ -200,16 +200,27 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
       // 对于已有会话，立即记录；对于新会话，在收到 session_id 后记录
       if (effectiveSession && isUserInitiated) {
         try {
-          recordedPromptIndex = await api.recordPromptSent(
-            effectiveSession.id,
-            effectiveSession.project_id,
-            projectPath,
-            prompt
-          );
-          console.log('[Prompt Revert] [OK] Recorded user prompt #', recordedPromptIndex, '(existing session)');
-          if (executionEngine === 'codex' && codexPendingInfo) {
-            codexPendingInfo.promptIndex = recordedPromptIndex;
-            codexPendingInfo.sessionId = effectiveSession.id;
+          if (executionEngine === 'codex') {
+            // ✅ Codex 使用专用的记录 API（写入 ~/.codex/git-records/）
+            recordedPromptIndex = await api.recordCodexPromptSent(
+              effectiveSession.id,
+              projectPath,
+              prompt
+            );
+            console.log('[Codex Revert] [OK] Recorded Codex prompt #', recordedPromptIndex, '(existing session)');
+            if (codexPendingInfo) {
+              codexPendingInfo.promptIndex = recordedPromptIndex;
+              codexPendingInfo.sessionId = effectiveSession.id;
+            }
+          } else {
+            // Claude Code 使用原有的记录 API（写入 .claude-sessions/）
+            recordedPromptIndex = await api.recordPromptSent(
+              effectiveSession.id,
+              effectiveSession.project_id,
+              projectPath,
+              prompt
+            );
+            console.log('[Prompt Revert] [OK] Recorded Claude prompt #', recordedPromptIndex, '(existing session)');
           }
         } catch (err) {
           console.error('[Prompt Revert] [ERROR] Failed to record prompt:', err);
@@ -688,21 +699,10 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
         // 🆕 Codex Execution Branch
         // ====================================================================
 
-        // 🆕 Record prompt for rewind support (before execution)
-        let codexPromptIndex: number | undefined;
-        if (effectiveSession) {
-          try {
-            codexPromptIndex = await api.recordCodexPromptSent(
-              effectiveSession.id,
-              projectPath,
-              processedPrompt
-            );
-            console.log('[usePromptExecution] Recorded Codex prompt #', codexPromptIndex);
-          } catch (recordError) {
-            console.warn('[usePromptExecution] Failed to record Codex prompt:', recordError);
-            // Continue anyway - recording is optional for basic functionality
-          }
-        }
+        // 📝 Git 记录逻辑说明：
+        // - 已有会话：已在前面第 201-230 行通过 recordCodexPromptSent 记录
+        // - 新会话：在事件监听器 codex-output 收到 thread.started 后记录
+        // 此处仅设置 pendingPrompt 供 completion 使用
 
         if (effectiveSession && !isFirstPrompt) {
           // Resume existing Codex session
@@ -736,18 +736,17 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
           });
         }
 
-        // 🆕 Note: Prompt completion recording is handled in the codex-complete event listener
-        // Store the prompt index for later use in completion recording
-        if (executionEngine === 'codex') {
-          const pendingIndex = codexPromptIndex ?? codexPendingInfo?.promptIndex;
-          const pendingSessionId = effectiveSession?.id || codexPendingInfo?.sessionId || null;
-          if (pendingIndex !== undefined && pendingSessionId) {
-            window.__codexPendingPrompt = {
-              sessionId: pendingSessionId,
-              projectPath,
-              promptIndex: pendingIndex
-            };
-          }
+        // 🆕 Store pending prompt info for completion recording
+        // 已有会话: recordedPromptIndex 已在前面设置
+        // 新会话: codexPendingInfo.promptIndex 将在 thread.started 事件后设置
+        const pendingIndex = recordedPromptIndex >= 0 ? recordedPromptIndex : codexPendingInfo?.promptIndex;
+        const pendingSessionId = effectiveSession?.id || codexPendingInfo?.sessionId || null;
+        if (pendingIndex !== undefined && pendingSessionId) {
+          window.__codexPendingPrompt = {
+            sessionId: pendingSessionId,
+            projectPath,
+            promptIndex: pendingIndex
+          };
         }
       } else {
         // ====================================================================
