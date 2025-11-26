@@ -43,9 +43,22 @@ static WSL_CONFIG: OnceLock<WslConfig> = OnceLock::new();
 
 impl WslConfig {
     /// 自动检测并创建 WSL 配置
+    ///
+    /// 检测策略：
+    /// 1. 先检测 Windows 原生 Codex 是否可用
+    /// 2. 如果原生可用，禁用 WSL 模式（原生优先）
+    /// 3. 如果原生不可用，检测 WSL Codex 作为后备
     #[cfg(target_os = "windows")]
     pub fn detect() -> Self {
-        info!("[WSL] Detecting WSL configuration...");
+        info!("[WSL] Detecting Codex configuration...");
+
+        // 首先检测 Windows 原生 Codex
+        if is_native_codex_available() {
+            info!("[WSL] Native Windows Codex is available, WSL mode disabled");
+            return Self::default();
+        }
+
+        info!("[WSL] Native Codex not found, checking WSL...");
 
         if !is_wsl_available() {
             info!("[WSL] WSL is not available");
@@ -123,6 +136,65 @@ pub fn get_wsl_config() -> &'static WslConfig {
 pub fn reset_wsl_config() {
     // OnceLock 不支持 reset，需要重启应用
     log::warn!("[WSL] Config reset requires application restart");
+}
+
+// ============================================================================
+// Windows 原生 Codex 检测
+// ============================================================================
+
+/// 检测 Windows 原生 Codex 是否可用
+#[cfg(target_os = "windows")]
+pub fn is_native_codex_available() -> bool {
+    // 检查常见的 Codex 安装路径
+    let paths_to_try = get_native_codex_paths();
+
+    for path in &paths_to_try {
+        if std::path::Path::new(path).exists() {
+            debug!("[WSL] Found native Codex at: {}", path);
+            return true;
+        }
+    }
+
+    // 尝试运行 codex --version 看是否在 PATH 中
+    let mut cmd = Command::new("codex");
+    cmd.arg("--version");
+    cmd.creation_flags(CREATE_NO_WINDOW);
+
+    match cmd.output() {
+        Ok(output) if output.status.success() => {
+            debug!("[WSL] Native Codex found in PATH");
+            true
+        }
+        _ => {
+            debug!("[WSL] Native Codex not found");
+            false
+        }
+    }
+}
+
+/// 获取 Windows 原生 Codex 可能的安装路径
+#[cfg(target_os = "windows")]
+fn get_native_codex_paths() -> Vec<String> {
+    let mut paths = Vec::new();
+
+    // npm 全局安装路径
+    if let Ok(appdata) = std::env::var("APPDATA") {
+        paths.push(format!(r"{}\npm\codex.cmd", appdata));
+        paths.push(format!(r"{}\npm\codex", appdata));
+    }
+
+    // Node.js 安装路径
+    if let Ok(programfiles) = std::env::var("ProgramFiles") {
+        paths.push(format!(r"{}\nodejs\codex.cmd", programfiles));
+    }
+
+    paths
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn is_native_codex_available() -> bool {
+    // 非 Windows 平台总是返回 true（不需要 WSL）
+    true
 }
 
 // ============================================================================
