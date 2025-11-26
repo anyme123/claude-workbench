@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Any code",
+  "productName": "Any Code",
   "version": "4.4.0",
   "identifier": "any.code.app",
   "build": {
@@ -11,7 +11,7 @@
   "app": {
     "windows": [
       {
-        "title": "Any code",
+        "title": "Any Code",
         "width": 1200,
         "height": 800,
         "minWidth": 800,
@@ -64,7 +64,7 @@
     "copyright": "",
     "category": "DeveloperTool",
     "shortDescription": "Professional GUI Toolkit for AI CLI",
-    "longDescription": "Any code is a professional desktop application and comprehensive toolkit for AI CLI. Provides an intuitive interface for AI-powered development workflows, project management, and advanced AI interactions. Supports Windows and macOS.",
+    "longDescription": "Any Code is a professional desktop application and comprehensive toolkit for AI CLI. Provides an intuitive interface for AI-powered development workflows, project management, and advanced AI interactions. Supports Windows and macOS.",
     "windows": {
       "nsis": {
         "installerIcon": "icons/icon.ico",
