@@ -89,6 +89,11 @@ const StreamMessageV2Component: React.FC<StreamMessageV2Props> = ({
     return null;
   }
 
+  // Skip messages marked as tool_result_only (Codex tool results that shouldn't be displayed as separate bubbles)
+  if ((message as any)._toolResultOnly) {
+    return null;
+  }
+
   const messageType = (message as ClaudeStreamMessage & { type?: string }).type ?? (message as any).type;
 
   switch (messageType) {

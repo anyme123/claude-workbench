@@ -377,30 +377,46 @@ export class CodexEventConverter {
   /**
    * Converts function_call_output response_item to tool_result message
    *
-   * Note: For Codex, function_call and function_call_output are separate events
-   * with the same timestamp. To avoid empty message bubbles, we store the result
-   * and let it be merged with the tool_use by the UI's tool result matching logic.
-   *
-   * For now, we return null to skip creating a separate message, as the
-   * SingleToolCall component will show "成功" status based on having a result.
+   * Note: For Codex, function_call and function_call_output are separate events.
+   * We return a message with tool_result so it gets added to toolResults Map,
+   * but mark it with _toolResultOnly so UI can filter it out from display.
    */
-  private convertFunctionCallOutput(event: any): ClaudeStreamMessage | null {
+  private convertFunctionCallOutput(event: any): ClaudeStreamMessage {
     const payload = event.payload;
-    const callId = payload.call_id || '';
+    const callId = payload.call_id || `call_${Date.now()}`;
     const output = payload.output || '';
 
-    // Store the result for later retrieval by tool_use_id
-    if (callId) {
-      this.toolResults.set(callId, {
-        content: output,
-        is_error: false,
-      });
+    // Parse output if it's JSON string
+    let resultContent = output;
+    try {
+      if (typeof output === 'string' && output.trim().startsWith('[')) {
+        const parsed = JSON.parse(output);
+        if (Array.isArray(parsed) && parsed[0]?.text) {
+          resultContent = parsed[0].text;
+        }
+      }
+    } catch {
+      // Keep original output if parsing fails
     }
 
-    // Return null to avoid creating a separate empty message bubble
-    // The tool result will be matched by the UI using tool_use_id
-    console.log('[CodexConverter] Stored function_call_output for call_id:', callId);
-    return null;
+    return {
+      type: 'assistant',
+      message: {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: callId,
+            content: typeof resultContent === 'string' ? resultContent : JSON.stringify(resultContent),
+          },
+        ],
+      },
+      timestamp: event.timestamp || new Date().toISOString(),
+      receivedAt: event.timestamp || new Date().toISOString(),
+      engine: 'codex' as const,
+      // Mark as tool_result_only so UI can filter it out from display
+      _toolResultOnly: true,
+    } as ClaudeStreamMessage;
   }
 
   /**
@@ -489,12 +505,13 @@ export class CodexEventConverter {
    *   "output": "{\"output\":\"Success. Updated...\",\"metadata\":{...}}"
    * }
    *
-   * Similar to function_call_output, we store the result and return null
-   * to avoid creating a separate empty message bubble.
+   * Similar to function_call_output, we return a message with tool_result
+   * so it gets added to toolResults Map, but mark it with _toolResultOnly
+   * so UI can filter it out from display.
    */
-  private convertCustomToolCallOutput(event: any): ClaudeStreamMessage | null {
+  private convertCustomToolCallOutput(event: any): ClaudeStreamMessage {
     const payload = event.payload;
-    const callId = payload.call_id || '';
+    const callId = payload.call_id || `call_${Date.now()}`;
     const output = payload.output || '';
 
     // Parse output if it's JSON string
@@ -511,17 +528,25 @@ export class CodexEventConverter {
       // Keep original output if parsing fails
     }
 
-    // Store the result for later retrieval by tool_use_id
-    if (callId) {
-      this.toolResults.set(callId, {
-        content: typeof resultContent === 'string' ? resultContent : JSON.stringify(resultContent),
-        is_error: isError,
-      });
-    }
-
-    // Return null to avoid creating a separate empty message bubble
-    console.log('[CodexConverter] Stored custom_tool_call_output for call_id:', callId);
-    return null;
+    return {
+      type: 'assistant',
+      message: {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: callId,
+            content: typeof resultContent === 'string' ? resultContent : JSON.stringify(resultContent),
+            is_error: isError,
+          },
+        ],
+      },
+      timestamp: event.timestamp || new Date().toISOString(),
+      receivedAt: event.timestamp || new Date().toISOString(),
+      engine: 'codex' as const,
+      // Mark as tool_result_only so UI can filter it out from display
+      _toolResultOnly: true,
+    } as ClaudeStreamMessage;
   }
 
   /**
