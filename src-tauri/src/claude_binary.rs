@@ -55,20 +55,72 @@ fn get_shell_path() -> Option<String> {
         }
     }
 
-    // Fallback: try to read from common profile files
+    // Fallback: construct comprehensive PATH from common locations
     if let Ok(home) = get_home_dir() {
-        // Try to construct PATH from common locations
-        let common_paths: Vec<String> = vec![
+        let mut common_paths: Vec<String> = vec![
+            // Homebrew paths (Apple Silicon first, then Intel)
             "/opt/homebrew/bin".to_string(),
             "/usr/local/bin".to_string(),
+            // System paths
             "/usr/bin".to_string(),
             "/bin".to_string(),
+            "/usr/sbin".to_string(),
+            "/sbin".to_string(),
+            // User local paths
             format!("{}/.local/bin", home),
+            // NPM global paths - multiple common configurations
             format!("{}/.npm-global/bin", home),
+            format!("{}/npm/bin", home),
+            format!("{}/.npm/bin", home),
+            // Volta
             format!("{}/.volta/bin", home),
+            // fnm (Fast Node Manager)
             format!("{}/.fnm", home),
-            format!("{}/.nvm/versions/node", home),
+            format!("{}/.fnm/aliases/default/bin", home),
+            format!("{}/.local/share/fnm/aliases/default/bin", home),
+            // asdf
+            format!("{}/.asdf/shims", home),
+            // n (Node version manager)
+            format!("{}/.n/bin", home),
+            // pnpm
+            format!("{}/Library/pnpm", home),
+            format!("{}/.local/share/pnpm", home),
+            format!("{}/.pnpm-global/bin", home),
+            // yarn
+            format!("{}/.yarn/bin", home),
+            format!("{}/.config/yarn/global/node_modules/.bin", home),
+            // bun
+            format!("{}/.bun/bin", home),
         ];
+
+        // 🔥 动态添加 NVM 的所有 Node 版本路径（按版本号降序排列）
+        let nvm_versions_dir = format!("{}/.nvm/versions/node", home);
+        if let Ok(entries) = std::fs::read_dir(&nvm_versions_dir) {
+            let mut node_versions: Vec<String> = entries
+                .flatten()
+                .filter(|e| e.file_type().map(|t| t.is_dir()).unwrap_or(false))
+                .map(|e| e.file_name().to_string_lossy().to_string())
+                .collect();
+
+            // 按语义版本号降序排列，确保最新版本在前
+            node_versions.sort_by(|a, b| compare_node_versions(b, a));
+
+            for version in node_versions {
+                let bin_path = format!("{}/.nvm/versions/node/{}/bin", home, version);
+                if std::path::Path::new(&bin_path).exists() {
+                    common_paths.push(bin_path);
+                }
+            }
+        }
+
+        // 🔥 动态读取用户的 npm prefix 配置
+        if let Some(npm_prefix) = read_npmrc_prefix(&home) {
+            let npm_bin = format!("{}/bin", npm_prefix);
+            if !common_paths.contains(&npm_bin) {
+                // 将用户配置的 npm prefix 路径放在较前位置
+                common_paths.insert(0, npm_bin);
+            }
+        }
 
         let existing_paths: Vec<&str> = common_paths
             .iter()
@@ -78,12 +130,70 @@ fn get_shell_path() -> Option<String> {
 
         if !existing_paths.is_empty() {
             let path = existing_paths.join(":");
-            info!("Constructed fallback PATH: {}", path);
+            info!("Constructed fallback PATH with {} entries: {}", existing_paths.len(), path);
             return Some(path);
         }
     }
 
     None
+}
+
+/// 从 ~/.npmrc 文件读取用户配置的 prefix 路径
+#[cfg(target_os = "macos")]
+fn read_npmrc_prefix(home: &str) -> Option<String> {
+    let npmrc_path = format!("{}/.npmrc", home);
+
+    if let Ok(content) = std::fs::read_to_string(&npmrc_path) {
+        for line in content.lines() {
+            let line = line.trim();
+            if line.starts_with("prefix=") || line.starts_with("prefix =") {
+                let prefix = line
+                    .split('=')
+                    .nth(1)
+                    .map(|s| s.trim().trim_matches('"').trim_matches('\''))
+                    .map(|s| {
+                        // 展开 ~ 为 home 目录
+                        if s.starts_with("~/") {
+                            format!("{}{}", home, &s[1..])
+                        } else if s == "~" {
+                            home.to_string()
+                        } else {
+                            s.to_string()
+                        }
+                    });
+
+                if let Some(p) = prefix {
+                    debug!("Found npm prefix in .npmrc: {}", p);
+                    return Some(p);
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// 比较 Node 版本号（支持 v22.11.0 格式）
+fn compare_node_versions(a: &str, b: &str) -> std::cmp::Ordering {
+    let parse_version = |s: &str| -> Vec<u32> {
+        s.trim_start_matches('v')
+            .split('.')
+            .filter_map(|p| p.parse().ok())
+            .collect()
+    };
+
+    let a_parts = parse_version(a);
+    let b_parts = parse_version(b);
+
+    for i in 0..std::cmp::max(a_parts.len(), b_parts.len()) {
+        let a_val = a_parts.get(i).unwrap_or(&0);
+        let b_val = b_parts.get(i).unwrap_or(&0);
+        match a_val.cmp(b_val) {
+            std::cmp::Ordering::Equal => continue,
+            other => return other,
+        }
+    }
+    std::cmp::Ordering::Equal
 }
 
 /// Get npm global prefix directory
@@ -157,8 +267,17 @@ const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Main function to find the Claude binary - Cross-platform version
 /// Supports Windows and macOS, only uses system-installed Claude CLI
+/// 🔥 增强：添加详细日志，支持多 Node 版本场景
 pub fn find_claude_binary(app_handle: &tauri::AppHandle) -> Result<String, String> {
-    info!("Searching for system Claude CLI...");
+    info!("========================================");
+    info!("Starting Claude CLI binary search...");
+    info!("========================================");
+
+    // 打印平台信息
+    #[cfg(target_os = "macos")]
+    info!("Platform: macOS");
+    #[cfg(target_os = "windows")]
+    info!("Platform: Windows");
 
     // First check if we have a stored path in the database
     if let Ok(app_data_dir) = app_handle.path().app_data_dir() {
@@ -199,18 +318,18 @@ pub fn find_claude_binary(app_handle: &tauri::AppHandle) -> Result<String, Strin
                         [],
                         |row| row.get::<_, String>(0),
                     ) {
-                        info!("Found stored claude path in database: {}", stored_path);
+                        info!("Found cached claude path in database: {}", stored_path);
 
                         // Verify the stored path still exists and is accessible
                         let path_buf = PathBuf::from(&stored_path);
                         if path_buf.exists() && path_buf.is_file() {
                             // Test if the binary is actually executable
                             if test_claude_binary(&stored_path) {
-                                info!("Using cached Claude CLI path: {}", stored_path);
+                                info!("✅ Using cached Claude CLI path: {}", stored_path);
                                 return Ok(stored_path);
                             } else {
                                 warn!(
-                                    "Stored claude path exists but is not executable: {}",
+                                    "❌ Cached claude path exists but is not executable: {}",
                                     stored_path
                                 );
                                 // Remove invalid cached path
@@ -220,7 +339,7 @@ pub fn find_claude_binary(app_handle: &tauri::AppHandle) -> Result<String, Strin
                                 );
                             }
                         } else {
-                            warn!("Stored claude path no longer exists: {}", stored_path);
+                            warn!("❌ Cached claude path no longer exists: {}", stored_path);
                             // Remove invalid cached path
                             let _ = conn.execute(
                                 "DELETE FROM app_settings WHERE key = 'claude_binary_path'",
@@ -233,25 +352,52 @@ pub fn find_claude_binary(app_handle: &tauri::AppHandle) -> Result<String, Strin
         }
     }
 
+    info!("No valid cached path found, starting fresh discovery...");
+
     // Discover all available system installations
     let installations = discover_system_installations();
 
     if installations.is_empty() {
-        error!("Could not find claude CLI in any location");
-        return Err("Claude CLI not found. Please install Claude CLI using 'npm install -g @anthropic/claude' or ensure it's in your PATH".to_string());
+        error!("❌ Could not find Claude CLI in any location");
+        error!("Searched locations include:");
+        error!("  - System PATH");
+        error!("  - Homebrew (/opt/homebrew/bin, /usr/local/bin)");
+        error!("  - NVM directories (~/.nvm/versions/node/*/bin)");
+        error!("  - NPM global (~/.npm-global/bin)");
+        error!("  - User local (~/.local/bin)");
+
+        #[cfg(target_os = "macos")]
+        {
+            // 在 macOS 上提供更详细的安装指南
+            error!("");
+            error!("To install Claude CLI on macOS:");
+            error!("  1. npm install -g @anthropic-ai/claude-code");
+            error!("  2. Or if using a custom npm prefix:");
+            error!("     npm config set prefix ~/.npm-global");
+            error!("     npm install -g @anthropic-ai/claude-code");
+        }
+
+        return Err("Claude CLI not found. Please install Claude CLI using 'npm install -g @anthropic-ai/claude-code' or ensure it's in your PATH".to_string());
     }
 
-    // Log all found installations
-    for installation in &installations {
-        info!("Found Claude installation: {:?}", installation);
-    }
+    info!(
+        "Found {} Claude installation(s), selecting best version...",
+        installations.len()
+    );
 
     // Select the best installation (test each one for actual functionality)
     if let Some(best) = select_best_installation(installations) {
+        info!("========================================");
         info!(
-            "Selected Claude installation: path={}, version={:?}, source={}",
-            best.path, best.version, best.source
+            "✅ Selected Claude CLI: {}",
+            best.path
         );
+        info!(
+            "   Version: {:?}",
+            best.version.as_deref().unwrap_or("unknown")
+        );
+        info!("   Source: {}", best.source);
+        info!("========================================");
 
         // Store the successful path in database for future use
         if let Err(e) = store_claude_path(app_handle, &best.path) {
@@ -260,6 +406,7 @@ pub fn find_claude_binary(app_handle: &tauri::AppHandle) -> Result<String, Strin
 
         Ok(best.path)
     } else {
+        error!("❌ No working Claude CLI installation found");
         Err("No working Claude CLI installation found".to_string())
     }
 }
@@ -598,6 +745,7 @@ fn try_which_command() -> Option<ClaudeInstallation> {
 }
 
 /// Find Claude installations in NVM directories (cross-platform)
+/// 🔥 增强：按 Node 版本号降序排列，确保最新版本的 claude cli 优先
 fn find_nvm_installations() -> Vec<ClaudeInstallation> {
     let mut installations = Vec::new();
 
@@ -616,36 +764,72 @@ fn find_nvm_installations() -> Vec<ClaudeInstallation> {
     debug!("Checking NVM directory: {:?}", nvm_dir);
 
     if let Ok(entries) = std::fs::read_dir(&nvm_dir) {
-        for entry in entries.flatten() {
-            if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
-                // Platform-specific binary names
-                #[cfg(target_os = "windows")]
-                let claude_names = vec!["claude.cmd", "claude"];
-                #[cfg(not(target_os = "windows"))]
-                let claude_names = vec!["claude"];
+        // 收集所有 Node 版本目录
+        let mut node_dirs: Vec<_> = entries
+            .flatten()
+            .filter(|e| e.file_type().map(|t| t.is_dir()).unwrap_or(false))
+            .collect();
 
-                for name in claude_names {
-                    let claude_path = entry.path().join("bin").join(name);
-                    if claude_path.exists() && claude_path.is_file() {
-                        let path_str = claude_path.to_string_lossy().to_string();
-                        let node_version = entry.file_name().to_string_lossy().to_string();
+        // 🔥 按 Node 版本号降序排列（最新版本在前）
+        node_dirs.sort_by(|a, b| {
+            let a_ver = a.file_name().to_string_lossy().to_string();
+            let b_ver = b.file_name().to_string_lossy().to_string();
+            compare_node_versions(&b_ver, &a_ver)
+        });
 
-                        debug!("Found Claude in NVM node {}: {}", node_version, path_str);
+        info!(
+            "Found {} NVM node versions, sorted by version (newest first)",
+            node_dirs.len()
+        );
 
-                        // Get Claude version
-                        let version = get_claude_version(&path_str).ok().flatten();
+        for entry in node_dirs {
+            // Platform-specific binary names
+            #[cfg(target_os = "windows")]
+            let claude_names = vec!["claude.cmd", "claude"];
+            #[cfg(not(target_os = "windows"))]
+            let claude_names = vec!["claude"];
 
-                        installations.push(ClaudeInstallation {
-                            path: path_str,
-                            version,
-                            source: format!("nvm ({})", node_version),
-                            installation_type: InstallationType::System,
-                        });
-                        break; // Only add one per node version
+            for name in claude_names {
+                let claude_path = entry.path().join("bin").join(name);
+                if claude_path.exists() && claude_path.is_file() {
+                    let path_str = claude_path.to_string_lossy().to_string();
+                    let node_version = entry.file_name().to_string_lossy().to_string();
+
+                    info!(
+                        "Found Claude in NVM node {}: {}",
+                        node_version, path_str
+                    );
+
+                    // Get Claude version
+                    let version = get_claude_version(&path_str).ok().flatten();
+
+                    installations.push(ClaudeInstallation {
+                        path: path_str,
+                        version: version.clone(),
+                        source: format!("nvm ({})", node_version),
+                        installation_type: InstallationType::System,
+                    });
+
+                    // 记录版本信息
+                    if let Some(v) = &version {
+                        info!(
+                            "  -> Claude version: {} (Node {})",
+                            v, node_version
+                        );
                     }
+
+                    break; // Only add one per node version
                 }
             }
         }
+    }
+
+    // 🔥 日志：显示找到的所有 NVM 安装
+    if !installations.is_empty() {
+        info!(
+            "Total NVM Claude installations found: {} (will prefer newest version)",
+            installations.len()
+        );
     }
 
     installations
@@ -1073,7 +1257,29 @@ fn extract_version_from_output(stdout: &[u8]) -> Option<String> {
 }
 
 /// Select the best installation based on version
+/// 🔥 增强：优先选择最新版本的 Claude CLI，并添加详细日志
 fn select_best_installation(installations: Vec<ClaudeInstallation>) -> Option<ClaudeInstallation> {
+    if installations.is_empty() {
+        warn!("No Claude installations to select from");
+        return None;
+    }
+
+    info!(
+        "Selecting best Claude installation from {} candidates",
+        installations.len()
+    );
+
+    // 打印所有候选安装
+    for (i, install) in installations.iter().enumerate() {
+        info!(
+            "  Candidate {}: path={}, version={:?}, source={}",
+            i + 1,
+            install.path,
+            install.version,
+            install.source
+        );
+    }
+
     // In production builds, version information may not be retrievable because
     // spawning external processes can be restricted. We therefore no longer
     // discard installations that lack a detected version – the mere presence
@@ -1081,17 +1287,66 @@ fn select_best_installation(installations: Vec<ClaudeInstallation>) -> Option<Cl
     // prefer binaries with version information when it is available so that
     // in development builds we keep the previous behaviour of picking the
     // most recent version.
-    installations.into_iter().max_by(|a, b| {
+    let best = installations.into_iter().max_by(|a, b| {
         match (&a.version, &b.version) {
             // If both have versions, compare them semantically.
-            (Some(v1), Some(v2)) => compare_versions(v1, v2),
+            (Some(v1), Some(v2)) => {
+                let result = compare_versions(v1, v2);
+                debug!(
+                    "Comparing versions: {} vs {} -> {:?}",
+                    v1, v2, result
+                );
+                result
+            }
             // Prefer the entry that actually has version information.
-            (Some(_), None) => Ordering::Greater,
-            (None, Some(_)) => Ordering::Less,
-            // Neither have version info: prefer the one that is not just
-            // the bare "claude" lookup from PATH, because that may fail
-            // at runtime if PATH is modified.
+            (Some(_), None) => {
+                debug!(
+                    "Preferring {} (has version) over {} (no version)",
+                    a.path, b.path
+                );
+                Ordering::Greater
+            }
+            (None, Some(_)) => {
+                debug!(
+                    "Preferring {} (has version) over {} (no version)",
+                    b.path, a.path
+                );
+                Ordering::Less
+            }
+            // Neither have version info: prefer by source priority
             (None, None) => {
+                // 定义来源优先级（数字越小优先级越高）
+                let get_source_priority = |source: &str| -> i32 {
+                    match source {
+                        // npm-global 和用户自定义路径优先级最高
+                        s if s.contains("npm-global") || s.contains("npm-prefix") => 1,
+                        // 用户主目录下的路径
+                        s if s.contains("local-bin") => 2,
+                        // Homebrew 安装
+                        s if s.contains("homebrew") => 3,
+                        // NVM 安装 - 按 Node 版本选择（已排序）
+                        s if s.starts_with("nvm") => 4,
+                        // which/where 命令找到的路径
+                        "which" | "where" => 5,
+                        // PATH 中找到的
+                        "PATH" => 6,
+                        // 其他
+                        _ => 10,
+                    }
+                };
+
+                let a_priority = get_source_priority(&a.source);
+                let b_priority = get_source_priority(&b.source);
+
+                if a_priority != b_priority {
+                    debug!(
+                        "Comparing by source priority: {} ({}) vs {} ({})",
+                        a.source, a_priority, b.source, b_priority
+                    );
+                    return a_priority.cmp(&b_priority).reverse();
+                }
+
+                // 如果优先级相同，优先选择完整路径而非 "claude"
                 if a.path == "claude" && b.path != "claude" {
                     Ordering::Less
                 } else if a.path != "claude" && b.path == "claude" {
@@ -1101,7 +1356,16 @@ fn select_best_installation(installations: Vec<ClaudeInstallation>) -> Option<Cl
                 }
             }
         }
-    })
+    });
+
+    if let Some(ref selected) = best {
+        info!(
+            "🎯 Selected Claude installation: path={}, version={:?}, source={}",
+            selected.path, selected.version, selected.source
+        );
+    }
+
+    best
 }
 
 /// Windows-specific: Resolve .cmd wrapper to actual Node.js script path
