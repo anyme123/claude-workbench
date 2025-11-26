@@ -35,6 +35,9 @@ const CODEX_TOOL_NAME_MAP: Record<string, string> = {
   'modify_file': 'edit',
   'update_file': 'edit',
   'patch_file': 'edit',
+  'edited': 'edit',           // Codex 文件编辑工具
+  'str_replace_editor': 'edit', // Codex 字符串替换编辑器
+  'apply_patch': 'edit',      // Codex 补丁应用
   'read_file': 'read',
   'view_file': 'read',
   'create_file': 'write',
