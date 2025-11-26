@@ -16,7 +16,7 @@ export interface PromptEnhancementProvider {
   temperature?: number;
   maxTokens?: number;
   enabled: boolean;
-  apiFormat?: 'openai' | 'gemini';  // ⚡ 新增：API 格式类型
+  apiFormat?: 'openai' | 'gemini' | 'anthropic';  // ⚡ API 格式类型（支持 OpenAI、Gemini、Anthropic）
 }
 
 export interface PromptEnhancementConfig {
@@ -26,6 +26,147 @@ export interface PromptEnhancementConfig {
 
 const STORAGE_KEY = 'prompt_enhancement_providers';
 const ENCRYPTION_KEY = 'prompt_enhancement_encryption_salt';
+
+/**
+ * URL 智能识别与规范化工具
+ */
+
+// 已知的 Gemini API 域名
+const GEMINI_DOMAINS = [
+  'generativelanguage.googleapis.com',
+  'aiplatform.googleapis.com',
+];
+
+// 已知的 Anthropic API 域名
+const ANTHROPIC_DOMAINS = [
+  'api.anthropic.com',
+  'anthropic.com',
+];
+
+/**
+ * 根据 URL 自动检测 API 格式
+ * @param apiUrl API 地址
+ * @returns 检测到的 API 格式
+ */
+export function detectApiFormat(apiUrl: string): 'openai' | 'gemini' | 'anthropic' {
+  const url = apiUrl.toLowerCase().trim();
+
+  // 检测是否为 Gemini API
+  for (const domain of GEMINI_DOMAINS) {
+    if (url.includes(domain)) {
+      return 'gemini';
+    }
+  }
+
+  // 检测是否为 Anthropic API
+  for (const domain of ANTHROPIC_DOMAINS) {
+    if (url.includes(domain)) {
+      return 'anthropic';
+    }
+  }
+
+  // 检测 URL 路径中是否包含 /messages（Anthropic 特征）
+  if (url.includes('/v1/messages')) {
+    return 'anthropic';
+  }
+
+  // 默认使用 OpenAI 格式（最通用的兼容格式）
+  return 'openai';
+}
+
+/**
+ * 规范化 OpenAI 格式的 API URL
+ * 支持用户输入简化的基础 URL，自动补全端点路径
+ *
+ * @param baseUrl 用户输入的基础 URL
+ * @returns 规范化后的完整 API URL（不含 /chat/completions，因为会在调用时添加）
+ */
+export function normalizeOpenAIUrl(baseUrl: string): string {
+  let url = baseUrl.trim();
+
+  // 移除末尾斜杠
+  while (url.endsWith('/')) {
+    url = url.slice(0, -1);
+  }
+
+  // 如果已经包含 /chat/completions，移除它（因为调用时会添加）
+  if (url.endsWith('/chat/completions')) {
+    url = url.slice(0, -'/chat/completions'.length);
+  }
+
+  // 如果不包含 /v1，添加它
+  if (!url.endsWith('/v1')) {
+    // 检查是否包含其他版本路径如 /v2，如果有则不添加
+    if (!url.match(/\/v\d+$/)) {
+      url = `${url}/v1`;
+    }
+  }
+
+  return url;
+}
+
+/**
+ * 规范化 Gemini 格式的 API URL
+ *
+ * @param baseUrl 用户输入的基础 URL
+ * @returns 规范化后的基础 URL
+ */
+export function normalizeGeminiUrl(baseUrl: string): string {
+  let url = baseUrl.trim();
+
+  // 移除末尾斜杠
+  while (url.endsWith('/')) {
+    url = url.slice(0, -1);
+  }
+
+  return url;
+}
+
+/**
+ * 规范化 Anthropic 格式的 API URL
+ * 支持用户输入简化的基础 URL，自动补全端点路径
+ *
+ * @param baseUrl 用户输入的基础 URL
+ * @returns 规范化后的完整 API URL（不含 /messages，因为会在调用时添加）
+ */
+export function normalizeAnthropicUrl(baseUrl: string): string {
+  let url = baseUrl.trim();
+
+  // 移除末尾斜杠
+  while (url.endsWith('/')) {
+    url = url.slice(0, -1);
+  }
+
+  // 如果已经包含 /messages，移除它（因为调用时会添加）
+  if (url.endsWith('/messages')) {
+    url = url.slice(0, -'/messages'.length);
+  }
+
+  // 如果不包含 /v1，添加它
+  if (!url.endsWith('/v1')) {
+    // 检查是否包含其他版本路径如 /v2，如果有则不添加
+    if (!url.match(/\/v\d+$/)) {
+      url = `${url}/v1`;
+    }
+  }
+
+  return url;
+}
+
+/**
+ * 根据 API 格式规范化 URL
+ */
+export function normalizeApiUrl(apiUrl: string, apiFormat?: 'openai' | 'gemini' | 'anthropic'): string {
+  const format = apiFormat || detectApiFormat(apiUrl);
+
+  if (format === 'gemini') {
+    return normalizeGeminiUrl(apiUrl);
+  } else if (format === 'anthropic') {
+    return normalizeAnthropicUrl(apiUrl);
+  } else {
+    return normalizeOpenAIUrl(apiUrl);
+  }
+}
 
 /**
  * 预设提供商模板
@@ -61,6 +202,12 @@ export const PRESET_PROVIDERS = {
     apiUrl: 'https://generativelanguage.googleapis.com',
     model: 'gemini-2.0-flash-exp',
     apiFormat: 'gemini' as const,
+  },
+  anthropic: {
+    name: 'Anthropic Claude',
+    apiUrl: 'https://api.anthropic.com',
+    model: 'claude-sonnet-4-20250514',
+    apiFormat: 'anthropic' as const,
   },
 };
 
@@ -174,11 +321,14 @@ async function callOpenAIFormat(
     requestBody.max_tokens = provider.maxTokens;
   }
 
-  // ⚡ 修复：处理 apiUrl 末尾可能有的斜杠
-  const baseUrl = provider.apiUrl.endsWith('/') ? provider.apiUrl.slice(0, -1) : provider.apiUrl;
+  // ⚡ 智能规范化 API URL（支持用户输入简化的基础 URL）
+  const normalizedUrl = normalizeOpenAIUrl(provider.apiUrl);
+  const fullEndpoint = `${normalizedUrl}/chat/completions`;
+
+  console.log('[PromptEnhancement] OpenAI URL normalized:', provider.apiUrl, '->', fullEndpoint);
 
   // ⚡ 使用 Tauri HTTP 客户端绕过 CORS 限制
-  const response = await tauriFetch(`${baseUrl}/chat/completions`, {
+  const response = await tauriFetch(fullEndpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -286,6 +436,76 @@ async function callGeminiFormat(
 }
 
 /**
+ * 调用 Anthropic 格式的API（/v1/messages）
+ */
+async function callAnthropicFormat(
+  provider: PromptEnhancementProvider,
+  systemPrompt: string,
+  userPrompt: string
+): Promise<string> {
+  // Anthropic API 请求格式
+  const requestBody: any = {
+    model: provider.model,
+    max_tokens: provider.maxTokens || 4096,
+    system: systemPrompt,
+    messages: [
+      { role: 'user', content: userPrompt }
+    ],
+  };
+
+  // 只在用户设置时才添加可选参数
+  if (provider.temperature !== undefined && provider.temperature !== null) {
+    requestBody.temperature = provider.temperature;
+  }
+
+  // ⚡ 智能规范化 API URL（支持用户输入简化的基础 URL）
+  const normalizedUrl = normalizeAnthropicUrl(provider.apiUrl);
+  const fullEndpoint = `${normalizedUrl}/messages`;
+
+  console.log('[PromptEnhancement] Anthropic URL normalized:', provider.apiUrl, '->', fullEndpoint);
+
+  // ⚡ 使用 Tauri HTTP 客户端绕过 CORS 限制
+  const response = await tauriFetch(fullEndpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': provider.apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Anthropic API request failed: ${response.status} ${response.statusText}\n${errorText}`);
+  }
+
+  const responseText = await response.text();
+  let data;
+  try {
+    data = JSON.parse(responseText);
+  } catch (parseError) {
+    throw new Error(`Failed to parse Anthropic API response: ${parseError}`);
+  }
+
+  // 检查响应数据完整性
+  if (!data.content || data.content.length === 0) {
+    if (data.error) {
+      throw new Error(`Anthropic API error: ${JSON.stringify(data.error)}`);
+    }
+    throw new Error(`Anthropic API returned no content`);
+  }
+
+  // Anthropic 返回格式: { content: [{ type: 'text', text: '...' }] }
+  const textContent = data.content.find((c: any) => c.type === 'text');
+  if (!textContent || !textContent.text) {
+    throw new Error('Anthropic API returned empty text content');
+  }
+
+  return textContent.text.trim();
+}
+
+/**
  * 调用提示词优化API（支持多种格式）
  */
 export async function callEnhancementAPI(
@@ -337,12 +557,17 @@ ${context && context.length > 0 ? `\n【当前对话上下文】\n${context.join
 
   const userPrompt = `请优化以下提示词：\n\n${prompt}`;
 
-  console.log('[PromptEnhancement] Calling API:', provider.name, provider.apiFormat || 'openai');
+  // ⚡ 智能检测 API 格式：优先使用用户指定的格式，否则自动检测
+  const effectiveFormat = provider.apiFormat || detectApiFormat(provider.apiUrl);
+
+  console.log('[PromptEnhancement] Calling API:', provider.name, 'format:', effectiveFormat, '(user specified:', provider.apiFormat || 'auto-detect', ')');
 
   try {
     // 根据API格式调用不同的函数
-    if (provider.apiFormat === 'gemini') {
+    if (effectiveFormat === 'gemini') {
       return await callGeminiFormat(provider, systemPrompt, userPrompt);
+    } else if (effectiveFormat === 'anthropic') {
+      return await callAnthropicFormat(provider, systemPrompt, userPrompt);
     } else {
       // 默认使用 OpenAI 格式
       return await callOpenAIFormat(provider, systemPrompt, userPrompt);

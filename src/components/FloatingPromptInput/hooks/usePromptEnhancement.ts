@@ -2,7 +2,14 @@ import { useState } from "react";
 import { api } from "@/lib/api";
 import { callEnhancementAPI, getProvider } from "@/lib/promptEnhancementService";
 import { enhancePromptWithDualAPI } from "@/lib/dualAPIEnhancement";
+import { loadContextConfig } from "@/lib/promptContextConfig";
 import { ClaudeStreamMessage } from "@/types/claude";
+
+// acemcp 结果整理的触发阈值（与 dualAPIEnhancement.ts 保持一致）
+const ACEMCP_REFINEMENT_THRESHOLDS = {
+  minSnippetCount: 5,
+  minContentLength: 3000,
+};
 
 export interface UsePromptEnhancementOptions {
   prompt: string;
@@ -159,16 +166,35 @@ export function usePromptEnhancement({
 
       let result: string;
 
-      // 🆕 判断是否使用双 API 方案
-      if (enableDualAPI && messages && messages.length > 15) {
-        // ✨ 使用双 API 方案（智能上下文提取）
+      // 🆕 加载配置的阈值
+      const config = loadContextConfig();
+
+      // 🆕 判断是否需要使用双 API 方案（混合策略）
+      const needsAcemcpRefinement = projectContext && (
+        (projectContext.match(/Path:|### 文件:/g) || []).length > ACEMCP_REFINEMENT_THRESHOLDS.minSnippetCount ||
+        projectContext.length > ACEMCP_REFINEMENT_THRESHOLDS.minContentLength
+      );
+      const needsHistoryFiltering = messages && messages.length > config.maxMessages;
+      const shouldUseDualAPI = enableDualAPI && (needsAcemcpRefinement || needsHistoryFiltering);
+
+      console.log('[handleEnhancePromptWithAPI] Decision:', {
+        enableDualAPI,
+        messagesCount: messages?.length || 0,
+        maxMessages: config.maxMessages,
+        projectContextLength: projectContext?.length || 0,
+        needsAcemcpRefinement,
+        needsHistoryFiltering,
+        shouldUseDualAPI
+      });
+
+      if (shouldUseDualAPI) {
+        // ✨ 使用双 API 方案（混合策略：acemcp 整理 或 历史筛选）
         console.log('[handleEnhancePromptWithAPI] Using dual API approach');
-        console.log('[handleEnhancePromptWithAPI] Analyzing', messages.length, 'messages for context extraction');
 
         result = await enhancePromptWithDualAPI(
-          messages,
+          messages || [],
           trimmedPrompt,
-          provider,      // 🔑 使用同一个提供商调用两次
+          provider,
           projectContext || undefined
         );
 

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, Clock, Plus, Trash2, CheckSquare, Square, FilePenLine, Loader2 } from "lucide-react";
+import { ArrowLeft, Clock, Plus, Trash2, CheckSquare, Square, FilePenLine, Loader2, Zap, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -58,6 +59,11 @@ interface SessionListProps {
 const ITEMS_PER_PAGE = 20;
 
 /**
+ * Session filter type
+ */
+type SessionFilter = 'all' | 'claude' | 'codex';
+
+/**
  * SessionList component - Displays paginated sessions for a specific project
  * 
  * @example
@@ -91,12 +97,21 @@ export const SessionList: React.FC<SessionListProps> = ({
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
 
+  // Session filter state
+  const [sessionFilter, setSessionFilter] = useState<SessionFilter>('all');
+
   // Load CLAUDE.md files on mount
   useEffect(() => {
     if (onEditClaudeFile && projectPath) {
       loadClaudeMdFiles();
     }
   }, [projectPath, onEditClaudeFile]);
+
+  // Reset selection when filter changes
+  useEffect(() => {
+    setSelectedSessions(new Set());
+    setIsSelectionMode(false);
+  }, [sessionFilter]);
 
   const loadClaudeMdFiles = async () => {
     try {
@@ -128,11 +143,22 @@ export const SessionList: React.FC<SessionListProps> = ({
   // 🔧 过滤掉空白无用的会话（没有 first_message 或 id 为空的）
   const validSessions = sessions.filter(session =>
     session.id && session.id.trim() !== '' &&
-    (session.first_message && session.first_message.trim() !== '')
+    (
+      (session.first_message && session.first_message.trim() !== '') ||
+      session.engine === 'codex' // Always show Codex sessions, they might use default titles
+    )
   );
 
+  // 🆕 根据筛选器过滤会话类型
+  const filteredSessions = validSessions.filter(session => {
+    if (sessionFilter === 'all') return true;
+    if (sessionFilter === 'claude') return session.engine !== 'codex';
+    if (sessionFilter === 'codex') return session.engine === 'codex';
+    return true;
+  });
+
   // 🔧 按活跃度排序：优先使用最后一条消息时间，其次第一条消息时间，最后使用创建时间
-  const sortedSessions = [...validSessions].sort((a, b) => {
+  const sortedSessions = [...filteredSessions].sort((a, b) => {
     // 获取会话 A 的最后活跃时间
     const timeA = a.last_message_timestamp
       ? new Date(a.last_message_timestamp).getTime()
@@ -177,6 +203,7 @@ export const SessionList: React.FC<SessionListProps> = ({
 
     try {
       setIsDeleting(true);
+      // Call the parent handler which will handle both Claude and Codex sessions
       await onSessionDelete(sessionToDelete.id, sessionToDelete.project_id);
       setDeleteDialogOpen(false);
       setSessionToDelete(null);
@@ -230,6 +257,7 @@ export const SessionList: React.FC<SessionListProps> = ({
       // Get the project_id from the first session
       const firstSession = sessions.find(s => s.id === sessionIds[0]);
       if (firstSession) {
+        // Parent handler will separate Claude/Codex sessions and delete accordingly
         await onSessionsBatchDelete(sessionIds, firstSession.project_id);
         setSelectedSessions(new Set());
         setIsSelectionMode(false);
@@ -259,8 +287,8 @@ export const SessionList: React.FC<SessionListProps> = ({
           <div className="flex-1 min-w-0">
             <h2 className="text-base font-medium truncate">{projectPath}</h2>
             <p className="text-xs text-muted-foreground">
-              {validSessions.length} valid session{validSessions.length !== 1 ? 's' : ''}
-              {sessions.length !== validSessions.length && (
+              {filteredSessions.length} {sessionFilter === 'all' ? 'session' : sessionFilter} session{filteredSessions.length !== 1 ? 's' : ''}
+              {sessionFilter === 'all' && sessions.length !== validSessions.length && (
                 <span className="text-muted-foreground/70"> ({sessions.length - validSessions.length} hidden)</span>
               )}
             </p>
@@ -286,6 +314,39 @@ export const SessionList: React.FC<SessionListProps> = ({
           </Button>
         )}
       </div>
+
+      {/* 🆕 会话类型筛选器 */}
+      <Tabs value={sessionFilter} onValueChange={(value) => {
+        setSessionFilter(value as SessionFilter);
+        setCurrentPage(1); // Reset to first page when filter changes
+      }}>
+        <TabsList className="grid w-full grid-cols-3 max-w-md">
+          <TabsTrigger value="all" className="flex items-center gap-2">
+            全部
+            {validSessions.length > 0 && (
+              <span className="text-xs opacity-70">({validSessions.length})</span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="claude" className="flex items-center gap-2">
+            <Zap className="h-3.5 w-3.5" />
+            Claude
+            {validSessions.filter(s => s.engine !== 'codex').length > 0 && (
+              <span className="text-xs opacity-70">
+                ({validSessions.filter(s => s.engine !== 'codex').length})
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="codex" className="flex items-center gap-2">
+            <Bot className="h-3.5 w-3.5" />
+            Codex
+            {validSessions.filter(s => s.engine === 'codex').length > 0 && (
+              <span className="text-xs opacity-70">
+                ({validSessions.filter(s => s.engine === 'codex').length})
+              </span>
+            )}
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {/* 🎯 新布局：批量管理会话 + 新建会话按钮在同一行 */}
       <div className="flex items-center justify-between gap-3 p-3 bg-muted/30 rounded-lg border border-border">
@@ -416,10 +477,24 @@ export const SessionList: React.FC<SessionListProps> = ({
               <div className="flex items-center justify-between gap-3">
                 {/* Session info */}
                 <div className="flex-1 min-w-0 space-y-0.5">
-                  {/* First message preview */}
-                  <p className="text-sm font-medium truncate text-foreground group-hover:text-primary transition-colors">
-                    {firstMessagePreview}
-                  </p>
+                  {/* First message preview with engine badge */}
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium truncate text-foreground group-hover:text-primary transition-colors flex-1 min-w-0">
+                      {firstMessagePreview}
+                    </p>
+                    {/* 🆕 Engine type badge */}
+                    {session.engine === 'codex' ? (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 shrink-0">
+                        <Bot className="h-3 w-3" />
+                        Codex
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 shrink-0">
+                        <Zap className="h-3 w-3" />
+                        Claude
+                      </span>
+                    )}
+                  </div>
 
                   {/* Session ID (small and subtle) */}
                   <p className="text-xs font-mono text-muted-foreground truncate" aria-label={`会话 ID: ${session.id}`}>

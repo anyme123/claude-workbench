@@ -86,79 +86,9 @@ pub(super) fn map_model_to_claude_alias(model: &str) -> String {
     }
 }
 
-/// Escapes prompt content for safe command line usage
-/// Handles multiline content, special characters, and Windows-specific issues
-fn escape_prompt_for_cli(prompt: &str) -> String {
-    let trimmed = prompt.trim();
-    let is_slash_command = trimmed.starts_with('/');
-    
-    // For Windows, we need to be extra careful with command line escaping
-    #[cfg(target_os = "windows")]
-    {
-        if is_slash_command {
-            // Slash commands should be passed directly to Claude CLI without quotes
-            // Only clean up whitespace and remove null characters
-            let cleaned = trimmed
-                .replace('\r', " ")    // Replace carriage returns with spaces
-                .replace('\n', " ")    // Replace line feeds with spaces
-                .replace('\0', "")     // Remove null characters
-                .trim()                // Remove leading/trailing whitespace
-                .to_string();
-            
-            // Return slash command without quotes - Claude CLI expects raw slash commands
-            cleaned
-        } else {
-            // Regular prompts get full escaping treatment
-            let escaped = prompt
-                .replace('\r', "\\r")  // Carriage return
-                .replace('\n', "\\n")  // Line feed
-                .replace('\"', "\\\"") // Double quotes
-                .replace('\\', "\\\\") // Backslashes
-                .replace('\t', "\\t")  // Tabs
-                .replace('\0', "");    // Remove null characters
-            
-            // If the prompt contains spaces or special characters, wrap in quotes
-            if escaped.contains(' ') || escaped.contains('&') || escaped.contains('|') 
-                || escaped.contains('<') || escaped.contains('>') || escaped.contains('^') {
-                format!("\"{}\"", escaped)
-            } else {
-                escaped
-            }
-        }
-    }
-    
-    #[cfg(not(target_os = "windows"))]
-    {
-        if is_slash_command {
-            // Slash commands should be passed directly to Claude CLI without quotes
-            // Only clean up whitespace and remove null characters
-            let cleaned = trimmed
-                .replace('\r', " ")     // Replace carriage returns with spaces
-                .replace('\n', " ")     // Replace line feeds with spaces
-                .replace('\0', "")      // Remove null characters
-                .trim()                 // Remove leading/trailing whitespace
-                .to_string();
-            
-            // Return slash command without quotes - Claude CLI expects raw slash commands
-            cleaned
-        } else {
-            // For Unix-like systems, escape shell metacharacters
-            let escaped = prompt
-                .replace('\\', "\\\\")  // Backslashes first
-                .replace('\n', "\\n")   // Newlines
-                .replace('\r', "\\r")   // Carriage returns
-                .replace('\t', "\\t")   // Tabs
-                .replace('\"', "\\\"")  // Double quotes
-                .replace('\'', "\\'")   // Single quotes
-                .replace('$', "\\$")    // Dollar signs
-                .replace('`', "\\`")    // Backticks
-                .replace('\0', "");     // Remove null characters
-            
-            // Wrap in single quotes for safety
-            format!("'{}'", escaped.replace('\'', "'\"'\"'"))
-        }
-    }
-}
+// 🔥 已移除 escape_prompt_for_cli 函数
+// prompt 现在通过 stdin 管道传递，不再需要命令行转义
+// 这样可以避免操作系统命令行长度限制（Windows ~8KB, Linux/macOS ~128KB-2MB）
 
 /// Helper function to create a tokio Command with proper environment variables
 /// This ensures commands like Claude can find Node.js and other dependencies
@@ -281,6 +211,7 @@ fn create_system_command(
 }
 
 /// Create a Windows command
+/// 注意：stdout/stderr 会被 piped，stdin 也会被 piped 以支持通过管道传递 prompt
 fn create_windows_command(
     claude_path: &str,
     args: Vec<String>,
@@ -305,6 +236,8 @@ fn create_windows_command(
     cmd.current_dir(project_path);
 
     // Configure stdio for capturing output
+    // 🔥 添加 stdin pipe 以支持通过管道传递长文本 prompt
+    cmd.stdin(Stdio::piped());
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
 
@@ -368,10 +301,11 @@ pub async fn execute_claude_code(
         plan_mode,
         execution_config.max_thinking_tokens
     );
-    
+
     // 使用新的参数构建函数（先映射模型名称）
+    // 🔥 修复：prompt 不再通过命令行参数传递，改为 stdin 管道传递
     let mapped_model = map_model_to_claude_alias(&model);
-    let args = build_execution_args(&execution_config, &prompt, &mapped_model, escape_prompt_for_cli);
+    let args = build_execution_args(&execution_config, &mapped_model);
 
     // Create command
     let cmd = create_system_command(&claude_path, args, &project_path, Some(&mapped_model), max_thinking_tokens)?;
@@ -423,10 +357,11 @@ pub async fn continue_claude_code(
         plan_mode,
         execution_config.max_thinking_tokens
     );
-    
+
     // 使用新的参数构建函数，添加 -c 标志用于继续对话（先映射模型名称）
+    // 🔥 修复：prompt 不再通过命令行参数传递，改为 stdin 管道传递
     let mapped_model = map_model_to_claude_alias(&model);
-    let mut args = build_execution_args(&execution_config, &prompt, &mapped_model, escape_prompt_for_cli);
+    let mut args = build_execution_args(&execution_config, &mapped_model);
 
     // 在开头插入 -c 标志
     args.insert(0, "-c".to_string());
@@ -492,10 +427,11 @@ pub async fn resume_claude_code(
         plan_mode,
         execution_config.max_thinking_tokens
     );
-    
+
     // 使用新的参数构建函数，添加 --resume 和 session_id（先映射模型名称）
+    // 🔥 修复：prompt 不再通过命令行参数传递，改为 stdin 管道传递
     let mapped_model = map_model_to_claude_alias(&model);
-    let mut args = build_execution_args(&execution_config, &prompt, &mapped_model, escape_prompt_for_cli);
+    let mut args = build_execution_args(&execution_config, &mapped_model);
 
     // 为resume模式重新组织参数：--resume session_id 应该在最前面
     args.insert(0, "--resume".to_string());
@@ -650,14 +586,40 @@ pub async fn get_claude_session_output(
 }
 
 /// Helper function to spawn Claude process and handle streaming
+/// 🔥 修复：prompt 现在通过 stdin 管道传递，而非命令行参数
+/// 这样可以避免操作系统命令行长度限制（Windows ~8KB, Linux/macOS ~128KB-2MB）
 async fn spawn_claude_process(app: AppHandle, mut cmd: Command, prompt: String, model: String, project_path: String) -> Result<(), String> {
-    use tokio::io::{AsyncBufReadExt, BufReader};
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
     use std::sync::Mutex;
 
     // Spawn the process
     let mut child = cmd
         .spawn()
         .map_err(|e| format!("Failed to spawn Claude: {}", e))?;
+
+    // 🔥 修复：通过 stdin 管道传递 prompt，避免命令行长度限制
+    // 这是解决长文本发送失败问题的关键修改
+    if let Some(mut stdin) = child.stdin.take() {
+        // 克隆 prompt 以便在 async 块中使用（避免生命周期问题）
+        let prompt_for_stdin = prompt.clone();
+        let prompt_len = prompt_for_stdin.len();
+        log::info!("Writing prompt to stdin ({} bytes)", prompt_len);
+
+        // 使用 spawn 异步写入 stdin，避免阻塞主流程
+        tokio::spawn(async move {
+            if let Err(e) = stdin.write_all(prompt_for_stdin.as_bytes()).await {
+                log::error!("Failed to write prompt to stdin: {}", e);
+                return;
+            }
+            // 关闭 stdin 表示输入完成
+            if let Err(e) = stdin.shutdown().await {
+                log::warn!("Failed to shutdown stdin: {}", e);
+            }
+            log::info!("Successfully wrote prompt to stdin and closed");
+        });
+    } else {
+        log::warn!("Failed to get stdin handle, prompt may not be sent");
+    }
 
     // Get stdout and stderr
     let stdout = child.stdout.take().ok_or("Failed to get stdout")?;

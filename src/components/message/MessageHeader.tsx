@@ -1,6 +1,7 @@
 import React from "react";
 import { User, Bot, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatTimestamp } from "@/lib/messageUtils";
 
 interface MessageHeaderProps {
   /** 消息类型 */
@@ -12,27 +13,6 @@ interface MessageHeaderProps {
   /** 自定义类名 */
   className?: string;
 }
-
-/**
- * 格式化时间戳为 HH:MM:SS
- */
-const formatTimestamp = (timestamp: string | undefined): string => {
-  if (!timestamp) return '';
-  
-  try {
-    const date = new Date(timestamp);
-    if (isNaN(date.getTime())) return '';
-    
-    return date.toLocaleTimeString('zh-CN', { 
-      hour12: false, 
-      hour: '2-digit', 
-      minute: '2-digit', 
-      second: '2-digit' 
-    });
-  } catch {
-    return '';
-  }
-};
 
 /**
  * 消息头部组件

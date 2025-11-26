@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { RotateCcw, AlertTriangle } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { RotateCcw, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { MessageBubble } from "./MessageBubble";
 import { MessageHeader } from "./MessageHeader";
 import { Button } from "@/components/ui/button";
@@ -122,6 +122,7 @@ const extractUserText = (message: ClaudeStreamMessage): string => {
 /**
  * 用户消息组件
  * 右对齐气泡样式，简洁展示
+ * 🆕 支持长文本自动折叠（超过 5 行时折叠）
  */
 export const UserMessage: React.FC<UserMessageProps> = ({
   message,
@@ -131,10 +132,16 @@ export const UserMessage: React.FC<UserMessageProps> = ({
   projectId,
   onRevert
 }) => {
+  const engine = (message as any).engine || 'claude';
   const text = extractUserText(message);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [capabilities, setCapabilities] = useState<RewindCapabilities | null>(null);
   const [isLoadingCapabilities, setIsLoadingCapabilities] = useState(false);
+
+  // 🆕 折叠功能相关状态
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [shouldCollapse, setShouldCollapse] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   // 如果没有文本内容，不渲染
   if (!text) return null;
@@ -143,14 +150,35 @@ export const UserMessage: React.FC<UserMessageProps> = ({
   const isSkills = isSkillsMessage(text);
   const displayContent = isSkills ? formatSkillsMessage(text) : text;
 
+  // 🆕 计算是否需要折叠（超过 5 行）
+  useEffect(() => {
+    if (!contentRef.current || isSkills) {
+      setShouldCollapse(false);
+      return;
+    }
+
+    // 计算行数：将文本按换行符分割
+    const lines = text.split('\n').length;
+
+    // 如果超过 5 行，需要折叠
+    if (lines > 5) {
+      setShouldCollapse(true);
+    } else {
+      setShouldCollapse(false);
+    }
+  }, [text, isSkills]);
+
   // 检测撤回能力
   useEffect(() => {
     const loadCapabilities = async () => {
-      if (promptIndex === undefined || !sessionId || !projectId) return;
+      if (promptIndex === undefined || !sessionId) return;
+      if (engine !== 'codex' && !projectId) return;
 
       setIsLoadingCapabilities(true);
       try {
-        const caps = await api.checkRewindCapabilities(sessionId, projectId, promptIndex);
+        const caps = engine === 'codex'
+          ? await api.checkCodexRewindCapabilities(sessionId, promptIndex)
+          : await api.checkRewindCapabilities(sessionId, projectId!, promptIndex);
         setCapabilities(caps);
       } catch (error) {
         console.error('Failed to check rewind capabilities:', error);
@@ -162,7 +190,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
     if (showConfirmDialog) {
       loadCapabilities();
     }
-  }, [showConfirmDialog, promptIndex, sessionId, projectId]);
+  }, [showConfirmDialog, promptIndex, sessionId, projectId, engine]);
 
   const handleRevertClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -198,12 +226,39 @@ export const UserMessage: React.FC<UserMessageProps> = ({
         {/* 消息内容和撤回按钮 - 同一行显示 */}
         <div className="flex items-start gap-2">
         {/* 消息内容 */}
-          <div className={cn(
-            "text-sm leading-relaxed flex-1",
-            isSkills ? "" : "whitespace-pre-wrap"
-          )}>
-            {displayContent}
+          <div className="flex-1 space-y-1">
+            <div
+              ref={contentRef}
+              className={cn(
+                "text-sm leading-relaxed",
+                isSkills ? "" : "whitespace-pre-wrap",
+                // 🆕 折叠样式：未展开时限制为 5 行
+                shouldCollapse && !isExpanded && "line-clamp-5 overflow-hidden"
+              )}
+            >
+              {displayContent}
             </div>
+
+            {/* 🆕 展开/收起按钮 */}
+            {shouldCollapse && (
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="flex items-center gap-1 text-xs text-primary-foreground/70 hover:text-primary-foreground transition-colors mt-1"
+              >
+                {isExpanded ? (
+                  <>
+                    <ChevronUp className="h-3 w-3" />
+                    <span>收起</span>
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="h-3 w-3" />
+                    <span>展开</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
 
           {/* 撤回按钮和警告图标 - Skills 消息不显示撤回按钮 */}
             {showRevertButton && !isSkills && (

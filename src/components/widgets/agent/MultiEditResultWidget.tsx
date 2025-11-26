@@ -29,9 +29,9 @@ export const MultiEditResultWidget: React.FC<MultiEditResultWidgetProps> = ({
     return (
       <div className="space-y-3">
         {/* 头部 */}
-        <div className="flex items-center gap-2 px-3 py-2 bg-green-500/10 rounded-t-md border-b border-green-500/20">
-          <GitBranch className="h-4 w-4 text-green-500" />
-          <span className="text-sm font-medium text-green-600 dark:text-green-400">
+        <div className="flex items-center gap-2 px-3 py-2 bg-success/10 rounded-t-md border-b border-success/20">
+          <GitBranch className="h-4 w-4 text-success" />
+          <span className="text-sm font-medium text-success">
             {edits.length} 个更改已应用
           </span>
         </div>

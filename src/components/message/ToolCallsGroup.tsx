@@ -6,7 +6,7 @@
  * 当工具数量 >= 3 时默认折叠，显示摘要信息
  */
 
-import React, { memo, useState, useMemo } from 'react';
+import React, { memo, useState, useMemo, useRef, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Wrench, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toolRegistry } from '@/lib/toolRegistry';
@@ -326,6 +326,22 @@ interface FallbackToolRenderProps {
 }
 
 const FallbackToolRender: React.FC<FallbackToolRenderProps> = ({ tool, result }) => {
+  const COLLAPSE_HEIGHT = 300;
+  const resultRef = useRef<HTMLPreElement>(null);
+  const [shouldCollapse, setShouldCollapse] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
+
+  useEffect(() => {
+    const el = resultRef.current;
+    if (!el) return;
+    const h = el.scrollHeight;
+    const need = h > COLLAPSE_HEIGHT;
+    setShouldCollapse(need);
+    setCollapsed(need);
+  }, [result]);
+
+  const toggle = () => setCollapsed((v) => !v);
+
   return (
     <div className="fallback-tool-render space-y-2 text-xs">
       <div className="text-muted-foreground">此工具尚未注册专用渲染器，显示原始数据：</div>
@@ -342,11 +358,31 @@ const FallbackToolRender: React.FC<FallbackToolRenderProps> = ({ tool, result })
       )}
 
       {result && (
-        <div className={cn('p-2 rounded', result.is_error ? 'bg-red-500/10' : 'bg-muted')}>
+        <div className={cn('p-2 rounded relative', result.is_error ? 'bg-red-500/10' : 'bg-muted')}>
           <div className="font-medium mb-1 text-xs">{result.is_error ? '执行失败' : '执行结果'}:</div>
-          <pre className="text-[10px] overflow-x-auto whitespace-pre-wrap">
-            {typeof result.content === 'string' ? result.content : JSON.stringify(result.content, null, 2)}
-          </pre>
+          <div className="relative">
+            <pre
+              ref={resultRef}
+              className={cn(
+                'text-[10px] overflow-x-auto whitespace-pre-wrap transition-[max-height]',
+                shouldCollapse && collapsed && 'overflow-hidden'
+              )}
+              style={shouldCollapse && collapsed ? { maxHeight: `${COLLAPSE_HEIGHT}px` } : undefined}
+            >
+              {typeof result.content === 'string' ? result.content : JSON.stringify(result.content, null, 2)}
+            </pre>
+            {shouldCollapse && collapsed && (
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-background/80 via-background/50 to-transparent" />
+            )}
+          </div>
+          {shouldCollapse && (
+            <button
+              onClick={toggle}
+              className="mt-2 text-[11px] text-primary underline underline-offset-2"
+            >
+              {collapsed ? '展开全部' : '收起内容'}
+            </button>
+          )}
         </div>
       )}
     </div>

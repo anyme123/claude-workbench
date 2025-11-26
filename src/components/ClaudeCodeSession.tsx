@@ -34,6 +34,7 @@ import { useMessageTranslation } from '@/hooks/useMessageTranslation';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { usePromptExecution } from '@/hooks/usePromptExecution';
 import { MessagesProvider, useMessagesContext } from '@/contexts/MessagesContext';
+import { codexConverter } from '@/lib/codexConverter';
 
 import * as SessionHelpers from '@/lib/sessionHelpers';
 
@@ -101,6 +102,25 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
 
   // Plan Mode state
   const [isPlanMode, setIsPlanMode] = useState(false);
+
+  // 🆕 Execution Engine Config (Codex integration)
+  // Load from localStorage to remember user's settings
+  const [executionEngineConfig, setExecutionEngineConfig] = useState<import('@/components/FloatingPromptInput/types').ExecutionEngineConfig>(() => {
+    try {
+      const stored = localStorage.getItem('execution_engine_config');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      console.error('[ClaudeCodeSession] Failed to load engine config from localStorage:', error);
+    }
+    // Default config
+    return {
+      engine: 'claude',
+      codexMode: 'read-only',
+      codexModel: 'gpt-5.1-codex-max',
+    };
+  });
 
   // Queued prompts state
   const [queuedPrompts, setQueuedPrompts] = useState<Array<{ id: string; prompt: string; model: ModelType }>>([]);
@@ -271,6 +291,9 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
     isActive,
     isFirstPrompt,
     extractedSessionInfo,
+    executionEngine: executionEngineConfig.engine, // 🆕 Codex integration
+    codexMode: executionEngineConfig.codexMode,    // 🆕 Codex integration
+    codexModel: executionEngineConfig.codexModel,  // 🆕 Codex integration
     hasActiveSessionRef,
     unlistenRefs,
     isMountedRef,
@@ -295,13 +318,23 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
    * - Reduced overscan from 8 to 5 (25% fewer rendered items off-screen)
    * - Dynamic height estimation based on message type
    * - Performance improvement: ~30-40% reduction in DOM nodes
+   * - Fixed: Use messageGroups.length instead of displayableMessages.length
    */
   const rowVirtualizer = useVirtualizer({
-    count: displayableMessages.length,
+    count: messageGroups.length,
     getScrollElement: () => parentRef.current,
     estimateSize: (index) => {
-      // ✅ Dynamic height estimation based on message type
-      const message = displayableMessages[index];
+      // ✅ Dynamic height estimation based on message group type
+      const messageGroup = messageGroups[index];
+      if (!messageGroup) return 200;
+
+      // For subagent groups, estimate larger height
+      if (messageGroup.type === 'subagent') {
+        return 400; // Subagent groups are typically larger
+      }
+
+      // For normal messages, estimate based on message type
+      const message = messageGroup.message;
       if (!message) return 200;
 
       // Estimate different heights for different message types
@@ -358,6 +391,21 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
     if (session) {
       // Set the claudeSessionId immediately when we have a session
       setClaudeSessionId(session.id);
+
+      // 🆕 Auto-switch execution engine based on session type
+      const sessionEngine = (session as any).engine;
+
+      if (sessionEngine === 'codex') {
+        setExecutionEngineConfig(prev => ({
+          ...prev,
+          engine: 'codex' as const,
+        }));
+      } else {
+        setExecutionEngineConfig(prev => ({
+          ...prev,
+          engine: 'claude',
+        }));
+      }
 
       // Load session history first, then check for active session
       const initializeSession = async () => {
@@ -442,8 +490,12 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
     if (!isLoading) return;
 
     try {
-      // Pass session ID if available, but backend can still cancel without it
-      await api.cancelClaudeExecution(claudeSessionId || undefined);
+      // 🆕 根据执行引擎调用相应的取消方法
+      if (executionEngineConfig.engine === 'codex') {
+        await api.cancelCodex(claudeSessionId || undefined);
+      } else {
+        await api.cancelClaudeExecution(claudeSessionId || undefined);
+      }
       
       // Clean up listeners
       unlistenRefs.current.forEach(unlisten => unlisten && typeof unlisten === 'function' && unlisten());
@@ -624,32 +676,38 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
   // 🆕 撤回处理函数 - 支持三种撤回模式
   // Handle prompt navigation - scroll to specific prompt
   const handlePromptNavigation = useCallback((promptIndex: number) => {
-    // 找到 promptIndex 对应的消息在 displayableMessages 中的索引
+    // 找到 promptIndex 对应的消息在 messageGroups 中的索引
     let currentPromptIndex = 0;
-    let targetMessageIndex = -1;
+    let targetGroupIndex = -1;
 
-    for (let i = 0; i < displayableMessages.length; i++) {
-      const message = displayableMessages[i];
-      const messageType = (message as any).type || (message.message as any)?.role;
+    for (let i = 0; i < messageGroups.length; i++) {
+      const group = messageGroups[i];
 
-      if (messageType === 'user') {
-        if (currentPromptIndex === promptIndex) {
-          targetMessageIndex = i;
-          break;
+      // 检查普通消息
+      if (group.type === 'normal') {
+        const message = group.message;
+        const messageType = (message as any).type || (message.message as any)?.role;
+
+        if (messageType === 'user') {
+          if (currentPromptIndex === promptIndex) {
+            targetGroupIndex = i;
+            break;
+          }
+          currentPromptIndex++;
         }
-        currentPromptIndex++;
       }
+      // 子代理组不包含 user 消息，跳过
     }
 
-    if (targetMessageIndex === -1) {
+    if (targetGroupIndex === -1) {
       console.warn(`[Prompt Navigation] Prompt #${promptIndex} not found`);
       return;
     }
 
-    console.log(`[Prompt Navigation] Navigating to prompt #${promptIndex}, message index: ${targetMessageIndex}`);
+    console.log(`[Prompt Navigation] Navigating to prompt #${promptIndex}, group index: ${targetGroupIndex}`);
 
     // 先使用虚拟列表滚动到该索引（让元素渲染出来）
-    rowVirtualizer.scrollToIndex(targetMessageIndex, {
+    rowVirtualizer.scrollToIndex(targetGroupIndex, {
       align: 'center',
       behavior: 'smooth',
     });
@@ -664,7 +722,7 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
 
     // Close navigator after navigation
     setShowPromptNavigator(false);
-  }, [displayableMessages, rowVirtualizer]);
+  }, [messageGroups, rowVirtualizer]);
 
   const handleRevert = useCallback(async (promptIndex: number, mode: import('@/lib/api').RewindMode = 'both') => {
     if (!effectiveSession) return;
@@ -672,24 +730,47 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
     try {
       console.log('[Prompt Revert] Reverting to prompt #', promptIndex, 'with mode:', mode);
 
+      const sessionEngine = effectiveSession.engine || executionEngineConfig.engine || 'claude';
+      const isCodex = sessionEngine === 'codex';
+
       // 调用后端撤回（返回提示词文本）
-      const promptText = await api.revertToPrompt(
-        effectiveSession.id,
-        effectiveSession.project_id,
-        projectPath,
-        promptIndex,
-        mode
-      );
+      const promptText = isCodex
+        ? await api.revertCodexToPrompt(
+            effectiveSession.id,
+            projectPath,
+            promptIndex,
+            mode
+          )
+        : await api.revertToPrompt(
+            effectiveSession.id,
+            effectiveSession.project_id,
+            projectPath,
+            promptIndex,
+            mode
+          );
 
       console.log('[Prompt Revert] Revert successful, reloading messages...');
 
       // 重新加载消息历史
       const history = await api.loadSessionHistory(
         effectiveSession.id,
-        effectiveSession.project_id
+        effectiveSession.project_id,
+        sessionEngine as any
       );
 
-      if (Array.isArray(history)) {
+      if (sessionEngine === 'codex' && Array.isArray(history)) {
+        // 将 Codex 事件转换为消息格式（与 useSessionLifecycle 保持一致）
+        codexConverter.reset();
+        const convertedMessages: any[] = [];
+        for (const event of history) {
+          const msg = codexConverter.convertEventObject(event as any);
+          if (msg) convertedMessages.push(msg);
+        }
+        setMessages(convertedMessages);
+        console.log('[Prompt Revert] Loaded Codex messages:', {
+          total: convertedMessages.length,
+        });
+      } else if (Array.isArray(history)) {
         setMessages(history);
         console.log('[Prompt Revert] Loaded messages:', {
           total: history.length,
@@ -724,25 +805,28 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
       console.error('[Prompt Revert] Failed to revert:', error);
       setError('撤回失败：' + error);
     }
-  }, [effectiveSession, projectPath, claudeSettings?.hideWarmupMessages]);
+  }, [effectiveSession, projectPath, claudeSettings?.hideWarmupMessages, executionEngineConfig.engine]);
 
   // Cleanup event listeners and track mount state
+  // ⚠️ IMPORTANT: No dependencies! Only cleanup on real unmount
+  // Adding dependencies like effectiveSession would cause cleanup to run
+  // when session ID is extracted, clearing active listeners
   useEffect(() => {
     isMountedRef.current = true;
-    
+
     return () => {
       console.log('[ClaudeCodeSession] Component unmounting, cleaning up listeners');
       isMountedRef.current = false;
       isListeningRef.current = false;
-      
+
       // Clean up listeners
       unlistenRefs.current.forEach(unlisten => unlisten && typeof unlisten === 'function' && unlisten());
       unlistenRefs.current = [];
-      
+
       // Reset session state on unmount
       setClaudeSessionId(null);
     };
-  }, [effectiveSession, projectPath]);
+  }, []); // Empty deps - only run on mount/unmount
 
   const messagesList = (
     <div
@@ -763,12 +847,19 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
         <AnimatePresence>
           {rowVirtualizer.getVirtualItems().map((virtualItem) => {
             const messageGroup = messageGroups[virtualItem.index];
+
+            // 防御性检查：确保 messageGroup 存在
+            if (!messageGroup) {
+              console.warn('[ClaudeCodeSession] messageGroup is undefined for index:', virtualItem.index);
+              return null;
+            }
+
             const message = messageGroup.type === 'normal' ? messageGroup.message : null;
             const originalIndex = messageGroup.type === 'normal' ? messageGroup.index : undefined;
             const promptIndex = message && message.type === 'user' && originalIndex !== undefined
-              ? getPromptIndexForMessage(originalIndex) 
+              ? getPromptIndexForMessage(originalIndex)
               : undefined;
-            
+
             return (
               <motion.div
                 key={virtualItem.key}
@@ -1157,6 +1248,8 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
               sessionStats={costStats}
               hasMessages={messages.length > 0}
               session={effectiveSession || undefined}  // 🆕 传递完整会话信息用于导出
+              executionEngineConfig={executionEngineConfig}              // 🆕 Codex 集成
+              onExecutionEngineConfigChange={setExecutionEngineConfig}   // 🆕 Codex 集成
             />
           </div>
 
@@ -1184,6 +1277,7 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
           <RevertPromptPicker
             sessionId={effectiveSession.id}
             projectId={effectiveSession.project_id}
+            engine={effectiveSession.engine || executionEngineConfig.engine || 'claude'}
             onSelect={handleRevert}
             onClose={() => setShowRevertPicker(false)}
           />

@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { FilePicker } from "../FilePicker";
 import { SlashCommandPicker } from "../SlashCommandPicker";
@@ -23,6 +24,7 @@ import { usePromptEnhancement } from "./hooks/usePromptEnhancement";
 import { api } from "@/lib/api";
 import { getEnabledProviders } from "@/lib/promptEnhancementService";
 import { SessionToolbar } from "@/components/SessionToolbar";
+import { ExecutionEngineSelector, type ExecutionEngineConfig } from "@/components/ExecutionEngineSelector";
 
 // Re-export types for external use
 export type { FloatingPromptInputRef, FloatingPromptInputProps, ThinkingMode, ModelType } from "./types";
@@ -57,9 +59,11 @@ const FloatingPromptInputInner = (
     isPlanMode = false,
     onTogglePlanMode,
     sessionCost,
-  sessionStats,
+    sessionStats,
     hasMessages = false,
     session,
+    executionEngineConfig: externalEngineConfig, // 🆕 外部传入的执行引擎配置
+    onExecutionEngineConfigChange,               // 🆕 配置变更回调
   }: FloatingPromptInputProps,
   ref: React.Ref<FloatingPromptInputRef>,
 ) => {
@@ -85,6 +89,48 @@ const FloatingPromptInputInner = (
   const [isExpanded, setIsExpanded] = useState(false);
   const [showCostPopover, setShowCostPopover] = useState(false);
   const [cursorPosition, setCursorPosition] = useState(0);
+
+  // 🆕 Execution Engine State (use external config if provided, otherwise use localStorage)
+  const [executionEngineConfig, setExecutionEngineConfig] = useState<ExecutionEngineConfig>(() => {
+    // Prioritize external config
+    if (externalEngineConfig) {
+      return externalEngineConfig;
+    }
+
+    // Fallback to localStorage
+    try {
+      const stored = localStorage.getItem('execution_engine_config');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      console.error('[ExecutionEngine] Failed to load config from localStorage:', error);
+    }
+
+    // Default config
+    return {
+      engine: 'claude',
+      codexMode: 'read-only',
+      codexModel: 'gpt-5.1-codex-max',
+    };
+  });
+
+  // Sync external config changes to internal state
+  useEffect(() => {
+    if (externalEngineConfig && externalEngineConfig.engine !== executionEngineConfig.engine) {
+      setExecutionEngineConfig(externalEngineConfig);
+    }
+  }, [externalEngineConfig]);
+
+  // Persist execution engine config to localStorage and notify parent
+  useEffect(() => {
+    try {
+      localStorage.setItem('execution_engine_config', JSON.stringify(executionEngineConfig));
+      onExecutionEngineConfigChange?.(executionEngineConfig);
+    } catch (error) {
+      console.error('[ExecutionEngine] Failed to save config to localStorage:', error);
+    }
+  }, [executionEngineConfig, onExecutionEngineConfigChange]);
 
   // 动态加载模型列表（包括自定义模型）
   const [availableModels, setAvailableModels] = useState<ModelConfig[]>(MODELS);
@@ -291,13 +337,19 @@ const FloatingPromptInputInner = (
   // Auto-resize textarea based on content
   const adjustTextareaHeight = (textarea: HTMLTextAreaElement | null) => {
     if (!textarea) return;
-    
+
     // Reset height to auto to get the correct scrollHeight
     textarea.style.height = 'auto';
-    
-    // Set height to scrollHeight (content height)
-    const newHeight = Math.min(textarea.scrollHeight, 160); // Max 160px as per original CSS
+
+    // 🔧 修复：增加最大高度限制，从 160px 增加到 300px，改善长文本体验
+    const maxHeight = isExpanded ? 600 : 300; // 展开模式允许更大的高度
+    const newHeight = Math.min(textarea.scrollHeight, maxHeight);
     textarea.style.height = `${newHeight}px`;
+
+    // 🔧 修复：确保当内容超出时可以滚动到底部
+    if (textarea.scrollHeight > maxHeight) {
+      textarea.scrollTop = textarea.scrollHeight;
+    }
   };
 
   // Auto-resize on prompt change
@@ -472,7 +524,7 @@ const FloatingPromptInputInner = (
                 onChange={handleTextChange}
                 onPaste={handlePaste}
                 placeholder="输入您的提示词..."
-                className="min-h-[240px] resize-none"
+                className="min-h-[240px] max-h-[600px] resize-none overflow-y-auto"
                 disabled={disabled}
                 onDragEnter={handleDrag}
                 onDragLeave={handleDrag}
@@ -481,24 +533,35 @@ const FloatingPromptInputInner = (
               />
 
               <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-2">
-                  <ModelSelector
-                    selectedModel={selectedModel}
-                    onModelChange={setSelectedModel}
-                    disabled={disabled}
-                    availableModels={availableModels}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* 🆕 Execution Engine Selector */}
+                  <ExecutionEngineSelector
+                    value={executionEngineConfig}
+                    onChange={setExecutionEngineConfig}
                   />
-                  <ThinkingModeToggle
-                    isEnabled={selectedThinkingMode === "on"}
-                    onToggle={handleToggleThinkingMode}
-                    disabled={disabled}
-                  />
-                  {onTogglePlanMode && (
-                    <PlanModeToggle
-                      isPlanMode={isPlanMode || false}
-                      onToggle={onTogglePlanMode}
-                      disabled={disabled}
-                    />
+
+                  {/* Only show model selector for Claude Code */}
+                  {executionEngineConfig.engine === 'claude' && (
+                    <>
+                      <ModelSelector
+                        selectedModel={selectedModel}
+                        onModelChange={setSelectedModel}
+                        disabled={disabled}
+                        availableModels={availableModels}
+                      />
+                      <ThinkingModeToggle
+                        isEnabled={selectedThinkingMode === "on"}
+                        onToggle={handleToggleThinkingMode}
+                        disabled={disabled}
+                      />
+                      {onTogglePlanMode && (
+                        <PlanModeToggle
+                          isPlanMode={isPlanMode || false}
+                          onToggle={onTogglePlanMode}
+                          disabled={disabled}
+                        />
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -527,21 +590,10 @@ const FloatingPromptInputInner = (
                                 <Code2 className="h-4 w-4 text-muted-foreground" />
                                 <span className="text-sm font-medium">启用项目上下文</span>
                               </div>
-                              <button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setEnableProjectContext(!enableProjectContext);
-                                }}
-                                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                                  enableProjectContext ? 'bg-primary' : 'bg-gray-200 dark:bg-gray-700'
-                                }`}
-                              >
-                                <span
-                                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                    enableProjectContext ? 'translate-x-5' : 'translate-x-0.5'
-                                  }`}
-                                />
-                              </button>
+                              <Switch
+                                checked={enableProjectContext}
+                                onCheckedChange={setEnableProjectContext}
+                              />
                             </label>
                             <p className="text-xs text-muted-foreground mt-1 ml-6">
                               使用 acemcp 搜索相关代码
@@ -558,23 +610,13 @@ const FloatingPromptInputInner = (
                             <Zap className="h-4 w-4 text-muted-foreground" />
                             <span className="text-sm font-medium">智能上下文提取</span>
                           </div>
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              const newValue = !enableDualAPI;
-                              setEnableDualAPI(newValue);
-                              localStorage.setItem('enable_dual_api_enhancement', String(newValue));
+                          <Switch
+                            checked={enableDualAPI}
+                            onCheckedChange={(checked) => {
+                              setEnableDualAPI(checked);
+                              localStorage.setItem('enable_dual_api_enhancement', String(checked));
                             }}
-                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                              enableDualAPI ? 'bg-primary' : 'bg-gray-200 dark:bg-gray-700'
-                            }`}
-                          >
-                            <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                enableDualAPI ? 'translate-x-5' : 'translate-x-0.5'
-                              }`}
-                            />
-                          </button>
+                          />
                         </label>
                         <p className="text-xs text-muted-foreground mt-1 ml-6">
                           AI 智能筛选相关消息（提升 40% 准确性）
@@ -676,7 +718,7 @@ const FloatingPromptInputInner = (
               placeholder={dragActive ? "拖放图片到这里..." : "向 Claude 提问..."}
               disabled={disabled}
               className={cn(
-                "min-h-[56px] max-h-[160px] resize-none pr-10 overflow-y-auto",
+                "min-h-[56px] max-h-[300px] resize-none pr-10 overflow-y-auto",
                 dragActive && "border-primary"
               )}
               rows={1}
@@ -725,28 +767,39 @@ const FloatingPromptInputInner = (
 
           {/* Second Row: All Controls */}
           <div className="flex items-center gap-2">
-            {/* Model Selector */}
-            <ModelSelector
-              selectedModel={selectedModel}
-              onModelChange={setSelectedModel}
-              disabled={disabled}
-              availableModels={availableModels}
+            {/* 🆕 Execution Engine Selector */}
+            <ExecutionEngineSelector
+              value={executionEngineConfig}
+              onChange={setExecutionEngineConfig}
             />
 
-            {/* Thinking Mode Toggle */}
-            <ThinkingModeToggle
-              isEnabled={selectedThinkingMode === "on"}
-              onToggle={handleToggleThinkingMode}
-              disabled={disabled}
-            />
+            {/* Only show Claude-specific controls for Claude Code */}
+            {executionEngineConfig.engine === 'claude' && (
+              <>
+                {/* Model Selector */}
+                <ModelSelector
+                  selectedModel={selectedModel}
+                  onModelChange={setSelectedModel}
+                  disabled={disabled}
+                  availableModels={availableModels}
+                />
 
-            {/* Plan Mode Toggle */}
-            {onTogglePlanMode && (
-              <PlanModeToggle
-                isPlanMode={isPlanMode || false}
-                onToggle={onTogglePlanMode}
-                disabled={disabled}
-              />
+                {/* Thinking Mode Toggle */}
+                <ThinkingModeToggle
+                  isEnabled={selectedThinkingMode === "on"}
+                  onToggle={handleToggleThinkingMode}
+                  disabled={disabled}
+                />
+
+                {/* Plan Mode Toggle */}
+                {onTogglePlanMode && (
+                  <PlanModeToggle
+                    isPlanMode={isPlanMode || false}
+                    onToggle={onTogglePlanMode}
+                    disabled={disabled}
+                  />
+                )}
+              </>
             )}
 
             {/* Session Cost with Details */}
@@ -890,27 +943,10 @@ const FloatingPromptInputInner = (
                             </p>
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={enableProjectContext}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setEnableProjectContext(!enableProjectContext);
-                          }}
-                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
-                            enableProjectContext
-                              ? 'bg-blue-600 dark:bg-blue-500'
-                              : 'bg-gray-300 dark:bg-gray-600'
-                          }`}
-                        >
-                          <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
-                              enableProjectContext ? 'translate-x-[18px]' : 'translate-x-0.5'
-                            }`}
-                          />
-                        </button>
+                        <Switch
+                          checked={enableProjectContext}
+                          onCheckedChange={setEnableProjectContext}
+                        />
                       </label>
                     </div>
                     <DropdownMenuSeparator />
@@ -931,29 +967,13 @@ const FloatingPromptInputInner = (
                         </p>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={enableDualAPI}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const newValue = !enableDualAPI;
-                        setEnableDualAPI(newValue);
-                        localStorage.setItem('enable_dual_api_enhancement', String(newValue));
+                    <Switch
+                      checked={enableDualAPI}
+                      onCheckedChange={(checked) => {
+                        setEnableDualAPI(checked);
+                        localStorage.setItem('enable_dual_api_enhancement', String(checked));
                       }}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
-                        enableDualAPI
-                          ? 'bg-blue-600 dark:bg-blue-500'
-                          : 'bg-gray-300 dark:bg-gray-600'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
-                          enableDualAPI ? 'translate-x-[18px]' : 'translate-x-0.5'
-                        }`}
-                      />
-                    </button>
+                    />
                   </label>
                 </div>
                 <DropdownMenuSeparator />

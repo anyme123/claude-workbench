@@ -30,6 +30,7 @@ import {
 
   // 任务管理类
   TodoWidget,
+  UpdatePlanWidget,
 
   // 子代理类
   TaskWidget,
@@ -66,6 +67,44 @@ function createToolAdapter<T extends Record<string, any>>(
   return (renderProps: ToolRenderProps) => {
     const widgetProps = propsMapper(renderProps);
     return <WidgetComponent {...widgetProps} />;
+  };
+}
+
+/**
+ * 解析 unified diff 格式，提取旧内容和新内容
+ * @param diff unified diff 字符串
+ * @returns { oldContent, newContent }
+ */
+function parseDiffContent(diff: string): { oldContent: string; newContent: string } {
+  const lines = diff.split('\n');
+  const oldLines: string[] = [];
+  const newLines: string[] = [];
+
+  for (const line of lines) {
+    // 跳过 diff 头部信息
+    if (line.startsWith('---') || line.startsWith('+++') ||
+        line.startsWith('@@') || line.startsWith('diff ') ||
+        line.startsWith('index ')) {
+      continue;
+    }
+
+    if (line.startsWith('-')) {
+      // 删除的行（旧内容）
+      oldLines.push(line.substring(1));
+    } else if (line.startsWith('+')) {
+      // 添加的行（新内容）
+      newLines.push(line.substring(1));
+    } else if (line.startsWith(' ') || line === '') {
+      // 上下文行（两边都有）
+      const contextLine = line.startsWith(' ') ? line.substring(1) : line;
+      oldLines.push(contextLine);
+      newLines.push(contextLine);
+    }
+  }
+
+  return {
+    oldContent: oldLines.join('\n'),
+    newContent: newLines.join('\n'),
   };
 }
 
@@ -152,6 +191,32 @@ export function initializeToolRegistry(): void {
       description: 'Todo 列表读取工具',
     },
 
+    // Update Plan - 计划更新（Codex 专用）
+    // Codex 格式: { plan: [{ status: "completed", step: "步骤描述" }, ...] }
+    {
+      name: 'update_plan',
+      render: createToolAdapter(UpdatePlanWidget, (props) => {
+        // Codex update_plan 的 arguments 是 JSON 字符串，包含 plan 数组
+        let plan = props.input?.plan;
+
+        // 如果 plan 是字符串，尝试解析
+        if (typeof plan === 'string') {
+          try {
+            const parsed = JSON.parse(plan);
+            plan = parsed.plan || parsed;
+          } catch {
+            // 忽略解析错误
+          }
+        }
+
+        return {
+          plan: Array.isArray(plan) ? plan : [],
+          result: props.result,
+        };
+      }),
+      description: 'Codex 计划更新工具',
+    },
+
     // LS - 列出目录
     {
       name: 'ls',
@@ -175,12 +240,61 @@ export function initializeToolRegistry(): void {
     // Edit - 编辑文件
     {
       name: 'edit',
-      render: createToolAdapter(EditWidget, (props) => ({
-        file_path: props.input?.file_path || '',
-        old_string: props.input?.old_string || '',
-        new_string: props.input?.new_string || '',
-        result: props.result,
-      })),
+      render: createToolAdapter(EditWidget, (props) => {
+        const input = props.input || {};
+
+        // Claude Code 格式：old_string + new_string
+        if (input.old_string !== undefined || input.new_string !== undefined) {
+          return {
+            file_path: input.file_path || '',
+            old_string: input.old_string || '',
+            new_string: input.new_string || '',
+            result: props.result,
+          };
+        }
+
+        // Codex 格式：可能有 diff/patch/content
+        // 尝试从 diff/patch 中提取变更内容
+        const diff = input.diff || input.patch || '';
+        const content = input.content || '';
+
+        if (diff) {
+          // 解析 unified diff 格式提取旧/新内容
+          const { oldContent, newContent } = parseDiffContent(diff);
+          return {
+            file_path: input.file_path || '',
+            old_string: oldContent,
+            new_string: newContent,
+            result: props.result,
+          };
+        }
+
+        // 如果只有 content，根据 change_type 决定显示方式
+        const changeType = input.change_type || 'update';
+        if (changeType === 'create') {
+          return {
+            file_path: input.file_path || '',
+            old_string: '',
+            new_string: content,
+            result: props.result,
+          };
+        } else if (changeType === 'delete') {
+          return {
+            file_path: input.file_path || '',
+            old_string: content,
+            new_string: '',
+            result: props.result,
+          };
+        }
+
+        // 默认：显示 content 作为新内容
+        return {
+          file_path: input.file_path || '',
+          old_string: '',
+          new_string: content,
+          result: props.result,
+        };
+      }),
       description: '文件编辑工具（搜索替换）',
     },
 
@@ -198,11 +312,18 @@ export function initializeToolRegistry(): void {
     // Bash - 执行命令
     {
       name: 'bash',
-      render: createToolAdapter(BashWidget, (props) => ({
-        command: props.input?.command || '',
-        description: props.input?.description,
-        result: props.result,
-      })),
+      render: createToolAdapter(BashWidget, (props) => {
+        const input = props.input || {};
+        // Support multiple parameter formats:
+        // - Claude Code: { command: "..." }
+        // - Codex shell_command: { cmd: "..." } or { command: "..." }
+        const command = input.command || input.cmd || '';
+        return {
+          command,
+          description: input.description,
+          result: props.result,
+        };
+      }),
       description: 'Bash 命令执行工具',
     },
 
@@ -233,11 +354,23 @@ export function initializeToolRegistry(): void {
     // Write - 写入文件
     {
       name: 'write',
-      render: createToolAdapter(WriteWidget, (props) => ({
-        filePath: props.input?.file_path || '',
-        content: props.input?.content || '',
-        result: props.result,
-      })),
+      render: createToolAdapter(WriteWidget, (props) => {
+        const input = props.input || {};
+        const filePath = input.file_path || '';
+        let content = input.content || '';
+
+        // Codex 格式：如果没有 content 但有 diff/patch，从中提取新内容
+        if (!content && (input.diff || input.patch)) {
+          const { newContent } = parseDiffContent(input.diff || input.patch || '');
+          content = newContent;
+        }
+
+        return {
+          filePath,
+          content,
+          result: props.result,
+        };
+      }),
       description: '文件写入工具',
     },
 

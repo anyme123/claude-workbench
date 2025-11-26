@@ -17,11 +17,11 @@ use commands::claude::{
     delete_project, delete_project_permanently, delete_session, delete_sessions_batch,
     execute_claude_code, find_claude_md_files,
     get_available_tools, get_claude_execution_config, get_claude_path, get_claude_permission_config,
-    get_claude_session_output, get_claude_settings, get_hooks_config, get_permission_presets,
+    get_claude_session_output, get_claude_settings, get_codex_system_prompt, get_hooks_config, get_permission_presets,
     get_project_sessions, get_system_prompt, list_directory_contents, list_hidden_projects,
     list_projects, list_running_claude_sessions, load_session_history, open_new_session,
     read_claude_md_file, reset_claude_execution_config, restore_project, resume_claude_code,
-    save_claude_md_file, save_claude_settings, save_system_prompt, search_files,
+    save_claude_md_file, save_claude_settings, save_codex_system_prompt, save_system_prompt, search_files,
     set_custom_claude_path, update_claude_execution_config, update_claude_permission_config,
     update_hooks_config, update_thinking_mode, validate_hook_command, validate_permission_config,
     ClaudeProcessState,
@@ -65,6 +65,17 @@ use commands::extensions::{
 };
 use commands::file_operations::{open_directory_in_explorer, open_file_with_default_app};
 use commands::git_stats::{get_git_diff_stats, get_session_code_changes};
+use commands::codex::{
+    execute_codex, resume_codex, resume_last_codex, cancel_codex,
+    list_codex_sessions, delete_codex_session,
+    load_codex_session_history, get_codex_prompt_list, check_codex_rewind_capabilities,
+    check_codex_availability,
+    // Codex mode configuration
+    get_codex_mode_config, set_codex_mode_config,
+    // Codex rewind commands
+    record_codex_prompt_sent, record_codex_prompt_completed, revert_codex_to_prompt,
+    CodexProcessState,
+};
 use process::ProcessRegistryState;
 use tauri::Manager;
 use tauri_plugin_window_state::Builder as WindowStatePlugin;
@@ -82,6 +93,7 @@ fn main() {
         )
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(
             WindowStatePlugin::default()
@@ -98,6 +110,9 @@ fn main() {
 
             // Initialize Claude process state
             app.manage(ClaudeProcessState::default());
+
+            // Initialize Codex process state
+            app.manage(CodexProcessState::default());
 
             // Initialize auto-compact manager for context management
             let auto_compact_manager =
@@ -139,8 +154,10 @@ fn main() {
             get_claude_settings,
             open_new_session,
             get_system_prompt,
+            get_codex_system_prompt,
             check_claude_version,
             save_system_prompt,
+            save_codex_system_prompt,
             save_claude_settings,
             update_thinking_mode,
             find_claude_md_files,
@@ -274,6 +291,24 @@ fn main() {
             // Git Statistics
             get_git_diff_stats,
             get_session_code_changes,
+            // OpenAI Codex Integration
+            execute_codex,
+            resume_codex,
+            resume_last_codex,
+            cancel_codex,
+            list_codex_sessions,
+            delete_codex_session,
+            load_codex_session_history,
+            get_codex_prompt_list,
+            check_codex_rewind_capabilities,
+            check_codex_availability,
+            // Codex Mode Configuration
+            get_codex_mode_config,
+            set_codex_mode_config,
+            // Codex Rewind Commands
+            record_codex_prompt_sent,
+            record_codex_prompt_completed,
+            revert_codex_to_prompt,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

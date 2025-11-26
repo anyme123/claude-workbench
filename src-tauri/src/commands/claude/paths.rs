@@ -17,6 +17,25 @@ pub fn get_claude_dir() -> Result<PathBuf> {
     Ok(claude_dir)
 }
 
+/// Gets the path to the ~/.codex directory
+/// Note: This function does not create the directory - it expects Codex CLI to be installed
+pub fn get_codex_dir() -> Result<PathBuf> {
+    let codex_dir = dirs::home_dir()
+        .context("Could not find home directory")?
+        .join(".codex");
+
+    // Verify the directory exists (should be created by Codex CLI installation)
+    if !codex_dir.exists() {
+        anyhow::bail!(
+            "Codex directory not found at {}. Please ensure Codex CLI is installed.",
+            codex_dir.display()
+        );
+    }
+
+    // Return the path directly without canonicalization to avoid permission issues
+    Ok(codex_dir)
+}
+
 /// Encodes a project path to match Claude CLI's encoding scheme
 /// Uses single hyphens to separate path components
 pub fn encode_project_path(path: &str) -> String {

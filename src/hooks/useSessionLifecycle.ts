@@ -3,6 +3,7 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { api, type Session } from '@/lib/api';
 import { normalizeUsageData } from '@/lib/utils';
 import type { ClaudeStreamMessage } from '@/types/claude';
+import { codexConverter } from '@/lib/codexConverter';
 
 /**
  * useSessionLifecycle Hook
@@ -63,14 +64,37 @@ export function useSessionLifecycle(config: UseSessionLifecycleConfig): UseSessi
       setIsLoading(true);
       setError(null);
 
-      const history = await api.loadSessionHistory(session.id, session.project_id);
+      console.log('[useSessionLifecycle] Loading session:', session.id, 'engine:', (session as any).engine);
+      const engine = (session as any).engine;
+      
+      let history = await api.loadSessionHistory(
+        session.id,
+        session.project_id,
+        engine
+      );
+
+      // If Codex, convert events to messages
+      if (engine === 'codex') {
+        console.log('[useSessionLifecycle] Converting Codex events:', history.length);
+        codexConverter.reset();
+        const convertedMessages: ClaudeStreamMessage[] = [];
+        
+        for (const event of history) {
+            const msg = codexConverter.convertEventObject(event);
+            if (msg) {
+                convertedMessages.push(msg);
+            }
+        }
+        history = convertedMessages;
+        console.log('[useSessionLifecycle] Converted to messages:', history.length);
+      }
 
       // Convert history to messages format
       const loadedMessages: ClaudeStreamMessage[] = history
         .filter(entry => {
           // Filter out invalid message types like 'queue-operation'
           const type = entry.type;
-          const validTypes = ['user', 'assistant', 'system', 'result', 'summary'];
+          const validTypes = ['user', 'assistant', 'system', 'result', 'summary', 'thinking', 'tool_use'];
           if (type && !validTypes.includes(type)) {
             console.warn('[useSessionLifecycle] Filtering out invalid message type:', type);
             return false;
@@ -127,6 +151,13 @@ export function useSessionLifecycle(config: UseSessionLifecycleConfig): UseSessi
   const checkForActiveSession = useCallback(async () => {
     // If we have a session prop, check if it's still active
     if (session) {
+      // Skip active session check for Codex sessions
+      // Codex sessions are non-interactive and don't maintain active state
+      const isCodexSession = (session as any).engine === 'codex';
+      if (isCodexSession) {
+        return;
+      }
+
       try {
         const activeSessions = await api.listRunningClaudeSessions();
         const activeSession = activeSessions.find((s: any) => {

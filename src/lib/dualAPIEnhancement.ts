@@ -1,19 +1,21 @@
 /**
- * 双 API 调用提示词优化方案
+ * 双 API 调用提示词优化方案（混合策略版）
  *
  * 核心思路：
- * 1. 第一次 API 调用：AI 智能分析并提取相关上下文
+ * 1. 第一次 API 调用：
+ *    - 对 acemcp 搜索结果进行智能整理（条件触发：片段数 > 5 或长度 > 3000）
+ *    - 或对历史消息进行筛选（条件触发：消息数 > maxMessages）
  * 2. 第二次 API 调用：基于精选上下文优化提示词
  *
  * 优势：
  * - 准确性提升 40-50%
- * - 无需额外配置（使用同一个提供商）
- * - 成本增加仅 40-50%（使用 Deepseek 仅 $0.00066/次）
+ * - 新会话也能享受 acemcp 结果整理
+ * - 成本可控（条件触发，非始终双调用）
  */
 
 import { ClaudeStreamMessage } from '@/types/claude';
 import { extractTextFromContent } from './sessionHelpers';
-import { PromptEnhancementProvider, callEnhancementAPI } from './promptEnhancementService';
+import { PromptEnhancementProvider, callEnhancementAPI, normalizeOpenAIUrl } from './promptEnhancementService';
 import { loadContextConfig } from './promptContextConfig';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 
@@ -61,12 +63,66 @@ const CONTEXT_EXTRACTION_SYSTEM_PROMPT = `你是对话上下文分析专家。
 3. 数量不超过请求的最大值`;
 
 /**
- * 🆕 双 API 调用优化方案（使用同一个提供商）
+ * 🆕 acemcp 结果整理的系统提示词
+ */
+const ACEMCP_REFINEMENT_SYSTEM_PROMPT = `你是代码上下文整理专家。
+
+【任务】
+对 acemcp 语义搜索返回的代码片段进行智能整理，提取与用户提示词最相关的内容。
+
+【整理原则】
+1. **去重合并**：相似或重复的代码片段合并为一个
+2. **相关性筛选**：只保留与用户提示词直接相关的代码
+3. **层次组织**：按照调用关系或逻辑关系组织代码片段
+4. **保留关键信息**：文件路径、函数签名、核心实现必须保留
+
+【筛选标准】
+高优先级（必选）：
+  ✅ 与提示词主题完全匹配的代码（如提示词问"登录"，保留认证相关代码）
+  ✅ 核心实现代码（函数定义、类定义、主要逻辑）
+  ✅ 被多处引用的公共代码
+  ✅ 包含关键配置或常量的代码
+
+中优先级（酌情选择）：
+  ⚠️ 辅助函数和工具代码
+  ⚠️ 类型定义和接口
+
+排除：
+  ❌ 测试代码（除非用户明确询问测试）
+  ❌ 注释过多、代码过少的片段
+  ❌ 与提示词完全无关的代码
+  ❌ 重复出现的相同代码
+
+【输出格式】
+直接返回整理后的代码上下文，格式如下：
+
+\`\`\`
+### 文件: path/to/file.ts
+[相关代码片段]
+
+### 文件: path/to/another.ts
+[相关代码片段]
+\`\`\`
+
+注意：
+1. 保持代码的完整性，不要截断函数
+2. 添加简短说明解释代码片段之间的关系（如果有）
+3. 总长度控制在 3000 字符以内`;
+
+// acemcp 结果整理的触发阈值
+const ACEMCP_REFINEMENT_THRESHOLDS = {
+  minSnippetCount: 5,      // 片段数超过此值触发整理
+  minContentLength: 3000,  // 内容长度超过此值触发整理
+  maxRefinedLength: 3000,  // 整理后的最大长度
+};
+
+/**
+ * 🆕 双 API 调用优化方案（混合策略版）
  *
  * @param messages 全部历史消息
  * @param currentPrompt 用户当前提示词
  * @param provider 用户选择的 API 提供商（用于两次调用）
- * @param projectContext 项目上下文（可选）
+ * @param projectContext 项目上下文（acemcp 搜索结果，可选）
  * @returns 优化后的提示词
  */
 export async function enhancePromptWithDualAPI(
@@ -88,26 +144,37 @@ export async function enhancePromptWithDualAPI(
   });
 
   let selectedContext: string[] = [];
+  let refinedProjectContext: string | undefined = projectContext;
 
   // ==========================================
-  // 🔥 第一次 API 调用：智能提取相关上下文
+  // 🔥 第一次 API 调用（条件触发）
   // ==========================================
 
-  if (meaningful.length > config.maxMessages) {
-    console.log(`[Dual API] Step 1/2: Extracting relevant context from ${meaningful.length} messages...`);
+  // 1️⃣ 检查是否需要整理 acemcp 结果
+  const needsAcemcpRefinement = shouldRefineAcemcpResult(projectContext);
+
+  // 2️⃣ 检查是否需要筛选历史消息
+  const needsHistoryFiltering = meaningful.length > config.maxMessages;
+
+  if (needsAcemcpRefinement) {
+    // 优先整理 acemcp 结果（对最终效果影响更大）
+    console.log(`[Dual API] Step 1/2: Refining acemcp context (${projectContext?.length} chars)...`);
 
     try {
-      selectedContext = await extractContextWithAPI(
-        meaningful,
+      refinedProjectContext = await refineAcemcpContextWithAPI(
+        projectContext!,
         currentPrompt,
-        config.maxMessages,
-        provider  // 🔑 使用同一个提供商
+        provider
       );
-
-      console.log(`[Dual API] Step 1/2 completed: ${selectedContext.length} messages selected`);
+      console.log(`[Dual API] Step 1/2 completed: acemcp refined to ${refinedProjectContext.length} chars`);
     } catch (error) {
-      console.error('[Dual API] Step 1 failed, falling back to recent messages:', error);
-      // 降级：使用最近的消息
+      console.error('[Dual API] Acemcp refinement failed, using original:', error);
+      // 降级：使用原始上下文
+      refinedProjectContext = projectContext;
+    }
+
+    // 历史消息使用简单截取（已消耗一次 API 调用）
+    if (meaningful.length > 0) {
       selectedContext = meaningful
         .slice(-config.maxMessages)
         .map(msg => {
@@ -115,18 +182,41 @@ export async function enhancePromptWithDualAPI(
           return `${msg.type === 'user' ? '用户' : '助手'}: ${text}`;
         });
     }
+
+  } else if (needsHistoryFiltering) {
+    // 没有 acemcp 需要整理，但历史消息需要筛选
+    console.log(`[Dual API] Step 1/2: Extracting relevant context from ${meaningful.length} messages...`);
+
+    try {
+      selectedContext = await extractContextWithAPI(
+        meaningful,
+        currentPrompt,
+        config.maxMessages,
+        provider
+      );
+      console.log(`[Dual API] Step 1/2 completed: ${selectedContext.length} messages selected`);
+    } catch (error) {
+      console.error('[Dual API] Step 1 failed, falling back to recent messages:', error);
+      selectedContext = meaningful
+        .slice(-config.maxMessages)
+        .map(msg => {
+          const text = extractTextFromContent(msg.message?.content || []);
+          return `${msg.type === 'user' ? '用户' : '助手'}: ${text}`;
+        });
+    }
+
   } else {
-    // 消息不多，跳过第一次调用，直接使用全部
-    console.log(`[Dual API] Message count (${meaningful.length}) <= ${config.maxMessages}, skipping step 1`);
+    // 都不需要第一次 API 调用
+    console.log(`[Dual API] Skipping step 1: acemcp OK, messages (${meaningful.length}) <= ${config.maxMessages}`);
     selectedContext = meaningful.map(msg => {
       const text = extractTextFromContent(msg.message?.content || []);
       return `${msg.type === 'user' ? '用户' : '助手'}: ${text}`;
     });
   }
 
-  // 合并项目上下文
-  if (projectContext) {
-    selectedContext = [...selectedContext, projectContext];
+  // 合并项目上下文（使用整理后的版本）
+  if (refinedProjectContext) {
+    selectedContext = [...selectedContext, refinedProjectContext];
   }
 
   // ==========================================
@@ -228,6 +318,8 @@ async function callContextExtractionAPI(
   // 根据 API 格式选择调用方式
   if (provider.apiFormat === 'gemini') {
     return await callGeminiFormatRaw(provider, systemPrompt, userPrompt);
+  } else if (provider.apiFormat === 'anthropic') {
+    return await callAnthropicFormatRaw(provider, systemPrompt, userPrompt);
   } else {
     return await callOpenAIFormatRaw(provider, systemPrompt, userPrompt);
   }
@@ -257,9 +349,11 @@ async function callOpenAIFormatRaw(
     requestBody.max_tokens = provider.maxTokens;
   }
 
-  const baseUrl = provider.apiUrl.endsWith('/') ? provider.apiUrl.slice(0, -1) : provider.apiUrl;
+  // 🔧 使用 normalizeOpenAIUrl 确保 URL 格式正确（添加 /v1 前缀）
+  const normalizedUrl = normalizeOpenAIUrl(provider.apiUrl);
+  const fullEndpoint = `${normalizedUrl}/chat/completions`;
 
-  const response = await tauriFetch(`${baseUrl}/chat/completions`, {
+  const response = await tauriFetch(fullEndpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -281,6 +375,76 @@ async function callOpenAIFormatRaw(
   }
 
   return content.trim();
+}
+
+/**
+ * 原始 Anthropic 格式调用（/v1/messages）
+ */
+async function callAnthropicFormatRaw(
+  provider: PromptEnhancementProvider,
+  systemPrompt: string,
+  userPrompt: string
+): Promise<string> {
+  const requestBody: any = {
+    model: provider.model,
+    max_tokens: provider.maxTokens || 4096,
+    system: systemPrompt,
+    messages: [
+      { role: 'user', content: userPrompt }
+    ],
+  };
+
+  if (provider.temperature !== undefined && provider.temperature !== null) {
+    requestBody.temperature = provider.temperature;
+  }
+
+  // 规范化 URL
+  let baseUrl = provider.apiUrl.trim();
+  while (baseUrl.endsWith('/')) {
+    baseUrl = baseUrl.slice(0, -1);
+  }
+  // 移除可能存在的 /messages 后缀
+  if (baseUrl.endsWith('/messages')) {
+    baseUrl = baseUrl.slice(0, -'/messages'.length);
+  }
+  // 确保有 /v1
+  if (!baseUrl.endsWith('/v1') && !baseUrl.match(/\/v\d+$/)) {
+    baseUrl = `${baseUrl}/v1`;
+  }
+
+  const endpoint = `${baseUrl}/messages`;
+
+  const response = await tauriFetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': provider.apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Anthropic API request failed: ${response.status} ${response.statusText}\n${errorText}`);
+  }
+
+  const data = await response.json();
+
+  // Anthropic 返回格式: { content: [{ type: 'text', text: '...' }] }
+  if (!data.content || data.content.length === 0) {
+    if (data.error) {
+      throw new Error(`Anthropic API error: ${JSON.stringify(data.error)}`);
+    }
+    throw new Error('Anthropic API returned no content');
+  }
+
+  const textContent = data.content.find((c: any) => c.type === 'text');
+  if (!textContent || !textContent.text) {
+    throw new Error('Anthropic API returned empty text content');
+  }
+
+  return textContent.text.trim();
 }
 
 /**
@@ -409,4 +573,79 @@ function smartTruncate(text: string, maxLength: number): string {
 
   // 降级到简单截断
   return text.substring(0, maxLength) + '...';
+}
+
+// ============================================================================
+// 🆕 acemcp 结果整理相关函数
+// ============================================================================
+
+/**
+ * 判断是否需要整理 acemcp 结果
+ *
+ * 触发条件：
+ * 1. 代码片段数量 > 5
+ * 2. 或内容长度 > 3000 字符
+ */
+function shouldRefineAcemcpResult(projectContext?: string): boolean {
+  if (!projectContext || projectContext.trim().length === 0) {
+    return false;
+  }
+
+  // 统计代码片段数量（通过 "Path:" 或 "### 文件:" 标记）
+  const snippetCount = (projectContext.match(/Path:|### 文件:/g) || []).length;
+
+  // 检查是否超过阈值
+  const exceedsSnippetCount = snippetCount > ACEMCP_REFINEMENT_THRESHOLDS.minSnippetCount;
+  const exceedsLength = projectContext.length > ACEMCP_REFINEMENT_THRESHOLDS.minContentLength;
+
+  const shouldRefine = exceedsSnippetCount || exceedsLength;
+
+  console.log(`[Acemcp Refinement] Check: snippets=${snippetCount}, length=${projectContext.length}, shouldRefine=${shouldRefine}`);
+
+  return shouldRefine;
+}
+
+/**
+ * 使用 AI 整理 acemcp 搜索结果
+ *
+ * @param acemcpResult acemcp 原始搜索结果
+ * @param currentPrompt 用户当前提示词
+ * @param provider API 提供商
+ * @returns 整理后的代码上下文
+ */
+async function refineAcemcpContextWithAPI(
+  acemcpResult: string,
+  currentPrompt: string,
+  provider: PromptEnhancementProvider
+): Promise<string> {
+
+  const userPrompt = `用户提示词：
+${currentPrompt}
+
+acemcp 搜索结果（原始）：
+${acemcpResult}
+
+请整理上述代码片段，保留与用户提示词最相关的内容。`;
+
+  console.log(`[Acemcp Refinement] Calling API to refine ${acemcpResult.length} chars...`);
+
+  // 调用 API 整理
+  const response = await callContextExtractionAPI(
+    provider,
+    ACEMCP_REFINEMENT_SYSTEM_PROMPT,
+    userPrompt
+  );
+
+  // 验证返回结果
+  if (!response || response.trim().length === 0) {
+    throw new Error('API returned empty refinement result');
+  }
+
+  // 如果整理后反而更长，使用智能截断
+  if (response.length > ACEMCP_REFINEMENT_THRESHOLDS.maxRefinedLength) {
+    console.warn(`[Acemcp Refinement] Result too long (${response.length}), truncating...`);
+    return smartTruncate(response, ACEMCP_REFINEMENT_THRESHOLDS.maxRefinedLength);
+  }
+
+  return response;
 }

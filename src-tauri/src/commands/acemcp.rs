@@ -613,29 +613,272 @@ impl AcemcpClient {
 // 关键词提取
 // ============================================================================
 
-/// 从提示词中提取技术关键词
+/// 英文技术缩写词库 - 常见2-3字符的技术术语
+const TECH_ABBREVIATIONS: &[&str] = &[
+    // UI/UX 设计
+    "ui", "ux", "css", "svg", "dom",
+    // 编程语言/运行时
+    "js", "ts", "py", "go", "rs", "rb", "php", "cpp", "jsx", "tsx",
+    // 框架/工具
+    "vue", "npm", "pnpm", "yarn", "git", "vim", "zsh", "wsl",
+    // 概念/架构
+    "api", "sdk", "cli", "gui", "ide", "orm", "mvc", "mvp", "mvvm",
+    "spa", "ssr", "ssg", "pwa", "cdn", "dns", "tcp", "udp", "http",
+    // AI/数据
+    "ai", "ml", "dl", "nlp", "llm", "gpt", "rag",
+    "db", "sql", "kv", "etl",
+    // 系统/运维
+    "io", "os", "vm", "k8s", "ci", "cd", "aws", "gcp",
+    // 安全/认证
+    "jwt", "ssh", "ssl", "tls", "rsa", "aes", "md5",
+    // 其他常用
+    "id", "url", "uri", "xml", "json", "yaml", "toml", "csv",
+    "rgb", "hex", "utf", "ascii", "base64",
+    "fps", "gpu", "cpu", "ram", "ssd", "hdd",
+    // 项目相关
+    "mcp", "acemcp",
+];
+
+/// 中文技术词库 - 常见编程/开发相关词汇
+const CHINESE_TECH_WORDS: &[&str] = &[
+    // 动作词
+    "优化", "重构", "修复", "添加", "删除", "更新", "实现", "集成",
+    "修改", "调整", "改进", "升级", "迁移", "部署", "配置", "调试",
+    "测试", "验证", "检查", "分析", "设计", "创建", "构建", "编译",
+    // 代码结构
+    "接口", "组件", "模块", "函数", "方法", "类", "对象", "实例",
+    "变量", "常量", "参数", "属性", "字段", "结构", "枚举", "类型",
+    // 系统概念
+    "配置", "路由", "状态", "事件", "请求", "响应", "回调", "钩子",
+    "中间件", "插件", "扩展", "服务", "控制器", "模型", "视图",
+    // 功能模块
+    "登录", "注册", "权限", "认证", "授权", "缓存", "数据库", "存储",
+    "上传", "下载", "导入", "导出", "搜索", "过滤", "排序", "分页",
+    // 前端相关
+    "页面", "布局", "样式", "动画", "表单", "按钮", "输入", "列表",
+    "弹窗", "提示", "加载", "渲染", "绑定", "监听",
+    // 后端相关
+    "接口", "端点", "网关", "代理", "负载", "集群", "容器", "日志",
+    // 数据相关
+    "查询", "插入", "更新", "删除", "事务", "索引", "关联", "聚合",
+];
+
+/// 关键词提取结果
+#[derive(Debug, Clone)]
+pub struct ExtractedKeywords {
+    /// 所有关键词组合成的查询字符串
+    pub combined: String,
+    /// 独立的关键词列表（用于多轮搜索）
+    pub individual: Vec<String>,
+    /// 中文关键词
+    pub chinese: Vec<String>,
+    /// 英文关键词
+    pub english: Vec<String>,
+}
+
+/// 从提示词中提取技术关键词（优化版 v2）
+///
+/// 支持从中英文混合文本中智能提取：
+/// - 英文单词（如 codex, claude）
+/// - 驼峰命名（如 getUserInfo → get, User, Info）
+/// - 下划线命名（如 get_user_info → get, user, info）
+/// - 中文技术词汇（基于词库匹配）
+fn extract_keywords_v2(prompt: &str) -> ExtractedKeywords {
+    lazy_static::lazy_static! {
+        // 匹配英文单词（至少3个字符）
+        static ref ENGLISH_WORD_RE: Regex = Regex::new(
+            r"[a-zA-Z][a-zA-Z0-9]{2,}"
+        ).unwrap();
+
+        // 匹配驼峰命名中的各部分（如 getUserInfo → get, User, Info）
+        static ref CAMEL_CASE_RE: Regex = Regex::new(
+            r"[a-z]+|[A-Z][a-z]*|[A-Z]+"
+        ).unwrap();
+
+        // 匹配下划线命名（如 get_user_info）
+        static ref SNAKE_CASE_RE: Regex = Regex::new(
+            r"[a-zA-Z][a-zA-Z0-9]*(?:_[a-zA-Z0-9]+)+"
+        ).unwrap();
+    }
+
+    // 英文停用词（小写）
+    let stopwords: HashSet<&str> = [
+        "the", "a", "an", "is", "are", "was", "were", "be", "been",
+        "please", "help", "me", "i", "want", "how", "can", "could",
+        "would", "should", "will", "shall", "may", "might", "must",
+        "have", "has", "had", "do", "does", "did", "this", "that",
+        "these", "those", "and", "or", "but", "not", "with", "for",
+        "from", "into", "about", "after", "before", "between",
+        "get", "set", "new", "add", "use", "let", "var", "const",
+    ].into_iter().collect();
+
+    let mut english_keywords: Vec<String> = Vec::new();
+    let mut chinese_keywords: Vec<String> = Vec::new();
+    let mut seen: HashSet<String> = HashSet::new();
+
+    // 1️⃣ 提取下划线命名（优先，因为更具体）
+    for cap in SNAKE_CASE_RE.captures_iter(prompt) {
+        let snake_word = cap[0].to_string();
+        // 拆分下划线命名
+        for part in snake_word.split('_') {
+            let lower = part.to_lowercase();
+            if lower.len() >= 3 && !stopwords.contains(lower.as_str()) && !seen.contains(&lower) {
+                seen.insert(lower.clone());
+                english_keywords.push(lower);
+            }
+        }
+    }
+
+    // 2️⃣ 提取英文单词（包括驼峰命名）
+    for cap in ENGLISH_WORD_RE.captures_iter(prompt) {
+        let word = &cap[0];
+
+        // 检查是否是驼峰命名
+        let has_mixed_case = word.chars().any(|c| c.is_lowercase())
+                          && word.chars().any(|c| c.is_uppercase());
+
+        if has_mixed_case {
+            // 拆分驼峰命名
+            for part_cap in CAMEL_CASE_RE.captures_iter(word) {
+                let part = part_cap[0].to_lowercase();
+                if part.len() >= 3 && !stopwords.contains(part.as_str()) && !seen.contains(&part) {
+                    seen.insert(part.clone());
+                    english_keywords.push(part);
+                }
+            }
+        } else {
+            // 普通英文单词
+            let lower = word.to_lowercase();
+            if lower.len() >= 3 && !stopwords.contains(lower.as_str()) && !seen.contains(&lower) {
+                seen.insert(lower.clone());
+                english_keywords.push(lower);
+            }
+        }
+    }
+
+    // 3️⃣ 提取英文技术缩写词（如 ui, ux, api 等短词）
+    let prompt_lower = prompt.to_lowercase();
+    for &abbr in TECH_ABBREVIATIONS {
+        // 使用单词边界匹配，避免误匹配（如 "paid" 中的 "ai"）
+        // 检查缩写词前后是否为非字母数字字符
+        if let Some(pos) = prompt_lower.find(abbr) {
+            let before_ok = pos == 0 || !prompt_lower.chars().nth(pos - 1)
+                .map(|c| c.is_alphanumeric())
+                .unwrap_or(false);
+            let after_ok = pos + abbr.len() >= prompt_lower.len() || !prompt_lower.chars().nth(pos + abbr.len())
+                .map(|c| c.is_alphanumeric())
+                .unwrap_or(false);
+
+            if before_ok && after_ok && !seen.contains(abbr) {
+                seen.insert(abbr.to_string());
+                english_keywords.push(abbr.to_string());
+            }
+        }
+    }
+
+    // 4️⃣ 提取中文技术词汇（基于词库匹配）
+    for &tech_word in CHINESE_TECH_WORDS {
+        if prompt.contains(tech_word) && !seen.contains(tech_word) {
+            seen.insert(tech_word.to_string());
+            chinese_keywords.push(tech_word.to_string());
+        }
+    }
+
+    // 5️⃣ 限制关键词数量
+    english_keywords.truncate(12);  // 增加限制，因为缩写词也算英文关键词
+    chinese_keywords.truncate(5);
+
+    // 6️⃣ 构建结果
+    let mut all_keywords: Vec<String> = Vec::new();
+    all_keywords.extend(english_keywords.clone());
+    all_keywords.extend(chinese_keywords.clone());
+
+    let combined = all_keywords.join(" ");
+
+    // 构建独立关键词列表（用于多轮搜索）
+    // 优先级：完整英文词 > 中文词
+    let mut individual: Vec<String> = Vec::new();
+
+    // 添加重要的英文关键词（前5个）
+    for kw in english_keywords.iter().take(5) {
+        if kw.len() >= 4 {  // 只保留较长的词作为独立查询
+            individual.push(kw.clone());
+        }
+    }
+
+    // 添加中文关键词（前3个）
+    for kw in chinese_keywords.iter().take(3) {
+        individual.push(kw.clone());
+    }
+
+    debug!(
+        "Extracted keywords v2: combined='{}', english={:?}, chinese={:?}, individual={:?}",
+        combined, english_keywords, chinese_keywords, individual
+    );
+
+    ExtractedKeywords {
+        combined,
+        individual,
+        chinese: chinese_keywords,
+        english: english_keywords,
+    }
+}
+
+/// 兼容旧版本的关键词提取函数
 fn extract_keywords(prompt: &str) -> String {
-    // 简单的关键词提取策略：
-    // 1. 移除常见的停用词
-    // 2. 保留技术术语和名词
-    // 3. 限制长度
+    extract_keywords_v2(prompt).combined
+}
 
-    let stopwords = [
-        "请", "帮我", "我想", "如何", "怎么", "能否", "可以",
-        "the", "a", "an", "is", "are", "was", "were",
-        "please", "help", "me", "i", "want", "how", "can",
-    ];
+/// 生成多轮搜索查询
+///
+/// 策略：
+/// - 第1轮：所有关键词组合（找交集）
+/// - 第2轮+：独立的重要关键词（找各自相关）
+fn generate_multi_round_queries(extracted: &ExtractedKeywords, enable_multi_round: bool) -> Vec<String> {
+    let mut queries = Vec::new();
 
-    let words: Vec<&str> = prompt
-        .split_whitespace()
-        .filter(|w| {
-            // 过滤停用词和过短的词
-            w.len() > 2 && !stopwords.contains(&w.to_lowercase().as_str())
-        })
-        .take(10) // 最多取10个关键词
-        .collect();
+    // 第1轮：组合查询（所有关键词）
+    if !extracted.combined.is_empty() {
+        queries.push(extracted.combined.clone());
+    }
 
-    words.join(" ")
+    // 如果启用多轮搜索，添加独立关键词查询
+    if enable_multi_round {
+        // 第2轮+：独立的英文关键词（每个重要的英文词单独搜索）
+        for kw in extracted.individual.iter() {
+            // 避免与组合查询完全相同
+            if kw != &extracted.combined && !kw.is_empty() {
+                queries.push(kw.clone());
+            }
+        }
+
+        // 如果有多个英文关键词，尝试两两组合（提高召回率）
+        if extracted.english.len() >= 2 {
+            let pair = format!("{} {}", extracted.english[0], extracted.english[1]);
+            if !queries.contains(&pair) {
+                queries.push(pair);
+            }
+        }
+
+        // 如果有中文关键词，单独作为一轮查询
+        if !extracted.chinese.is_empty() {
+            let chinese_query = extracted.chinese.join(" ");
+            if !queries.contains(&chinese_query) && chinese_query != extracted.combined {
+                queries.push(chinese_query);
+            }
+        }
+    }
+
+    // 限制最多 5 轮搜索（避免过多 API 调用）
+    queries.truncate(5);
+
+    info!(
+        "Generated {} search queries: {:?}",
+        queries.len(),
+        queries
+    );
+
+    queries
 }
 
 // ============================================================================
@@ -747,29 +990,24 @@ pub async fn enhance_prompt_with_context(
                 (queries, true)
             }
             Ok(_) => {
-                info!("ℹ️  No history messages found, using basic keywords");
-                (vec![extract_keywords(&prompt)], false)
+                info!("ℹ️  No history messages found, using enhanced keyword extraction");
+                // 使用 v2 版本提取关键词，支持多轮搜索
+                let extracted = extract_keywords_v2(&prompt);
+                let queries = generate_multi_round_queries(&extracted, enable_multi_round.unwrap_or(true));
+                (queries, false)
             }
             Err(e) => {
-                warn!("⚠️  Failed to load history: {}, falling back to basic keywords", e);
-                (vec![extract_keywords(&prompt)], false)
+                warn!("⚠️  Failed to load history: {}, falling back to enhanced keywords", e);
+                let extracted = extract_keywords_v2(&prompt);
+                let queries = generate_multi_round_queries(&extracted, enable_multi_round.unwrap_or(true));
+                (queries, false)
             }
         }
     } else {
-        // 无历史：使用简单关键词提取
-        info!("ℹ️  No session context provided, using basic keywords");
-        let keywords = extract_keywords(&prompt);
-
-        // 多轮查询：从不同角度提取关键词
-        let queries = if enable_multi_round.unwrap_or(true) {
-            vec![
-                keywords.clone(),
-                // 可以添加更多查询策略
-            ]
-        } else {
-            vec![keywords]
-        };
-
+        // 无历史：使用增强版关键词提取 + 多轮搜索
+        info!("ℹ️  No session context provided, using enhanced keyword extraction");
+        let extracted = extract_keywords_v2(&prompt);
+        let queries = generate_multi_round_queries(&extracted, enable_multi_round.unwrap_or(true));
         (queries, false)
     };
 

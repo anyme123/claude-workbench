@@ -36,12 +36,18 @@ export interface PromptContextConfig {
 }
 
 const STORAGE_KEY = 'prompt_context_config';
+const CONFIG_VERSION = 2;  // 🆕 配置版本号，修改此值会触发配置重置
 
 /**
  * 默认配置
+ *
+ * maxMessages 说明：
+ * - 这是用户+助手的混合消息数量（不是纯用户消息）
+ * - 8 条 ≈ 4 轮对话，通常足以覆盖当前任务的上下文
+ * - 超过此阈值会触发 AI 智能筛选，而非简单截取
  */
 export const DEFAULT_CONTEXT_CONFIG: PromptContextConfig = {
-  maxMessages: 15,
+  maxMessages: 8,  // 降低阈值：更早触发 AI 筛选，提高上下文质量
   maxAssistantMessageLength: 2000,
   maxUserMessageLength: 1000,
   includeExecutionResults: true,
@@ -50,13 +56,18 @@ export const DEFAULT_CONTEXT_CONFIG: PromptContextConfig = {
 
 /**
  * 预设配置模板
+ *
+ * 阈值参考：
+ * - minimal: 4 条 ≈ 2 轮对话（快速任务）
+ * - balanced: 8 条 ≈ 4 轮对话（日常使用）
+ * - detailed: 16 条 ≈ 8 轮对话（复杂任务）
  */
 export const CONTEXT_PRESETS = {
   minimal: {
     name: '精简模式',
-    description: '最少上下文，适合简单任务',
+    description: '最少上下文，适合简单任务（2轮对话）',
     config: {
-      maxMessages: 5,
+      maxMessages: 4,  // 2 轮对话
       maxAssistantMessageLength: 500,
       maxUserMessageLength: 500,
       includeExecutionResults: false,
@@ -65,14 +76,14 @@ export const CONTEXT_PRESETS = {
   },
   balanced: {
     name: '平衡模式',
-    description: '默认配置，适合大多数场景',
+    description: '默认配置，适合大多数场景（4轮对话）',
     config: DEFAULT_CONTEXT_CONFIG,
   },
   detailed: {
     name: '详细模式',
-    description: '完整上下文，适合复杂任务',
+    description: '完整上下文，适合复杂任务（8轮对话）',
     config: {
-      maxMessages: 30,
+      maxMessages: 16,  // 8 轮对话
       maxAssistantMessageLength: 5000,
       maxUserMessageLength: 2000,
       includeExecutionResults: true,
@@ -83,15 +94,30 @@ export const CONTEXT_PRESETS = {
 
 /**
  * 加载配置
+ *
+ * 🆕 版本检查：如果保存的配置版本与当前版本不匹配，自动重置为默认值
  */
 export function loadContextConfig(): PromptContextConfig {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) {
+      // 首次使用，保存默认配置（带版本号）
+      saveConfigWithVersion(DEFAULT_CONTEXT_CONFIG);
       return DEFAULT_CONTEXT_CONFIG;
     }
-    
-    const config = JSON.parse(stored) as PromptContextConfig;
+
+    const parsed = JSON.parse(stored);
+
+    // 🆕 版本检查：如果版本不匹配，重置为默认配置
+    if (!parsed._version || parsed._version < CONFIG_VERSION) {
+      console.log(`[PromptContextConfig] Config version outdated (${parsed._version} < ${CONFIG_VERSION}), resetting to defaults`);
+      saveConfigWithVersion(DEFAULT_CONTEXT_CONFIG);
+      return DEFAULT_CONTEXT_CONFIG;
+    }
+
+    // 移除版本号字段，返回纯配置
+    const { _version, ...config } = parsed;
+
     // 合并默认值，确保新增字段有默认值
     return {
       ...DEFAULT_CONTEXT_CONFIG,
@@ -104,21 +130,32 @@ export function loadContextConfig(): PromptContextConfig {
 }
 
 /**
- * 保存配置
+ * 🆕 保存配置（带版本号）
  */
-export function saveContextConfig(config: PromptContextConfig): void {
+function saveConfigWithVersion(config: PromptContextConfig): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+    const configWithVersion = {
+      ...config,
+      _version: CONFIG_VERSION,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(configWithVersion));
   } catch (error) {
     console.error('[PromptContextConfig] Failed to save config:', error);
   }
 }
 
 /**
+ * 保存配置（公开接口，自动带版本号）
+ */
+export function saveContextConfig(config: PromptContextConfig): void {
+  saveConfigWithVersion(config);
+}
+
+/**
  * 重置为默认配置
  */
 export function resetContextConfig(): void {
-  saveContextConfig(DEFAULT_CONTEXT_CONFIG);
+  saveConfigWithVersion(DEFAULT_CONTEXT_CONFIG);
 }
 
 /**

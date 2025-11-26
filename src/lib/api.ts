@@ -54,6 +54,8 @@ export interface Session {
   last_message_timestamp?: string;
   /** The model used in this session (if available) */
   model?: string;
+  /** 🆕 Execution engine: 'claude' | 'codex' */
+  engine?: 'claude' | 'codex';
 }
 
 /**
@@ -514,13 +516,62 @@ export const api = {
   },
 
   /**
-   * Retrieves sessions for a specific project
+   * Retrieves sessions for a specific project (both Claude and Codex)
    * @param projectId - The ID of the project to retrieve sessions for
+   * @param projectPath - Optional project path to filter Codex sessions (if not provided, tries to infer from Claude sessions)
    * @returns Promise resolving to an array of sessions
    */
-  async getProjectSessions(projectId: string): Promise<Session[]> {
+  async getProjectSessions(projectId: string, projectPath?: string): Promise<Session[]> {
     try {
-      return await invoke<Session[]>('get_project_sessions', { projectId });
+      // Get Claude sessions
+      const claudeSessions = await invoke<Session[]>('get_project_sessions', { projectId });
+      console.log('[SessionList] Claude sessions:', claudeSessions.length);
+
+      // Get Codex sessions and filter by project path
+      const codexSessions = await this.listCodexSessions();
+      console.log('[SessionList] All Codex sessions:', codexSessions.length);
+
+      const targetPath = projectPath || claudeSessions[0]?.project_path;
+      console.log('[SessionList] Project path for filtering:', targetPath);
+
+      // Normalize paths for comparison (handle Windows backslashes and case insensitivity)
+      const normalize = (p: string) => p ? p.replace(/\\/g, '/').replace(/\/$/, '').toLowerCase() : '';
+      const targetPathNorm = normalize(targetPath || '');
+
+      const filteredCodexSessions: Session[] = codexSessions
+        .filter(cs => {
+          // If we don't have a target path, we can't filter, so return no Codex sessions
+          if (!targetPathNorm) return false;
+
+          const csPathNorm = normalize(cs.projectPath);
+          const match = csPathNorm === targetPathNorm;
+
+          return match;
+        })
+        .map(cs => ({
+          id: cs.id,
+          project_id: projectId,
+          project_path: cs.projectPath,
+          created_at: cs.createdAt,
+          model: cs.model || 'gpt-5.1-codex-max',
+          engine: 'codex' as const,
+          // 🆕 Use actual first message from JSONL file
+          first_message: cs.firstMessage || `Codex Session`,
+          last_message_timestamp: cs.lastMessageTimestamp,
+        }));
+
+      console.log('[SessionList] Filtered Codex sessions:', filteredCodexSessions.length);
+
+      // Merge and sort by creation time
+      const allSessions = [...claudeSessions.map(s => ({ ...s, engine: 'claude' as const })), ...filteredCodexSessions];
+      allSessions.sort((a, b) => b.created_at - a.created_at);
+
+      console.log('[SessionList] Total sessions:', allSessions.length, {
+        claude: claudeSessions.length,
+        codex: filteredCodexSessions.length
+      });
+
+      return allSessions;
     } catch (error) {
       console.error("Failed to get project sessions:", error);
       throw error;
@@ -684,6 +735,33 @@ export const api = {
   },
 
   /**
+   * Reads the AGENTS.md system prompt file from Codex directory
+   * @returns Promise resolving to the Codex system prompt content
+   */
+  async getCodexSystemPrompt(): Promise<string> {
+    try {
+      return await invoke<string>("get_codex_system_prompt");
+    } catch (error) {
+      console.error("Failed to get Codex system prompt:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Saves the AGENTS.md system prompt file to Codex directory
+   * @param content - The new content for the Codex system prompt
+   * @returns Promise resolving when the file is saved
+   */
+  async saveCodexSystemPrompt(content: string): Promise<string> {
+    try {
+      return await invoke<string>("save_codex_system_prompt", { content });
+    } catch (error) {
+      console.error("Failed to save Codex system prompt:", error);
+      throw error;
+    }
+  },
+
+  /**
    * Saves the Claude settings file
    * @param settings - The settings object to save
    * @returns Promise resolving when the settings are saved
@@ -787,10 +865,27 @@ export const api = {
 
 
   /**
-   * Loads the JSONL history for a specific session
+   * Loads the JSONL history for a specific session (Claude or Codex)
    */
-  async loadSessionHistory(sessionId: string, projectId: string): Promise<any[]> {
+  async loadSessionHistory(sessionId: string, projectId: string, engine?: 'claude' | 'codex'): Promise<any[]> {
+    // For Codex sessions, read directly from .codex/sessions
+    if (engine === 'codex') {
+      return this.loadCodexSessionHistory(sessionId);
+    }
+    // For Claude sessions, use existing backend
     return invoke("load_session_history", { sessionId, projectId });
+  },
+
+  /**
+   * 🆕 Loads Codex session history from JSONL file
+   */
+  async loadCodexSessionHistory(sessionId: string): Promise<any[]> {
+    try {
+      return await invoke("load_codex_session_history", { sessionId });
+    } catch (error) {
+      console.error("Failed to load Codex session history:", error);
+      throw error;
+    }
   },
 
   /**
@@ -2432,6 +2527,279 @@ export const api = {
       return await invoke("get_session_code_changes", { projectPath, sessionStartCommit });
     } catch (error) {
       console.error("Failed to get session code changes:", error);
+      throw error;
+    }
+  },
+
+  // ==================== OpenAI Codex Integration ====================
+
+  /**
+   * Executes a Codex task in non-interactive mode with streaming output
+   * @param options - Codex execution options
+   * @returns Promise resolving when execution starts (events are streamed via event listeners)
+   */
+  async executeCodex(options: import('@/types/codex').CodexExecutionOptions): Promise<void> {
+    try {
+      return await invoke("execute_codex", { options });
+    } catch (error) {
+      console.error("Failed to execute Codex:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Resumes a previous Codex session
+   * @param sessionId - The session ID to resume
+   * @param options - Codex execution options (prompt, mode, etc.)
+   * @returns Promise resolving when execution starts
+   */
+  async resumeCodex(
+    sessionId: string,
+    options: Omit<import('@/types/codex').CodexExecutionOptions, 'sessionId'>
+  ): Promise<void> {
+    try {
+      return await invoke("resume_codex", { sessionId, options });
+    } catch (error) {
+      console.error("Failed to resume Codex session:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Resumes the last Codex session
+   * @param options - Codex execution options
+   * @returns Promise resolving when execution starts
+   */
+  async resumeLastCodex(
+    options: Omit<import('@/types/codex').CodexExecutionOptions, 'resumeLast'>
+  ): Promise<void> {
+    try {
+      return await invoke("resume_last_codex", { options });
+    } catch (error) {
+      console.error("Failed to resume last Codex session:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Cancels a running Codex execution
+   * @param sessionId - Optional session ID to cancel a specific session
+   * @returns Promise resolving when cancellation is complete
+   */
+  async cancelCodex(sessionId?: string): Promise<void> {
+    try {
+      return await invoke("cancel_codex", { sessionId });
+    } catch (error) {
+      console.error("Failed to cancel Codex execution:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Gets a list of all Codex sessions
+   * @returns Promise resolving to array of Codex sessions
+   */
+  async listCodexSessions(): Promise<import('@/types/codex').CodexSession[]> {
+    try {
+      return await invoke<import('@/types/codex').CodexSession[]>("list_codex_sessions");
+    } catch (error) {
+      console.error("Failed to list Codex sessions:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Deletes a Codex session
+   * @param sessionId - The session ID to delete
+   * @returns Promise resolving to success message
+   */
+  async deleteCodexSession(sessionId: string): Promise<string> {
+    try {
+      return await invoke<string>("delete_codex_session", { sessionId });
+    } catch (error) {
+      console.error("Failed to delete Codex session:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Checks if Codex is available and properly configured
+   * @returns Promise resolving to availability status
+   */
+  async checkCodexAvailability(): Promise<{
+    available: boolean;
+    version?: string;
+    error?: string;
+  }> {
+    try {
+      return await invoke("check_codex_availability");
+    } catch (error) {
+      console.error("Failed to check Codex availability:", error);
+      return {
+        available: false,
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  },
+
+  // ============================================================================
+  // Codex Mode Configuration (WSL Support)
+  // ============================================================================
+
+  /**
+   * Gets Codex mode configuration
+   * @returns Promise resolving to mode configuration info
+   */
+  async getCodexModeConfig(): Promise<{
+    mode: 'auto' | 'native' | 'wsl';
+    wslDistro: string | null;
+    actualMode: 'native' | 'wsl';
+    nativeAvailable: boolean;
+    wslAvailable: boolean;
+    availableDistros: string[];
+  }> {
+    try {
+      return await invoke("get_codex_mode_config");
+    } catch (error) {
+      console.error("Failed to get Codex mode config:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Sets Codex mode configuration
+   * @param mode - The mode to set: 'auto', 'native', or 'wsl'
+   * @param wslDistro - Optional WSL distro name
+   * @returns Promise resolving to success message
+   */
+  async setCodexModeConfig(
+    mode: 'auto' | 'native' | 'wsl',
+    wslDistro?: string | null
+  ): Promise<string> {
+    try {
+      return await invoke<string>("set_codex_mode_config", {
+        mode,
+        wslDistro: wslDistro || null
+      });
+    } catch (error) {
+      console.error("Failed to set Codex mode config:", error);
+      throw error;
+    }
+  },
+
+  // ============================================================================
+  // Codex Rewind Commands
+  // ============================================================================
+
+  /**
+   * Records a Codex prompt being sent (called before execution)
+   * @param sessionId - The Codex session ID
+   * @param projectPath - The project path
+   * @param promptText - The prompt text
+   * @returns Promise resolving to the prompt index
+   */
+  async recordCodexPromptSent(
+    sessionId: string,
+    projectPath: string,
+    promptText: string
+  ): Promise<number> {
+    try {
+      return await invoke<number>("record_codex_prompt_sent", {
+        sessionId,
+        projectPath,
+        promptText
+      });
+    } catch (error) {
+      console.error("Failed to record Codex prompt sent:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Records a Codex prompt completion (called after AI response)
+   * @param sessionId - The Codex session ID
+   * @param projectPath - The project path
+   * @param promptIndex - The prompt index to complete
+   */
+  async recordCodexPromptCompleted(
+    sessionId: string,
+    projectPath: string,
+    promptIndex: number
+  ): Promise<void> {
+    try {
+      await invoke("record_codex_prompt_completed", {
+        sessionId,
+        projectPath,
+        promptIndex
+      });
+    } catch (error) {
+      console.error("Failed to record Codex prompt completed:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Gets Codex prompt list for a session (used by revert picker)
+   */
+  async getCodexPromptList(sessionId: string): Promise<PromptRecord[]> {
+    try {
+      return await invoke<PromptRecord[]>("get_codex_prompt_list", { sessionId });
+    } catch (error) {
+      console.error("Failed to get Codex prompt list:", error);
+      return [];
+    }
+  },
+
+  /**
+   * Checks rewind capabilities for a Codex prompt
+   * @param sessionId - Codex session ID
+   * @param promptIndex - Prompt index to check
+   */
+  async checkCodexRewindCapabilities(
+    sessionId: string,
+    promptIndex: number
+  ): Promise<RewindCapabilities> {
+    try {
+      return await invoke<RewindCapabilities>("check_codex_rewind_capabilities", {
+        sessionId,
+        promptIndex,
+      });
+    } catch (error) {
+      console.error("Failed to check Codex rewind capabilities:", error);
+      // Fallback to conversation-only to keep UI functional
+      return {
+        conversation: true,
+        code: false,
+        both: false,
+        warning: "无法获取 Codex 撤回能力，只能删除对话记录。",
+        source: "cli",
+      };
+    }
+  },
+
+  /**
+   * Reverts a Codex session to a specific prompt
+   * @param sessionId - The Codex session ID
+   * @param projectPath - The project path
+   * @param promptIndex - The prompt index to revert to
+   * @param mode - The rewind mode (conversation_only, code_only, or both)
+   * @returns Promise resolving to the prompt text (for restoring to input)
+   */
+  async revertCodexToPrompt(
+    sessionId: string,
+    projectPath: string,
+    promptIndex: number,
+    mode: RewindMode = "both"
+  ): Promise<string> {
+    try {
+      return await invoke<string>("revert_codex_to_prompt", {
+        sessionId,
+        projectPath,
+        promptIndex,
+        mode
+      });
+    } catch (error) {
+      console.error("Failed to revert Codex to prompt:", error);
       throw error;
     }
   },

@@ -18,6 +18,23 @@ import { api, type Session } from '@/lib/api';
 import { translationMiddleware, isSlashCommand, type TranslationResult } from '@/lib/translationMiddleware';
 import type { ClaudeStreamMessage } from '@/types/claude';
 import type { ModelType } from '@/components/FloatingPromptInput/types';
+import { codexConverter } from '@/lib/codexConverter';
+import type { CodexExecutionMode } from '@/types/codex';
+
+// ============================================================================
+// Global Type Declarations
+// ============================================================================
+
+// Extend window object for Codex pending prompt tracking
+declare global {
+  interface Window {
+    __codexPendingPrompt?: {
+      sessionId: string;
+      projectPath: string;
+      promptIndex: number;
+    };
+  }
+}
 
 // ============================================================================
 // Type Definitions
@@ -40,6 +57,11 @@ interface UsePromptExecutionConfig {
   isActive: boolean;
   isFirstPrompt: boolean;
   extractedSessionInfo: { sessionId: string; projectId: string } | null;
+
+  // 🆕 Codex Integration
+  executionEngine?: 'claude' | 'codex'; // 执行引擎选择 (默认: 'claude')
+  codexMode?: CodexExecutionMode;       // Codex 执行模式
+  codexModel?: string;                  // Codex 模型 (e.g., 'gpt-5.1-codex-max')
 
   // Refs
   hasActiveSessionRef: React.MutableRefObject<boolean>;
@@ -81,6 +103,9 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
     isActive,
     isFirstPrompt,
     extractedSessionInfo,
+    executionEngine = 'claude', // 🆕 默认使用 Claude Code
+    codexMode = 'read-only',     // 🆕 Codex 默认只读模式
+    codexModel,                  // 🆕 Codex 模型
     hasActiveSessionRef,
     unlistenRefs,
     isMountedRef,
@@ -165,17 +190,38 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
       const isUserInitiated = !prompt.includes('Warmup') 
         && !prompt.includes('<command-name>')
         && !prompt.includes('Launching skill:');
+      const codexPendingInfo = executionEngine === 'codex' ? {
+        sessionId: effectiveSession?.id || null,
+        projectPath,
+        promptText: prompt,
+        promptIndex: undefined as number | undefined,
+      } : undefined;
       
       // 对于已有会话，立即记录；对于新会话，在收到 session_id 后记录
       if (effectiveSession && isUserInitiated) {
         try {
-          recordedPromptIndex = await api.recordPromptSent(
-            effectiveSession.id,
-            effectiveSession.project_id,
-            projectPath,
-            prompt
-          );
-          console.log('[Prompt Revert] [OK] Recorded user prompt #', recordedPromptIndex, '(existing session)');
+          if (executionEngine === 'codex') {
+            // ✅ Codex 使用专用的记录 API（写入 ~/.codex/git-records/）
+            recordedPromptIndex = await api.recordCodexPromptSent(
+              effectiveSession.id,
+              projectPath,
+              prompt
+            );
+            console.log('[Codex Revert] [OK] Recorded Codex prompt #', recordedPromptIndex, '(existing session)');
+            if (codexPendingInfo) {
+              codexPendingInfo.promptIndex = recordedPromptIndex;
+              codexPendingInfo.sessionId = effectiveSession.id;
+            }
+          } else {
+            // Claude Code 使用原有的记录 API（写入 .claude-sessions/）
+            recordedPromptIndex = await api.recordPromptSent(
+              effectiveSession.id,
+              effectiveSession.project_id,
+              projectPath,
+              prompt
+            );
+            console.log('[Prompt Revert] [OK] Recorded Claude prompt #', recordedPromptIndex, '(existing session)');
+          }
         } catch (err) {
           console.error('[Prompt Revert] [ERROR] Failed to record prompt:', err);
         }
@@ -204,20 +250,116 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
         // Mark as setting up listeners
         isListeningRef.current = true;
 
-        console.log('[usePromptExecution] Setting up event listeners for ACTIVE tab only');
+        // ====================================================================
+        // 🆕 Codex Event Listeners
+        // ====================================================================
+        if (executionEngine === 'codex') {
+          // Reset Codex converter state for new session
+          codexConverter.reset();
 
-        // --------------------------------------------------------------------
-        // Event Listener Setup Strategy
-        // --------------------------------------------------------------------
-        // Claude Code may emit a *new* session_id even when we pass --resume.
-        // If we listen only on the old session-scoped channel we will miss the
-        // stream until the user navigates away & back. To avoid this we:
-        //   • Always start with GENERIC listeners (no suffix) so we catch the
-        //     very first "system:init" message regardless of the session id.
-        //   • Once that init message provides the *actual* session_id, we
-        //     dynamically switch to session-scoped listeners and stop the
-        //     generic ones to prevent duplicate handling.
-        // --------------------------------------------------------------------
+          // Listen for Codex JSONL output
+          const codexOutputUnlisten = await listen<string>('codex-output', (evt) => {
+            if (!isMountedRef.current) return;
+
+            // Convert Codex JSONL event to ClaudeStreamMessage
+            const message = codexConverter.convertEvent(evt.payload);
+            if (message) {
+              setMessages(prev => [...prev, message]);
+              setRawJsonlOutput((prev) => [...prev, evt.payload]);
+
+              // Extract and save Codex session ID from thread.started
+              if (message.type === 'system' && message.subtype === 'init' && (message as any).session_id) {
+                const codexSessionId = (message as any).session_id;
+                setClaudeSessionId(codexSessionId);
+
+                // Save session info for resuming
+                const projectId = projectPath.replace(/[^a-zA-Z0-9]/g, '-');
+                setExtractedSessionInfo({ sessionId: codexSessionId, projectId });
+
+                // Mark as not first prompt anymore
+                setIsFirstPrompt(false);
+
+                // If this is a new Codex session and prompt not yet recorded, record now
+                if (isUserInitiated && codexPendingInfo && codexPendingInfo.promptIndex === undefined) {
+                  api.recordCodexPromptSent(codexSessionId, projectPath, codexPendingInfo.promptText)
+                    .then((idx) => {
+                      codexPendingInfo.promptIndex = idx;
+                      codexPendingInfo.sessionId = codexSessionId;
+                      window.__codexPendingPrompt = {
+                        sessionId: codexSessionId,
+                        projectPath,
+                        promptIndex: idx
+                      };
+                      console.log('[usePromptExecution] Recorded Codex prompt after init with index', idx);
+                    })
+                    .catch(err => {
+                      console.warn('[usePromptExecution] Failed to record Codex prompt after init:', err);
+                    });
+                } else if (codexPendingInfo && codexPendingInfo.promptIndex !== undefined) {
+                  // Update pending sessionId for completion handler
+                  window.__codexPendingPrompt = {
+                    sessionId: codexSessionId,
+                    projectPath,
+                    promptIndex: codexPendingInfo.promptIndex
+                  };
+                }
+              }
+            }
+          });
+
+          // Listen for Codex errors
+          const codexErrorUnlisten = await listen<string>('codex-error', (evt) => {
+            setError(evt.payload);
+          });
+
+          // Listen for Codex completion
+          const codexCompleteUnlisten = await listen<boolean>('codex-complete', async (_evt) => {
+            setIsLoading(false);
+            hasActiveSessionRef.current = false;
+            isListeningRef.current = false;
+
+            // 🆕 Record prompt completion for rewind support
+            if (window.__codexPendingPrompt) {
+              const pendingPrompt = window.__codexPendingPrompt;
+              try {
+                await api.recordCodexPromptCompleted(
+                  pendingPrompt.sessionId,
+                  pendingPrompt.projectPath,
+                  pendingPrompt.promptIndex
+                );
+                console.log('[usePromptExecution] Recorded Codex prompt completion #', pendingPrompt.promptIndex);
+              } catch (err) {
+                console.warn('[usePromptExecution] Failed to record Codex prompt completion:', err);
+              }
+              // Clear the pending prompt
+              delete window.__codexPendingPrompt;
+            }
+
+            // Process queued prompts
+            if (queuedPromptsRef.current.length > 0) {
+              const [nextPrompt, ...remainingPrompts] = queuedPromptsRef.current;
+              setQueuedPrompts(remainingPrompts);
+
+              setTimeout(() => {
+                handleSendPrompt(nextPrompt.prompt, nextPrompt.model);
+              }, 100);
+            }
+          });
+
+          unlistenRefs.current = [codexOutputUnlisten, codexErrorUnlisten, codexCompleteUnlisten];
+        } else {
+          // --------------------------------------------------------------------
+          // Claude Code Event Listener Setup Strategy
+          // --------------------------------------------------------------------
+          // Claude Code may emit a *new* session_id even when we pass --resume.
+          // If we listen only on the old session-scoped channel we will miss the
+          // stream until the user navigates away & back. To avoid this we:
+          //   • Always start with GENERIC listeners (no suffix) so we catch the
+          //     very first "system:init" message regardless of the session id.
+          //   • Once that init message provides the *actual* session_id, we
+          //     dynamically switch to session-scoped listeners and stop the
+          //     generic ones to prevent duplicate handling.
+          // --------------------------------------------------------------------
 
         let currentSessionId: string | null = claudeSessionId || effectiveSession?.id || null;
 
@@ -470,6 +612,8 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
         // Store the generic unlisteners for now; they may be replaced later.
         unlistenRefs.current = [genericOutputUnlisten, genericErrorUnlisten, genericCompleteUnlisten];
 
+        } // End of Claude Code event listener setup
+
         // ========================================================================
         // 3️⃣ Translation Processing
         // ========================================================================
@@ -533,6 +677,7 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
             ]
           },
           sentAt: new Date().toISOString(),
+          ...(executionEngine === 'codex' ? { engine: 'codex' as const } : {}),
           // Add translation metadata for debugging/info
           translationMeta: userInputTranslation ? {
             wasTranslated: userInputTranslation.wasTranslated,
@@ -547,23 +692,82 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
       // 6️⃣ API Execution
       // ========================================================================
 
-      // Execute the appropriate command based on session state
+      // Execute the appropriate command based on execution engine
       // Use processedPrompt (potentially translated) for API calls
-      if (effectiveSession && !isFirstPrompt) {
-        // Resume existing session
-        console.log('[usePromptExecution] Resuming session:', effectiveSession.id);
-        try {
-          await api.resumeClaudeCode(projectPath, effectiveSession.id, processedPrompt, model, isPlanMode, maxThinkingTokens);
-        } catch (resumeError) {
-          console.warn('[usePromptExecution] Resume failed, falling back to continue mode:', resumeError);
-          // Fallback to continue mode if resume fails
-          await api.continueClaudeCode(projectPath, processedPrompt, model, isPlanMode, maxThinkingTokens);
+      if (executionEngine === 'codex') {
+        // ====================================================================
+        // 🆕 Codex Execution Branch
+        // ====================================================================
+
+        // 📝 Git 记录逻辑说明：
+        // - 已有会话：已在前面第 201-230 行通过 recordCodexPromptSent 记录
+        // - 新会话：在事件监听器 codex-output 收到 thread.started 后记录
+        // 此处仅设置 pendingPrompt 供 completion 使用
+
+        if (effectiveSession && !isFirstPrompt) {
+          // Resume existing Codex session
+          try {
+            await api.resumeCodex(effectiveSession.id, {
+              projectPath,
+              prompt: processedPrompt,
+              mode: codexMode || 'read-only',
+              model: codexModel || model,
+              json: true
+            });
+          } catch (resumeError) {
+            // Fallback to resume last if specific resume fails
+            await api.resumeLastCodex({
+              projectPath,
+              prompt: processedPrompt,
+              mode: codexMode || 'read-only',
+              model: codexModel || model,
+              json: true
+            });
+          }
+        } else {
+          // Start new Codex session
+          setIsFirstPrompt(false);
+          await api.executeCodex({
+            projectPath,
+            prompt: processedPrompt,
+            mode: codexMode || 'read-only',
+            model: codexModel || model,
+            json: true
+          });
+        }
+
+        // 🆕 Store pending prompt info for completion recording
+        // 已有会话: recordedPromptIndex 已在前面设置
+        // 新会话: codexPendingInfo.promptIndex 将在 thread.started 事件后设置
+        const pendingIndex = recordedPromptIndex >= 0 ? recordedPromptIndex : codexPendingInfo?.promptIndex;
+        const pendingSessionId = effectiveSession?.id || codexPendingInfo?.sessionId || null;
+        if (pendingIndex !== undefined && pendingSessionId) {
+          window.__codexPendingPrompt = {
+            sessionId: pendingSessionId,
+            projectPath,
+            promptIndex: pendingIndex
+          };
         }
       } else {
-        // Start new session
-        console.log('[usePromptExecution] Starting new session');
-        setIsFirstPrompt(false);
-        await api.executeClaudeCode(projectPath, processedPrompt, model, isPlanMode, maxThinkingTokens);
+        // ====================================================================
+        // Claude Code Execution Branch
+        // ====================================================================
+        if (effectiveSession && !isFirstPrompt) {
+          // Resume existing session
+          console.log('[usePromptExecution] Resuming session:', effectiveSession.id);
+          try {
+            await api.resumeClaudeCode(projectPath, effectiveSession.id, processedPrompt, model, isPlanMode, maxThinkingTokens);
+          } catch (resumeError) {
+            console.warn('[usePromptExecution] Resume failed, falling back to continue mode:', resumeError);
+            // Fallback to continue mode if resume fails
+            await api.continueClaudeCode(projectPath, processedPrompt, model, isPlanMode, maxThinkingTokens);
+          }
+        } else {
+          // Start new session
+          console.log('[usePromptExecution] Starting new session');
+          setIsFirstPrompt(false);
+          await api.executeClaudeCode(projectPath, processedPrompt, model, isPlanMode, maxThinkingTokens);
+        }
       }
 
     } catch (err) {
@@ -586,6 +790,9 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
     isActive,
     isFirstPrompt,
     extractedSessionInfo,
+    executionEngine,  // 🆕 Codex integration
+    codexMode,        // 🆕 Codex integration
+    codexModel,       // 🆕 Codex integration
     hasActiveSessionRef,
     unlistenRefs,
     isMountedRef,

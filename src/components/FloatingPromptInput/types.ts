@@ -44,6 +44,11 @@ export interface ImageAttachment {
 }
 
 /**
+ * Execution engine configuration (re-export from ExecutionEngineSelector)
+ */
+export type ExecutionEngineConfig = import('@/components/ExecutionEngineSelector').ExecutionEngineConfig;
+
+/**
  * Floating prompt input props
  */
 export interface FloatingPromptInputProps {
@@ -127,6 +132,14 @@ export interface FloatingPromptInputProps {
    * 🆕 Complete session information (for export)
    */
   session?: import("@/lib/api").Session;
+  /**
+   * 🆕 Execution engine configuration (optional, for Codex integration)
+   */
+  executionEngineConfig?: ExecutionEngineConfig;
+  /**
+   * 🆕 Callback when execution engine config changes
+   */
+  onExecutionEngineConfigChange?: (config: ExecutionEngineConfig) => void;
 }
 
 /**

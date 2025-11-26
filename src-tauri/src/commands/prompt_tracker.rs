@@ -70,7 +70,7 @@ pub struct GitRecord {
 
 
 /// Load execution config from file
-fn load_execution_config() -> Result<ClaudeExecutionConfig> {
+pub fn load_execution_config() -> Result<ClaudeExecutionConfig> {
     let claude_dir = get_claude_dir().context("Failed to get claude dir")?;
     let config_file = claude_dir.join("execution_config.json");
     

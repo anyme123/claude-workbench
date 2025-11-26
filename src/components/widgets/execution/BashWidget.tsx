@@ -107,8 +107,8 @@ export const BashWidget: React.FC<BashWidgetProps> = ({
           <div className={cn(
             "mt-3 p-3 rounded-md border text-xs font-mono whitespace-pre-wrap overflow-x-auto",
             isError
-              ? "border-red-500/20 bg-red-500/5 text-red-400"
-              : "border-green-500/20 bg-green-500/5 text-green-300"
+              ? "border-destructive/20 bg-destructive/5 text-destructive"
+              : "border-success/20 bg-success/5 text-success"
           )}>
             {resultContent || (isError ? "命令失败" : "命令完成")}
           </div>

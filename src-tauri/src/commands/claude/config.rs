@@ -8,7 +8,7 @@ use regex::Regex;
 
 
 
-use super::paths::get_claude_dir;
+use super::paths::{get_claude_dir, get_codex_dir};
 use super::platform;
 use crate::commands::permission_config::{
     ClaudeExecutionConfig, ClaudePermissionConfig, PermissionMode,
@@ -65,6 +65,13 @@ pub async fn open_new_session(app: AppHandle, path: Option<String>) -> Result<St
         // If a path is provided, use it; otherwise use current directory
         if let Some(project_path) = path {
             cmd.current_dir(&project_path);
+        }
+
+        // 🔥 Fix: Apply platform-specific no-window configuration to hide console
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
         }
 
         // Execute the command
@@ -803,5 +810,49 @@ pub async fn validate_permission_config(
     }
     
     Ok(validation_result)
+}
+
+/// Reads the AGENTS.md system prompt file from Codex directory
+#[tauri::command]
+pub async fn get_codex_system_prompt() -> Result<String, String> {
+    log::info!("Reading AGENTS.md system prompt from Codex directory");
+
+    let codex_dir = get_codex_dir().map_err(|e| {
+        log::error!("Failed to get Codex directory: {}", e);
+        format!("无法访问 Codex 目录: {}。请确保已安装 Codex CLI。", e)
+    })?;
+
+    let agents_md_path = codex_dir.join("AGENTS.md");
+
+    if !agents_md_path.exists() {
+        log::warn!("AGENTS.md not found at {:?}", agents_md_path);
+        return Ok(String::new());
+    }
+
+    fs::read_to_string(&agents_md_path).map_err(|e| {
+        log::error!("Failed to read AGENTS.md: {}", e);
+        format!("读取 AGENTS.md 失败: {}", e)
+    })
+}
+
+/// Saves the AGENTS.md system prompt file to Codex directory
+#[tauri::command]
+pub async fn save_codex_system_prompt(content: String) -> Result<String, String> {
+    log::info!("Saving AGENTS.md system prompt to Codex directory");
+
+    let codex_dir = get_codex_dir().map_err(|e| {
+        log::error!("Failed to get Codex directory: {}", e);
+        format!("无法访问 Codex 目录: {}。请确保已安装 Codex CLI。", e)
+    })?;
+
+    let agents_md_path = codex_dir.join("AGENTS.md");
+
+    fs::write(&agents_md_path, content).map_err(|e| {
+        log::error!("Failed to write AGENTS.md: {}", e);
+        format!("保存 AGENTS.md 失败: {}", e)
+    })?;
+
+    log::info!("Successfully saved AGENTS.md to {:?}", agents_md_path);
+    Ok("Codex 系统提示词保存成功".to_string())
 }
 

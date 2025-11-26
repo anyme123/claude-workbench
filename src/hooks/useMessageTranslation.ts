@@ -136,11 +136,18 @@ export function useMessageTranslation(config: UseMessageTranslationConfig): UseM
       // Don't process if component unmounted
       if (!isMountedRef.current) return;
 
-      // Add received timestamp for non-user messages
+      // Add received timestamp for non-user messages (only if not already set)
       if (message.type !== "user") {
         const now = new Date().toISOString();
-        message.receivedAt = now;
-        message.timestamp = now;  // Also add timestamp for compatibility
+        // Only set receivedAt if it doesn't exist (preserve original timestamp for history)
+        if (!message.receivedAt) {
+          message.receivedAt = now;
+        }
+        // NEVER override timestamp - it should always be the original event time
+        // Only set it if it's completely missing
+        if (!message.timestamp) {
+          message.timestamp = now;
+        }
       }
 
       // 🌐 Translation: Process Claude response

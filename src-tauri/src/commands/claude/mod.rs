@@ -10,6 +10,8 @@ mod file_ops;
 
 pub use models::*;
 pub use paths::*;
+// Export platform utilities for process window hiding
+pub use platform::apply_no_window_async;
 pub use self::cli_runner::{
     cancel_claude_execution,
     continue_claude_code,
@@ -28,6 +30,7 @@ pub use self::config::{
     get_claude_path,
     get_claude_permission_config,
     get_claude_settings,
+    get_codex_system_prompt,
     get_permission_presets,
     get_system_prompt,
     open_new_session,
@@ -35,6 +38,7 @@ pub use self::config::{
     reset_claude_execution_config,
     save_claude_md_file,
     save_claude_settings,
+    save_codex_system_prompt,
     save_system_prompt,
     set_custom_claude_path,
     update_claude_execution_config,

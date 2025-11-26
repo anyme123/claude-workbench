@@ -310,6 +310,9 @@ impl AutoCompactManager {
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped());
 
+        // 🔥 Fix: Apply platform-specific no-window configuration to hide console
+        crate::commands::claude::apply_no_window_async(&mut cmd);
+
         // Execute compaction
         let mut child = cmd
             .spawn()
