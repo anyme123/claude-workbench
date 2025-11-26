@@ -69,6 +69,9 @@ export type { GrepWidgetProps } from './search/GrepWidget';
 export { TodoWidget } from './task-management/TodoWidget';
 export type { TodoWidgetProps } from './task-management/TodoWidget';
 
+export { UpdatePlanWidget } from './task-management/UpdatePlanWidget';
+export type { UpdatePlanWidgetProps } from './task-management/UpdatePlanWidget';
+
 // ==================== 子代理类 ====================
 export { TaskWidget } from './agent/TaskWidget';
 export type { TaskWidgetProps } from './agent/TaskWidget';

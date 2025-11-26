@@ -30,6 +30,7 @@ import {
 
   // 任务管理类
   TodoWidget,
+  UpdatePlanWidget,
 
   // 子代理类
   TaskWidget,
@@ -188,6 +189,17 @@ export function initializeToolRegistry(): void {
         };
       }),
       description: 'Todo 列表读取工具',
+    },
+
+    // Update Plan - 计划更新（Codex 专用）
+    {
+      name: 'update_plan',
+      render: createToolAdapter(UpdatePlanWidget, (props) => ({
+        plan: props.input?.plan,
+        items: props.input?.items,
+        result: props.result,
+      })),
+      description: 'Codex 计划更新工具',
     },
 
     // LS - 列出目录
