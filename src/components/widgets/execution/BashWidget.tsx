@@ -8,7 +8,6 @@
 import React, { useState } from "react";
 import { Terminal, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
 
 export interface BashWidgetProps {
@@ -30,8 +29,6 @@ export const BashWidget: React.FC<BashWidgetProps> = ({
   description,
   result,
 }) => {
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
   const [isExpanded, setIsExpanded] = useState(false);
 
   // 提取结果内容
@@ -56,27 +53,21 @@ export const BashWidget: React.FC<BashWidgetProps> = ({
   }
 
   return (
-    <div className={cn(
-      "rounded-lg border overflow-hidden",
-      isDark ? "bg-zinc-950 border-zinc-800" : "bg-zinc-100 border-zinc-300"
-    )}>
+    <div className="rounded-lg border overflow-hidden bg-zinc-100 dark:bg-zinc-950 border-zinc-300 dark:border-zinc-800">
       {/* 头部 */}
-      <div className={cn(
-        "px-4 py-2 flex items-center gap-2 border-b",
-        isDark ? "bg-zinc-700/30 border-zinc-800" : "bg-zinc-200/50 border-zinc-300"
-      )}>
+      <div className="px-4 py-2 flex items-center gap-2 border-b bg-zinc-200/50 dark:bg-zinc-700/30 border-zinc-300 dark:border-zinc-800">
         <Terminal className="h-3.5 w-3.5 text-green-500" />
-        <span className={cn("text-xs font-mono", isDark ? "text-zinc-300" : "text-zinc-600")}>终端</span>
+        <span className="text-xs font-mono text-zinc-600 dark:text-zinc-300">终端</span>
         {description && (
           <>
-            <ChevronRight className={cn("h-3 w-3", isDark ? "text-zinc-400" : "text-zinc-500")} />
-            <span className={cn("text-xs", isDark ? "text-zinc-300" : "text-zinc-600")}>{description}</span>
+            <ChevronRight className="h-3 w-3 text-zinc-500 dark:text-zinc-400" />
+            <span className="text-xs text-zinc-600 dark:text-zinc-300">{description}</span>
           </>
         )}
 
         {/* 加载指示器 */}
         {!result && (
-          <div className={cn("ml-auto flex items-center gap-1 text-xs", isDark ? "text-zinc-300" : "text-zinc-600")}>
+          <div className="ml-auto flex items-center gap-1 text-xs text-zinc-600 dark:text-zinc-300">
             <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
             <span>正在运行...</span>
           </div>
@@ -107,7 +98,7 @@ export const BashWidget: React.FC<BashWidgetProps> = ({
 
       {/* 命令和结果 */}
       <div className="p-4 space-y-3">
-        <code className={cn("text-xs font-mono block", isDark ? "text-green-400" : "text-green-600")}>
+        <code className="text-xs font-mono block text-green-600 dark:text-green-400">
           $ {command}
         </code>
 

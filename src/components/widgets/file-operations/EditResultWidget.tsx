@@ -11,7 +11,6 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { getClaudeSyntaxTheme } from "@/lib/claudeSyntaxTheme";
 import { useTheme } from "@/contexts/ThemeContext";
 import { getLanguage } from "../common/languageDetector";
-import { cn } from "@/lib/utils";
 
 export interface EditResultWidgetProps {
   /** 编辑结果内容 */
@@ -25,7 +24,6 @@ export interface EditResultWidgetProps {
  */
 export const EditResultWidget: React.FC<EditResultWidgetProps> = ({ content }) => {
   const { theme } = useTheme();
-  const isDark = theme === 'dark';
 
   // 解析内容，提取文件路径和代码片段
   const lines = content.split('\n');
@@ -67,17 +65,11 @@ export const EditResultWidget: React.FC<EditResultWidgetProps> = ({ content }) =
   const language = getLanguage(filePath);
 
   return (
-    <div className={cn(
-      "rounded-lg border overflow-hidden",
-      isDark ? "bg-zinc-950 border-zinc-800" : "bg-zinc-100 border-zinc-300"
-    )}>
+    <div className="rounded-lg border overflow-hidden bg-zinc-100 dark:bg-zinc-950 border-zinc-300 dark:border-zinc-800">
       {/* 头部 */}
-      <div className={cn(
-        "px-4 py-2 border-b flex items-center gap-2",
-        isDark ? "bg-emerald-950/30 border-zinc-800" : "bg-emerald-100/50 border-zinc-300"
-      )}>
+      <div className="px-4 py-2 border-b flex items-center gap-2 bg-emerald-100/50 dark:bg-emerald-950/30 border-zinc-300 dark:border-zinc-800">
         <GitBranch className="h-3.5 w-3.5 text-emerald-500" />
-        <span className={cn("text-xs font-mono", isDark ? "text-emerald-400" : "text-emerald-600")}>Edit Result</span>
+        <span className="text-xs font-mono text-emerald-600 dark:text-emerald-400">Edit Result</span>
         {filePath && (
           <>
             <ChevronRight className="h-3 w-3 text-muted-foreground" />

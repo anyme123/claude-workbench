@@ -44,7 +44,7 @@ export const CodePreview: React.FC<CodePreviewProps> = ({
 
   return (
     <div
-      className="rounded-lg border bg-zinc-950 overflow-hidden w-full"
+      className="rounded-lg border bg-zinc-100 dark:bg-zinc-950 border-zinc-300 dark:border-zinc-800 overflow-hidden w-full"
       style={{
         height: truncated ? '440px' : 'auto',
         maxHeight: truncated ? '440px' : undefined,
@@ -53,7 +53,7 @@ export const CodePreview: React.FC<CodePreviewProps> = ({
       }}
     >
       {/* 头部 */}
-      <div className="px-4 py-2 border-b bg-zinc-950 flex items-center justify-between sticky top-0 z-10">
+      <div className="px-4 py-2 border-b border-zinc-300 dark:border-zinc-800 bg-zinc-200/50 dark:bg-zinc-950 flex items-center justify-between sticky top-0 z-10">
         <span className="text-xs font-mono text-muted-foreground">预览</span>
         {truncated && onMaximize && (
           <div className="flex items-center gap-2">

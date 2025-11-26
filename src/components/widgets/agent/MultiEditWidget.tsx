@@ -74,19 +74,19 @@ export const MultiEditWidget: React.FC<MultiEditWidgetProps> = ({
                 return (
                   <div key={index} className="space-y-1">
                     <div className="text-xs font-medium text-muted-foreground">编辑 {index + 1}</div>
-                    <div className="rounded-lg border bg-zinc-950 overflow-hidden text-xs font-mono">
+                    <div className="rounded-lg border bg-zinc-100 dark:bg-zinc-950 border-zinc-300 dark:border-zinc-800 overflow-hidden text-xs font-mono">
                       <div className="max-h-[300px] overflow-y-auto overflow-x-auto">
                         {diffResult.map((part, partIndex) => {
                           const partClass = part.added
-                            ? 'bg-green-950/20'
+                            ? 'bg-green-100 dark:bg-green-950/20'
                             : part.removed
-                            ? 'bg-red-950/20'
+                            ? 'bg-red-100 dark:bg-red-950/20'
                             : '';
 
                           // 折叠大量未更改的行
                           if (!part.added && !part.removed && part.count && part.count > 8) {
                             return (
-                              <div key={partIndex} className="px-4 py-1 bg-zinc-900 border-y border-zinc-800 text-center text-zinc-500 text-xs">
+                              <div key={partIndex} className="px-4 py-1 bg-zinc-200 dark:bg-zinc-900 border-y border-zinc-300 dark:border-zinc-800 text-center text-zinc-500 text-xs">
                                 ... {part.count} 未更改的行 ...
                               </div>
                             );
@@ -97,7 +97,7 @@ export const MultiEditWidget: React.FC<MultiEditWidgetProps> = ({
                           return (
                             <div key={partIndex} className={cn(partClass, "flex")}>
                               <div className="w-8 select-none text-center flex-shrink-0">
-                                {part.added ? <span className="text-green-400">+</span> : part.removed ? <span className="text-red-400">-</span> : null}
+                                {part.added ? <span className="text-green-600 dark:text-green-400">+</span> : part.removed ? <span className="text-red-600 dark:text-red-400">-</span> : null}
                               </div>
                               <div className="flex-1">
                                 <SyntaxHighlighter

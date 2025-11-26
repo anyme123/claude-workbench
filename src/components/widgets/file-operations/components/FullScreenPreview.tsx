@@ -79,7 +79,7 @@ export const FullScreenPreview: React.FC<FullScreenPreviewProps> = ({
       onMouseDown={onClose}
     >
       <div
-        className="w-full max-w-6xl h-[90vh] bg-zinc-950 border border-border rounded-lg shadow-2xl flex flex-col"
+        className="w-full max-w-6xl h-[90vh] bg-zinc-100 dark:bg-zinc-950 border border-border rounded-lg shadow-2xl flex flex-col"
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* 头部 */}

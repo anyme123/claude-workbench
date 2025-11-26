@@ -8,8 +8,6 @@
 import React from "react";
 import { ChevronRight, CheckCircle2 } from "lucide-react";
 import { detectLinks, makeLinksClickable } from "@/lib/linkDetector";
-import { useTheme } from "@/contexts/ThemeContext";
-import { cn } from "@/lib/utils";
 
 export interface CommandOutputWidgetProps {
   /** 命令输出内容 */
@@ -30,9 +28,6 @@ export const CommandOutputWidget: React.FC<CommandOutputWidgetProps> = ({
   output,
   onLinkDetected,
 }) => {
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
-
   // 检查是否是 /compact 命令成功消息
   const isCompactSuccess = output.includes("Compacted.") && output.includes("ctrl+r to see full summary");
 
@@ -116,20 +111,14 @@ export const CommandOutputWidget: React.FC<CommandOutputWidgetProps> = ({
 
   // 常规输出渲染
   return (
-    <div className={cn(
-      "rounded-lg border overflow-hidden",
-      isDark ? "bg-zinc-950/50 border-zinc-800" : "bg-zinc-100 border-zinc-300"
-    )}>
-      <div className={cn(
-        "px-4 py-2 flex items-center gap-2",
-        isDark ? "bg-zinc-700/30" : "bg-zinc-200/50"
-      )}>
+    <div className="rounded-lg border overflow-hidden bg-zinc-100 dark:bg-zinc-950/50 border-zinc-300 dark:border-zinc-800">
+      <div className="px-4 py-2 flex items-center gap-2 bg-zinc-200/50 dark:bg-zinc-700/30">
         <ChevronRight className="h-3 w-3 text-success" />
         <span className="text-xs font-mono text-success">输出</span>
       </div>
       <div className="p-3">
-        <pre className={cn("text-sm font-mono whitespace-pre-wrap", isDark ? "text-zinc-300" : "text-zinc-700")}>
-          {output ? parseAnsiToReact(output) : <span className={cn("italic", isDark ? "text-zinc-500" : "text-zinc-400")}>无输出</span>}
+        <pre className="text-sm font-mono whitespace-pre-wrap text-zinc-700 dark:text-zinc-300">
+          {output ? parseAnsiToReact(output) : <span className="italic text-zinc-400 dark:text-zinc-500">无输出</span>}
         </pre>
       </div>
     </div>

@@ -92,25 +92,17 @@ export const ReadResultWidget: React.FC<ReadResultWidgetProps> = ({ content, fil
   const lineCount = content.split('\n').filter(line => line.trim()).length;
   const isLargeFile = lineCount > 20;
 
-  const isDark = theme === 'dark';
-
   return (
-    <div className={cn(
-      "rounded-lg overflow-hidden border w-full",
-      isDark ? "bg-zinc-950 border-zinc-800" : "bg-zinc-100 border-zinc-300"
-    )}>
+    <div className="rounded-lg overflow-hidden border w-full bg-zinc-100 dark:bg-zinc-950 border-zinc-300 dark:border-zinc-800">
       {/* 头部 */}
-      <div className={cn(
-        "px-4 py-2 border-b flex items-center justify-between",
-        isDark ? "bg-zinc-700/30 border-zinc-800" : "bg-zinc-200/50 border-zinc-300"
-      )}>
+      <div className="px-4 py-2 border-b flex items-center justify-between bg-zinc-200/50 dark:bg-zinc-700/30 border-zinc-300 dark:border-zinc-800">
         <div className="flex items-center gap-2">
-          <FileText className={cn("h-3.5 w-3.5", isDark ? "text-zinc-400" : "text-zinc-500")} />
-          <span className={cn("text-xs font-mono", isDark ? "text-zinc-200" : "text-zinc-700")}>
+          <FileText className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+          <span className="text-xs font-mono text-zinc-700 dark:text-zinc-200">
             {filePath || "File content"}
           </span>
           {isLargeFile && (
-            <span className={cn("text-xs", isDark ? "text-zinc-400" : "text-zinc-500")}>
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">
               ({lineCount} lines)
             </span>
           )}
@@ -120,10 +112,7 @@ export const ReadResultWidget: React.FC<ReadResultWidgetProps> = ({ content, fil
         {isLargeFile && (
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className={cn(
-              "flex items-center gap-1 text-xs transition-colors",
-              isDark ? "text-zinc-300 hover:text-zinc-100" : "text-zinc-600 hover:text-zinc-800"
-            )}
+            className="flex items-center gap-1 text-xs transition-colors text-zinc-600 hover:text-zinc-800 dark:text-zinc-300 dark:hover:text-zinc-100"
           >
             <ChevronRight className={cn("h-3 w-3 transition-transform", isExpanded && "rotate-90")} />
             {isExpanded ? "收起" : "展开"}
