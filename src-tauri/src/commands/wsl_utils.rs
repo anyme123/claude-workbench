@@ -131,8 +131,6 @@ pub struct WslConfig {
     pub enabled: bool,
     /// WSL 发行版名称（如 "Debian", "Ubuntu"）
     pub distro: Option<String>,
-    /// WSL home 目录（WSL 内路径，如 "/root"）
-    pub wsl_home: Option<String>,
     /// .codex 目录的 Windows UNC 路径
     pub codex_dir_unc: Option<PathBuf>,
     /// WSL 内 Codex 的路径（如 "/usr/local/bin/codex"）
@@ -239,7 +237,6 @@ impl WslConfig {
         Self {
             enabled,
             distro,
-            wsl_home,
             codex_dir_unc,
             codex_path_in_wsl,
         }
@@ -674,51 +671,6 @@ pub fn build_wsl_command_async(
 ) -> tokio::process::Command {
     // 非 Windows 平台直接执行命令
     let mut cmd = tokio::process::Command::new(program);
-    for arg in args {
-        cmd.arg(arg);
-    }
-    cmd
-}
-
-/// 构建通过 WSL 执行的同步命令
-#[cfg(target_os = "windows")]
-pub fn build_wsl_command(
-    program: &str,
-    args: &[String],
-    working_dir: Option<&str>,
-    distro: Option<&str>,
-) -> Command {
-    let mut cmd = Command::new("wsl");
-
-    if let Some(d) = distro {
-        cmd.arg("-d").arg(d);
-    }
-
-    if let Some(dir) = working_dir {
-        let wsl_dir = windows_to_wsl_path(dir);
-        cmd.arg("--cd").arg(&wsl_dir);
-    }
-
-    cmd.arg("--");
-    cmd.arg(program);
-
-    for arg in args {
-        cmd.arg(arg);
-    }
-
-    cmd.creation_flags(CREATE_NO_WINDOW);
-
-    cmd
-}
-
-#[cfg(not(target_os = "windows"))]
-pub fn build_wsl_command(
-    program: &str,
-    args: &[String],
-    _working_dir: Option<&str>,
-    _distro: Option<&str>,
-) -> std::process::Command {
-    let mut cmd = std::process::Command::new(program);
     for arg in args {
         cmd.arg(arg);
     }
