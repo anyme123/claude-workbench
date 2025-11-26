@@ -600,6 +600,15 @@ pub async fn check_codex_availability() -> Result<CodexAvailability, String> {
             }
         }
 
+        // 🔥 macOS: Set shell PATH so command can find dependencies
+        #[cfg(target_os = "macos")]
+        {
+            if let Some(shell_path) = get_shell_path_codex() {
+                log::debug!("[Codex] Setting PATH for command: {}", shell_path);
+                cmd.env("PATH", &shell_path);
+            }
+        }
+
         // 🔥 CRITICAL FIX: Apply no-window configuration for availability check
         // This prevents terminal flash when checking Codex availability
         apply_no_window_async(&mut cmd);
@@ -649,6 +658,113 @@ pub async fn check_codex_availability() -> Result<CodexAvailability, String> {
     })
 }
 
+/// Get the shell's PATH on macOS
+/// GUI applications on macOS don't inherit the PATH from shell configuration files
+/// This function runs the user's default shell to get the actual PATH
+#[cfg(target_os = "macos")]
+fn get_shell_path_codex() -> Option<String> {
+    use std::process::Command as StdCommand;
+
+    // Get the user's default shell
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+    log::debug!("[Codex] User's default shell: {}", shell);
+
+    // Run shell in login mode to source all profile scripts and get PATH
+    let mut cmd = StdCommand::new(&shell);
+    cmd.args(["-l", "-c", "echo $PATH"]);
+
+    match cmd.output() {
+        Ok(output) if output.status.success() => {
+            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !path.is_empty() {
+                log::info!("[Codex] Got shell PATH: {}", path);
+                return Some(path);
+            }
+        }
+        Ok(output) => {
+            log::debug!(
+                "[Codex] Shell command failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+        Err(e) => {
+            log::debug!("[Codex] Failed to execute shell: {}", e);
+        }
+    }
+
+    // Fallback: construct PATH from common locations
+    if let Ok(home) = std::env::var("HOME") {
+        let common_paths = vec![
+            "/opt/homebrew/bin",
+            "/usr/local/bin",
+            "/usr/bin",
+            "/bin",
+            &format!("{}/.local/bin", home),
+            &format!("{}/.npm-global/bin", home),
+            &format!("{}/.volta/bin", home),
+            &format!("{}/.fnm", home),
+        ];
+
+        let existing_paths: Vec<&str> = common_paths
+            .iter()
+            .map(|s| s.as_str())
+            .filter(|p| std::path::Path::new(p).exists())
+            .collect();
+
+        if !existing_paths.is_empty() {
+            let path = existing_paths.join(":");
+            log::info!("[Codex] Constructed fallback PATH: {}", path);
+            return Some(path);
+        }
+    }
+
+    None
+}
+
+/// Get npm global prefix directory
+#[cfg(target_os = "macos")]
+fn get_npm_prefix_codex() -> Option<String> {
+    use std::process::Command as StdCommand;
+
+    // Try to run `npm config get prefix`
+    let mut cmd = StdCommand::new("npm");
+    cmd.args(["config", "get", "prefix"]);
+
+    // Also try with common paths in PATH
+    if let Some(shell_path) = get_shell_path_codex() {
+        cmd.env("PATH", &shell_path);
+    }
+
+    match cmd.output() {
+        Ok(output) if output.status.success() => {
+            let prefix = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !prefix.is_empty() && prefix != "undefined" {
+                log::debug!("[Codex] npm prefix: {}", prefix);
+                return Some(prefix);
+            }
+        }
+        _ => {}
+    }
+
+    // Fallback to common npm prefix locations
+    if let Ok(home) = std::env::var("HOME") {
+        let common_prefixes = vec![
+            format!("{}/.npm-global", home),
+            "/usr/local".to_string(),
+            "/opt/homebrew".to_string(),
+        ];
+
+        for prefix in common_prefixes {
+            if std::path::Path::new(&prefix).exists() {
+                log::debug!("[Codex] Using fallback npm prefix: {}", prefix);
+                return Some(prefix);
+            }
+        }
+    }
+
+    None
+}
+
 /// Returns a list of possible Codex command paths to try
 fn get_codex_command_candidates() -> Vec<String> {
     let mut candidates = vec!["codex".to_string()];
@@ -666,16 +782,85 @@ fn get_codex_command_candidates() -> Vec<String> {
         }
     }
 
-    // macOS-specific paths (aligned with claude_binary.rs)
+    // macOS-specific paths - 🔥 Enhanced with more locations
     #[cfg(target_os = "macos")]
     {
         if let Ok(home) = std::env::var("HOME") {
-            // npm global install path
+            // npm global install paths
             candidates.push(format!("{}/.npm-global/bin/codex", home));
+            candidates.push(format!("{}/.npm/bin/codex", home));
+            candidates.push(format!("{}/npm/bin/codex", home));
+
+            // pnpm global paths
+            candidates.push(format!("{}/Library/pnpm/codex", home));
+            candidates.push(format!("{}/.local/share/pnpm/codex", home));
+            candidates.push(format!("{}/.pnpm-global/bin/codex", home));
+
+            // Node version managers
+            candidates.push(format!("{}/.volta/bin/codex", home));
+            candidates.push(format!("{}/.n/bin/codex", home));
+            candidates.push(format!("{}/.asdf/shims/codex", home));
+            candidates.push(format!("{}/.local/bin/codex", home));
+
+            // fnm (Fast Node Manager) paths
+            candidates.push(format!("{}/.fnm/aliases/default/bin/codex", home));
+            candidates.push(format!("{}/.local/share/fnm/aliases/default/bin/codex", home));
+            candidates.push(format!("{}/Library/Application Support/fnm/aliases/default/bin/codex", home));
+
+            // nvm current symlink
+            candidates.push(format!("{}/.nvm/current/bin/codex", home));
+
+            // 🔥 Dynamically add npm prefix path
+            if let Some(npm_prefix) = get_npm_prefix_codex() {
+                let npm_bin_path = format!("{}/bin/codex", npm_prefix);
+                if !candidates.contains(&npm_bin_path) {
+                    log::debug!("[Codex] Adding npm prefix path: {}", npm_bin_path);
+                    candidates.push(npm_bin_path);
+                }
+            }
+
+            // 🔥 Scan nvm node version directories
+            let nvm_versions_dir = format!("{}/.nvm/versions/node", home);
+            if let Ok(entries) = std::fs::read_dir(&nvm_versions_dir) {
+                for entry in entries.flatten() {
+                    if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                        let codex_path = entry.path().join("bin").join("codex");
+                        if codex_path.exists() {
+                            candidates.push(codex_path.to_string_lossy().to_string());
+                        }
+                    }
+                }
+            }
+
+            // 🔥 Scan fnm node version directories
+            for fnm_base in &[
+                format!("{}/.fnm/node-versions", home),
+                format!("{}/.local/share/fnm/node-versions", home),
+                format!("{}/Library/Application Support/fnm/node-versions", home),
+            ] {
+                if let Ok(entries) = std::fs::read_dir(fnm_base) {
+                    for entry in entries.flatten() {
+                        if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                            let codex_path = entry.path().join("installation").join("bin").join("codex");
+                            if codex_path.exists() {
+                                candidates.push(codex_path.to_string_lossy().to_string());
+                            }
+                        }
+                    }
+                }
+            }
         }
+
         // Homebrew paths (Apple Silicon and Intel)
         candidates.push("/opt/homebrew/bin/codex".to_string()); // Apple Silicon (M1/M2/M3)
         candidates.push("/usr/local/bin/codex".to_string());    // Intel Mac / Homebrew legacy
+
+        // NPM global lib paths
+        candidates.push("/opt/homebrew/lib/node_modules/@openai/codex/bin/codex".to_string());
+        candidates.push("/usr/local/lib/node_modules/@openai/codex/bin/codex".to_string());
+
+        // MacPorts
+        candidates.push("/opt/local/bin/codex".to_string());
     }
 
     // Linux: npm global paths
@@ -683,6 +868,10 @@ fn get_codex_command_candidates() -> Vec<String> {
     {
         if let Ok(home) = std::env::var("HOME") {
             candidates.push(format!("{}/.npm-global/bin/codex", home));
+            candidates.push(format!("{}/.local/bin/codex", home));
+            candidates.push(format!("{}/.volta/bin/codex", home));
+            candidates.push(format!("{}/.asdf/shims/codex", home));
+            candidates.push(format!("{}/.nvm/current/bin/codex", home));
         }
         candidates.push("/usr/local/bin/codex".to_string());
         candidates.push("/usr/bin/codex".to_string());

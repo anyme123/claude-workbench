@@ -21,6 +21,115 @@ fn get_home_dir() -> Result<String, String> {
     }
 }
 
+/// Get the shell's PATH on macOS
+/// GUI applications on macOS don't inherit the PATH from shell configuration files
+/// This function runs the user's default shell to get the actual PATH
+#[cfg(target_os = "macos")]
+fn get_shell_path() -> Option<String> {
+    use std::time::Duration;
+
+    // Get the user's default shell
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+    debug!("User's default shell: {}", shell);
+
+    // Run shell in login mode to source all profile scripts and get PATH
+    // Use timeout to prevent hanging
+    let mut cmd = Command::new(&shell);
+    cmd.args(["-l", "-c", "echo $PATH"]);
+
+    // Set a timeout using spawn and wait_with_output
+    match cmd.output() {
+        Ok(output) if output.status.success() => {
+            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !path.is_empty() {
+                info!("Got shell PATH: {}", path);
+                return Some(path);
+            }
+        }
+        Ok(output) => {
+            debug!(
+                "Shell command failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+        Err(e) => {
+            debug!("Failed to execute shell: {}", e);
+        }
+    }
+
+    // Fallback: try to read from common profile files
+    if let Ok(home) = get_home_dir() {
+        // Try to construct PATH from common locations
+        let common_paths = vec![
+            "/opt/homebrew/bin",
+            "/usr/local/bin",
+            "/usr/bin",
+            "/bin",
+            &format!("{}/.local/bin", home),
+            &format!("{}/.npm-global/bin", home),
+            &format!("{}/.volta/bin", home),
+            &format!("{}/.fnm", home),
+            &format!("{}/.nvm/versions/node", home), // Will need expansion
+        ];
+
+        let existing_paths: Vec<&str> = common_paths
+            .iter()
+            .map(|s| s.as_str())
+            .filter(|p| std::path::Path::new(p).exists())
+            .collect();
+
+        if !existing_paths.is_empty() {
+            let path = existing_paths.join(":");
+            info!("Constructed fallback PATH: {}", path);
+            return Some(path);
+        }
+    }
+
+    None
+}
+
+/// Get npm global prefix directory
+#[cfg(target_os = "macos")]
+fn get_npm_prefix() -> Option<String> {
+    // Try to run `npm config get prefix`
+    let mut cmd = Command::new("npm");
+    cmd.args(["config", "get", "prefix"]);
+
+    // Also try with common paths in PATH
+    if let Some(shell_path) = get_shell_path() {
+        cmd.env("PATH", &shell_path);
+    }
+
+    match cmd.output() {
+        Ok(output) if output.status.success() => {
+            let prefix = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !prefix.is_empty() && prefix != "undefined" {
+                debug!("npm prefix: {}", prefix);
+                return Some(prefix);
+            }
+        }
+        _ => {}
+    }
+
+    // Fallback to common npm prefix locations
+    if let Ok(home) = get_home_dir() {
+        let common_prefixes = vec![
+            format!("{}/.npm-global", home),
+            "/usr/local".to_string(),
+            "/opt/homebrew".to_string(),
+        ];
+
+        for prefix in common_prefixes {
+            if std::path::Path::new(&prefix).exists() {
+                debug!("Using fallback npm prefix: {}", prefix);
+                return Some(prefix);
+            }
+        }
+    }
+
+    None
+}
+
 /// Type of Claude installation
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum InstallationType {
@@ -347,6 +456,15 @@ fn try_where_command() -> Option<ClaudeInstallation> {
         cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
     }
 
+    // On macOS, set the shell PATH so 'which' can find binaries installed via npm/nvm/etc.
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(shell_path) = get_shell_path() {
+            debug!("Setting PATH for 'which' command: {}", shell_path);
+            cmd.env("PATH", &shell_path);
+        }
+    }
+
     match cmd.output() {
         Ok(output) if output.status.success() => {
             let output_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -397,6 +515,15 @@ fn try_which_command() -> Option<ClaudeInstallation> {
     {
         use std::os::windows::process::CommandExt;
         cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
+
+    // On macOS, set the shell PATH so 'which' can find binaries installed via npm/nvm/etc.
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(shell_path) = get_shell_path() {
+            debug!("Setting PATH for 'which' alias parsing: {}", shell_path);
+            cmd.env("PATH", &shell_path);
+        }
     }
 
     match cmd.output() {
@@ -741,16 +868,88 @@ fn find_macos_installations() -> Vec<ClaudeInstallation> {
                 format!("{}/.local/share/pnpm/claude", home),
                 "pnpm-local".to_string(),
             ),
-            // Node 版本管理器路径
             (
-                format!("{}/.nvm/versions/node/*/bin/claude", home),
-                "nvm".to_string(),
+                format!("{}/.pnpm-global/bin/claude", home),
+                "pnpm-global".to_string(),
             ),
+            // Node 版本管理器路径 - n
             (format!("{}/.n/bin/claude", home), "n-version".to_string()),
+            // asdf
             (format!("{}/.asdf/shims/claude", home), "asdf".to_string()),
             // Volta
             (format!("{}/.volta/bin/claude", home), "volta".to_string()),
+            // fnm (Fast Node Manager) paths
+            (
+                format!("{}/.fnm/aliases/default/bin/claude", home),
+                "fnm".to_string(),
+            ),
+            (
+                format!("{}/.local/share/fnm/aliases/default/bin/claude", home),
+                "fnm-local".to_string(),
+            ),
+            (
+                format!("{}/Library/Application Support/fnm/aliases/default/bin/claude", home),
+                "fnm-app-support".to_string(),
+            ),
+            // nvm current symlink (points to currently active node version)
+            (
+                format!("{}/.nvm/current/bin/claude", home),
+                "nvm-current".to_string(),
+            ),
+            // Additional npm global paths that users commonly configure
+            (
+                format!("{}/node_modules/.bin/claude", home),
+                "home-node-modules".to_string(),
+            ),
         ]);
+
+        // 🔥 动态获取 npm prefix 并添加路径
+        if let Some(npm_prefix) = get_npm_prefix() {
+            let npm_bin_path = format!("{}/bin/claude", npm_prefix);
+            if !paths_to_check.iter().any(|(p, _)| p == &npm_bin_path) {
+                debug!("Adding npm prefix path: {}", npm_bin_path);
+                paths_to_check.push((npm_bin_path, "npm-prefix".to_string()));
+            }
+        }
+
+        // 🔥 扫描 nvm 的 node 版本目录
+        let nvm_versions_dir = format!("{}/.nvm/versions/node", home);
+        if let Ok(entries) = std::fs::read_dir(&nvm_versions_dir) {
+            for entry in entries.flatten() {
+                if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                    let claude_path = entry.path().join("bin").join("claude");
+                    if claude_path.exists() {
+                        let node_version = entry.file_name().to_string_lossy().to_string();
+                        paths_to_check.push((
+                            claude_path.to_string_lossy().to_string(),
+                            format!("nvm-{}", node_version),
+                        ));
+                    }
+                }
+            }
+        }
+
+        // 🔥 扫描 fnm 的 node 版本目录
+        for fnm_base in &[
+            format!("{}/.fnm/node-versions", home),
+            format!("{}/.local/share/fnm/node-versions", home),
+            format!("{}/Library/Application Support/fnm/node-versions", home),
+        ] {
+            if let Ok(entries) = std::fs::read_dir(fnm_base) {
+                for entry in entries.flatten() {
+                    if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                        let claude_path = entry.path().join("installation").join("bin").join("claude");
+                        if claude_path.exists() {
+                            let node_version = entry.file_name().to_string_lossy().to_string();
+                            paths_to_check.push((
+                                claude_path.to_string_lossy().to_string(),
+                                format!("fnm-{}", node_version),
+                            ));
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // Check each path
