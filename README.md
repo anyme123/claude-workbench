@@ -443,20 +443,22 @@ Any Code 是一个为 AI 驱动的代码开发工作流量身打造的专业桌�
 
 **⚠️ 重要：解决 Gatekeeper 阻止**
 
-如果安装后提示"应用已损坏，无法打开"，请在终端执行：
+如果安装后提示 **"Any Code" 已损坏，无法打开** 或 **"无法验证开发者"**，请在终端执行：
 
 ```bash
 # 方法 1：移除隔离属性（推荐，最简单）
-sudo xattr -r -d com.apple.quarantine /Applications/Claude\ Workbench.app
+sudo xattr -r -d com.apple.quarantine "/Applications/Any Code.app"
 
 # 方法 2：清除所有扩展属性
-xattr -cr /Applications/Claude\ Workbench.app
+xattr -cr "/Applications/Any Code.app"
 
-# 方法 3：重新签名应用
-sudo codesign --force --deep --sign - /Applications/Claude\ Workbench.app
+# 方法 3：重新签名应用（如果上述方法不生效）
+sudo codesign --force --deep --sign - "/Applications/Any Code.app"
 ```
 
-**原因**: macOS Gatekeeper 默认会阻止未经 Apple 公证的应用。执行上述命令后即可正常使用。
+> **💡 提示**: 如果应用安装在其他位置，请将 `/Applications/Any Code.app` 替换为实际路径。
+
+**原因**: macOS Gatekeeper 默认会阻止未经 Apple 公证的应用。这是正常的安全机制，执行上述命令后即可正常使用。
 
 </details>
 
