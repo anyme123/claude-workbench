@@ -12,7 +12,6 @@ interface SessionHeaderProps {
   handleSelectPath: () => void;
   recentProjects: Project[];
   isLoading: boolean;
-  error?: string | null;
 }
 
 export const SessionHeader: React.FC<SessionHeaderProps> = ({
@@ -20,8 +19,7 @@ export const SessionHeader: React.FC<SessionHeaderProps> = ({
   setProjectPath,
   handleSelectPath,
   recentProjects,
-  isLoading,
-  error
+  isLoading
 }) => {
   return (
     <motion.div

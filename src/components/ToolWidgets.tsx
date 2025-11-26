@@ -1,5 +1,7 @@
-export * from "./ToolWidgets/task/TodoWidgets";
-export * from "./ToolWidgets/filesystem/FileWidgets";
-export * from "./ToolWidgets/execution/ExecutionWidgets";
-export * from "./ToolWidgets/system/SystemWidgets";
-export * from "./ToolWidgets/web/WebWidgets";
+/**
+ * ToolWidgets 向后兼容导出
+ *
+ * 所有组件已迁移到 ./widgets 目录
+ * 此文件仅保留向后兼容导出
+ */
+export * from "./widgets";

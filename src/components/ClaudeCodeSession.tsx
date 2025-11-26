@@ -766,7 +766,6 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
       handleSelectPath={handleSelectPath}
       recentProjects={recentProjects}
       isLoading={isLoading}
-      error={error}
     />
   );
 

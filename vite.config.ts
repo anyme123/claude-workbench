@@ -59,7 +59,7 @@ export default defineConfig(async () => ({
           'syntax-vendor': ['react-syntax-highlighter'],
           // Tauri and other utilities
           'tauri': ['@tauri-apps/api', '@tauri-apps/plugin-dialog', '@tauri-apps/plugin-shell'],
-          'utils': ['date-fns', 'clsx', 'tailwind-merge'],
+          'utils': ['clsx', 'tailwind-merge'],
         },
       },
     },

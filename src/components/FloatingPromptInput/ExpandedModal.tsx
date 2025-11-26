@@ -1,6 +1,6 @@
 import React, { forwardRef } from "react";
 import { motion } from "framer-motion";
-import { Minimize2, X, Wand2, ChevronDown, Code2, Zap, Settings, Sparkles } from "lucide-react";
+import { Minimize2, X, Wand2, ChevronDown, Code2, Zap, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
