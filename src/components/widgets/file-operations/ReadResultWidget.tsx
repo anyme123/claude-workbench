@@ -92,17 +92,25 @@ export const ReadResultWidget: React.FC<ReadResultWidgetProps> = ({ content, fil
   const lineCount = content.split('\n').filter(line => line.trim()).length;
   const isLargeFile = lineCount > 20;
 
+  const isDark = theme === 'dark';
+
   return (
-    <div className="rounded-lg overflow-hidden border bg-zinc-950 w-full">
+    <div className={cn(
+      "rounded-lg overflow-hidden border w-full",
+      isDark ? "bg-zinc-950 border-zinc-800" : "bg-zinc-100 border-zinc-300"
+    )}>
       {/* 头部 */}
-      <div className="px-4 py-2 border-b bg-zinc-700/30 flex items-center justify-between">
+      <div className={cn(
+        "px-4 py-2 border-b flex items-center justify-between",
+        isDark ? "bg-zinc-700/30 border-zinc-800" : "bg-zinc-200/50 border-zinc-300"
+      )}>
         <div className="flex items-center gap-2">
-          <FileText className="h-3.5 w-3.5 text-zinc-400" />
-          <span className="text-xs font-mono text-zinc-200">
+          <FileText className={cn("h-3.5 w-3.5", isDark ? "text-zinc-400" : "text-zinc-500")} />
+          <span className={cn("text-xs font-mono", isDark ? "text-zinc-200" : "text-zinc-700")}>
             {filePath || "File content"}
           </span>
           {isLargeFile && (
-            <span className="text-xs text-zinc-400">
+            <span className={cn("text-xs", isDark ? "text-zinc-400" : "text-zinc-500")}>
               ({lineCount} lines)
             </span>
           )}
@@ -112,7 +120,10 @@ export const ReadResultWidget: React.FC<ReadResultWidgetProps> = ({ content, fil
         {isLargeFile && (
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-1 text-xs text-zinc-300 hover:text-zinc-100 transition-colors"
+            className={cn(
+              "flex items-center gap-1 text-xs transition-colors",
+              isDark ? "text-zinc-300 hover:text-zinc-100" : "text-zinc-600 hover:text-zinc-800"
+            )}
           >
             <ChevronRight className={cn("h-3 w-3 transition-transform", isExpanded && "rotate-90")} />
             {isExpanded ? "收起" : "展开"}
