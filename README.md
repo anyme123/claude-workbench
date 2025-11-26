@@ -1,10 +1,10 @@
-# Claude Workbench
+# Any Code
 
 > 🚀 专业的 Claude Code 桌面管理工具 - 现代化、高效、功能完备的 GUI 工具包
 
-[![Release](https://img.shields.io/github/v/release/anyme123/claude-workbench?style=flat-square)](https://github.com/anyme123/claude-workbench/releases)
+[![Release](https://img.shields.io/github/v/release/anyme123/any-code?style=flat-square)](https://github.com/anyme123/any-code/releases)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg?style=flat-square)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg?style=flat-square)](https://github.com/anyme123/claude-workbench)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg?style=flat-square)](https://github.com/anyme123/any-code)
 [![Made with Tauri](https://img.shields.io/badge/Made%20with-Tauri-FFC131?style=flat-square&logo=tauri)](https://tauri.app/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react)](https://react.dev/)
 [![Rust](https://img.shields.io/badge/Rust-Latest-orange?style=flat-square&logo=rust)](https://rust-lang.org/)
@@ -13,9 +13,9 @@
 
 ## 📖 简介
 
-Claude Workbench 是一个为 AI 驱动的代码开发工作流量身打造的专业桌面应用，同时支持 [Claude Code CLI](https://docs.claude.com/en/docs/claude-code/overview) 和 [OpenAI Codex](https://openai.com/index/openai-codex/) 双引擎。提供完整的项目管理、会话控制、成本追踪、智能翻译和高级功能扩展。通过直观的可视化界面和创新的双引擎架构，让您更高效地使用 AI 进行辅助开发。
+Any Code 是一个为 AI 驱动的代码开发工作流量身打造的专业桌面应用，同时支持 [Claude Code CLI](https://docs.claude.com/en/docs/claude-code/overview) 和 [OpenAI Codex](https://openai.com/index/openai-codex/) 双引擎。提供完整的项目管理、会话控制、成本追踪、智能翻译和高级功能扩展。通过直观的可视化界面和创新的双引擎架构，让您更高效地使用 AI 进行辅助开发。
 
-### 为什么选择 Claude Workbench？
+### 为什么选择 Any Code？
 
 - ✅ **双引擎架构** - 支持 Claude Code 和 OpenAI Codex 双引擎，一键切换，无缝集成
 - ✅ **完整的会话管理** - 多标签页会话、历史记录、实时流式输出、跨引擎统一管理
@@ -405,7 +405,7 @@ Claude Workbench 是一个为 AI 驱动的代码开发工作流量身打造的�
 
 #### 📦 预构建版本（推荐）
 
-从 [Releases](https://github.com/anyme123/claude-workbench/releases) 下载对应平台的安装包：
+从 [Releases](https://github.com/anyme123/any-code/releases) 下载对应平台的安装包：
 
 <details>
 <summary><b>Windows 安装</b></summary>
@@ -423,7 +423,7 @@ Claude Workbench 是一个为 AI 驱动的代码开发工作流量身打造的�
 **方式三：便携版**
 - 下载 `.zip` 压缩包
 - 解压到任意目录
-- 运行 `Claude Workbench.exe`
+- 运行 `Any Code.exe`
 
 </details>
 
@@ -474,13 +474,13 @@ chmod +x Claude-Workbench-*.AppImage
 
 **方式二：DEB 包** (Debian/Ubuntu)
 ```bash
-sudo dpkg -i claude-workbench-*.deb
+sudo dpkg -i any-code-*.deb
 sudo apt-get install -f  # 修复依赖
 ```
 
 **方式三：RPM 包** (Fedora/RHEL)
 ```bash
-sudo rpm -i claude-workbench-*.rpm
+sudo rpm -i any-code-*.rpm
 ```
 
 </details>
@@ -491,8 +491,8 @@ sudo rpm -i claude-workbench-*.rpm
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/anyme123/claude-workbench.git
-cd claude-workbench
+git clone https://github.com/anyme123/any-code.git
+cd any-code
 
 # 2. 安装依赖
 npm install
@@ -523,7 +523,7 @@ npm run tauri:build-fast
    - 设置 API Key: `claude config set api_key YOUR_KEY`
    - 验证安装: `claude --version`
 
-2. **启动 Claude Workbench**
+2. **启动 Any Code**
    - 首次启动会自动检测 Claude CLI
    - 如果未找到，会提示设置自定义路径
 
@@ -637,7 +637,7 @@ npm run tauri:build-fast
 ### 项目目录结构
 
 ```
-claude-workbench/
+any-code/
 ├── .factory/                    # Factory 配置（skills）
 ├── .github/workflows/           # GitHub Actions CI/CD 工作流
 ├── .vscode/                     # VSCode 编辑器配置
@@ -692,7 +692,7 @@ claude-workbench/
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
-│                     Claude Workbench                          │
+│                     Any Code                          │
 ├─────────────────────┬─────────────────┬───────────────────────┤
 │                     │                 │                       │
 │   React 前端层      │   Tauri 桥接层   │   Rust 后端层         │
@@ -951,8 +951,8 @@ CREATE INDEX idx_usage_model_timestamp ON usage_entries(model, timestamp DESC);
 
 ```bash
 # 1. Fork 并克隆仓库
-git clone https://github.com/YOUR_USERNAME/claude-workbench.git
-cd claude-workbench
+git clone https://github.com/YOUR_USERNAME/any-code.git
+cd any-code
 
 # 2. 安装依赖
 npm install
@@ -1035,9 +1035,9 @@ git push origin feature/your-feature-name
 4. 尝试以管理员/root 权限运行
 
 日志位置：
-- Windows: `%APPDATA%\claude-workbench\logs`
-- macOS: `~/Library/Application Support/claude-workbench/logs`
-- Linux: `~/.config/claude-workbench/logs`
+- Windows: `%APPDATA%\any-code\logs`
+- macOS: `~/Library/Application Support/any-code/logs`
+- Linux: `~/.config/any-code/logs`
 
 </details>
 
@@ -1122,8 +1122,8 @@ git push origin feature/your-feature-name
 
 ### 获取帮助
 
-- **GitHub Issues**: [报告问题](https://github.com/anyme123/claude-workbench/issues)
-- **GitHub Discussions**: [讨论和提问](https://github.com/anyme123/claude-workbench/discussions)
+- **GitHub Issues**: [报告问题](https://github.com/anyme123/any-code/issues)
+- **GitHub Discussions**: [讨论和提问](https://github.com/anyme123/any-code/discussions)
 
 ### 参与讨论
 
@@ -1152,16 +1152,16 @@ git push origin feature/your-feature-name
 
 如果这个项目对您有帮助，请给我们一个 **Star** ⭐！
 
-[![Star History Chart](https://api.star-history.com/svg?repos=anyme123/claude-workbench&type=Date)](https://star-history.com/#anyme123/claude-workbench&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=anyme123/any-code&type=Date)](https://star-history.com/#anyme123/any-code&Date)
 
 ---
 
 <div align="center">
 
-**Claude Workbench** - 让 Claude Code 更好用
+**Any Code** - 让 Claude Code 更好用
 
-Made with ❤️ by the Claude Workbench Team
+Made with ❤️ by the Any Code Team
 
-🔗 **项目地址**: https://github.com/anyme123/claude-workbench
+🔗 **项目地址**: https://github.com/anyme123/any-code
 
 </div>
