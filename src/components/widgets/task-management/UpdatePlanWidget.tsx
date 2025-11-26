@@ -18,7 +18,6 @@ import {
   ClipboardList,
   CheckCircle2,
   Circle,
-  Loader2,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
@@ -49,7 +48,12 @@ const StatusIcon: React.FC<{ status: string }> = ({ status }) => {
     case "completed":
       return <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />;
     case "in_progress":
-      return <Loader2 className="h-4 w-4 text-blue-500 animate-spin flex-shrink-0" />;
+      // 使用实心蓝色圆点表示进行中，不使用动画（历史记录中的状态是静态的）
+      return (
+        <div className="h-4 w-4 flex items-center justify-center flex-shrink-0">
+          <div className="h-2.5 w-2.5 rounded-full bg-blue-500" />
+        </div>
+      );
     default:
       return <Circle className="h-4 w-4 text-muted-foreground flex-shrink-0" />;
   }
