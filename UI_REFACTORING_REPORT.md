@@ -56,27 +56,37 @@
     *   **列表排序**: 拖拽排序或列表项增删时的平滑位移。
     *   **模态框**: 优雅的弹出与收起动画 (Spring physics)。
 
-## 5. 重构实施路线图 (Implementation Roadmap)
+## 5. 现有 UI 痛点与针对性重构建议 (Project-Specific Analysis)
 
-### 第一阶段：遗留系统评估与基建 (Weeks 1-2)
-*   **任务**: 审计现有 `src/components`，识别高频复用组件。
-*   **任务**: 锁定 Tailwind CSS v4 配置，确立 Design Tokens (Colors, Spacing)。
-*   **任务**: 引入 Shadcn/ui CLI，初始化基础组件 (Button, Input, Card, Dialog)。
+通过对 `src/components` 目录的深度分析，我们识别出以下具体痛点并提出针对性建议：
 
-### 第二阶段：增量式重构 (Strangler Fig Pattern) (Weeks 3-6)
-*   **策略**: 不重写整个应用，而是新功能使用新组件，旧功能逐步替换。
-*   **任务**: 重构布局层 (`AppLayout`, `Sidebar`)，应用 Glassmorphism 和 Bento Grid 风格。
-*   **任务**: 替换核心交互组件（如 `FloatingPromptInput`），引入 Framer Motion 优化交互体验。
+### 5.1 布局层 (`AppLayout.tsx`, `Sidebar.tsx`)
+*   **痛点**:
+    *   `AppLayout` 中包含大量状态管理逻辑（如 Header 自动隐藏、RAF 节流），导致组件臃肿，难以维护。
+    *   `Sidebar` 样式硬编码较多，缺乏灵活性，且与 `AppLayout` 的耦合度较高。
+    *   背景纹理 (`radial-gradient`) 实现较为简单，缺乏质感。
+*   **建议**:
+    *   **抽离逻辑**: 将 Header 的可见性逻辑抽离为 `useHeaderVisibility` Hook。
+    *   **组件解耦**: 使用 Context 或 Zustand 管理 Sidebar 状态，减少 Props 传递。
+    *   **视觉升级**: 引入更细腻的噪点纹理 (Noise Texture) 或动态流体背景，提升视觉深度。
 
-### 第三阶段：全面上线与验收 (Weeks 7-8)
-*   **性能指标 (Core Web Vitals)**:
-    *   LCP (Largest Contentful Paint) < 2.5s
-    *   CLS (Cumulative Layout Shift) < 0.1
-    *   INP (Interaction to Next Paint) < 200ms
-*   **无障碍访问 (Accessibility)**:
-    *   确保所有交互元素可通过键盘访问 (Focus visible)。
-    *   色彩对比度满足 WCAG 2.1 AA 标准 (至少 4.5:1)。
-    *   屏幕阅读器支持 (ARIA labels)。
+### 5.2 核心交互组件 (`FloatingPromptInput/index.tsx`)
+*   **痛点**:
+    *   **巨型组件**: 该文件超过 1000 行，集成了输入、文件选择、Slash 命令、图片处理、模型选择等大量逻辑，违反了单一职责原则。
+    *   **状态爆炸**: 内部维护了数十个 `useState`，导致渲染性能难以优化。
+    *   **样式混杂**: 大量的 Tailwind 类名直接堆砌在 JSX 中，降低了可读性。
+*   **建议**:
+    *   **拆分重构**: 将 `FloatingPromptInput` 拆分为 `InputArea`, `AttachmentPreview`, `ControlBar`, `ModelSelector` 等独立子组件。
+    *   **状态下沉**: 将仅与特定子组件相关的状态（如文件选择器的搜索词）下沉到子组件内部。
+    *   **逻辑复用**: 进一步提取自定义 Hooks（如 `useInputState`, `useAttachments`），使主组件只负责组装。
+
+### 5.3 消息展示 (`MessageBubble.tsx`)
+*   **痛点**:
+    *   样式较为单一，AI 回复与用户消息的视觉区分度不够强。
+    *   缺乏对 Markdown 内容的深度定制（如代码块的高亮样式、表格的响应式处理）。
+*   **建议**:
+    *   **增强视觉区分**: 为 AI 消息引入更明显的卡片背景和阴影，用户消息保持轻量化气泡。
+    *   **Markdown 优化**: 引入 `react-markdown` 的自定义渲染器，优化代码块、引用、列表的排版，使其符合 "Neo-Modern Fluidity" 风格。
 
 ## 6. 跨平台一致性策略 (Cross-Platform Consistency)
 
@@ -117,6 +127,28 @@
 ### 交互习惯差异 (Interaction Patterns)
 *   **快捷键**: 封装 `useKeyboardShortcut` Hook，自动检测操作系统，将 `Cmd` (macOS) 映射为 `Ctrl` (Windows)。
 *   **触控板/鼠标**: 优化滚轮事件，确保在 Windows 鼠标滚轮（步进式）和 macOS 触控板（惯性滚动）上都有平滑的滚动体验 (Lenis Scroll 或类似库)。
+
+## 7. 重构实施路线图 (Implementation Roadmap)
+
+### 第一阶段：遗留系统评估与基建 (Weeks 1-2)
+*   **任务**: 审计现有 `src/components`，识别高频复用组件。
+*   **任务**: 锁定 Tailwind CSS v4 配置，确立 Design Tokens (Colors, Spacing)。
+*   **任务**: 引入 Shadcn/ui CLI，初始化基础组件 (Button, Input, Card, Dialog)。
+
+### 第二阶段：增量式重构 (Strangler Fig Pattern) (Weeks 3-6)
+*   **策略**: 不重写整个应用，而是新功能使用新组件，旧功能逐步替换。
+*   **任务**: 重构布局层 (`AppLayout`, `Sidebar`)，应用 Glassmorphism 和 Bento Grid 风格。
+*   **任务**: 拆分并重构 `FloatingPromptInput`，引入 Framer Motion 优化交互体验。
+
+### 第三阶段：全面上线与验收 (Weeks 7-8)
+*   **性能指标 (Core Web Vitals)**:
+    *   LCP (Largest Contentful Paint) < 2.5s
+    *   CLS (Cumulative Layout Shift) < 0.1
+    *   INP (Interaction to Next Paint) < 200ms
+*   **无障碍访问 (Accessibility)**:
+    *   确保所有交互元素可通过键盘访问 (Focus visible)。
+    *   色彩对比度满足 WCAG 2.1 AA 标准 (至少 4.5:1)。
+    *   屏幕阅读器支持 (ARIA labels)。
 
 ---
 *此报告基于当前项目代码库分析生成，旨在为未来的 UI/UX 升级提供战略指导。*
