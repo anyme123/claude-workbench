@@ -70,6 +70,8 @@ use commands::codex::{
     list_codex_sessions, delete_codex_session,
     load_codex_session_history, get_codex_prompt_list, check_codex_rewind_capabilities,
     check_codex_availability,
+    // Codex mode configuration
+    get_codex_mode_config, set_codex_mode_config,
     // Codex rewind commands
     record_codex_prompt_sent, record_codex_prompt_completed, revert_codex_to_prompt,
     CodexProcessState,
@@ -299,6 +301,9 @@ fn main() {
             get_codex_prompt_list,
             check_codex_rewind_capabilities,
             check_codex_availability,
+            // Codex Mode Configuration
+            get_codex_mode_config,
+            set_codex_mode_config,
             // Codex Rewind Commands
             record_codex_prompt_sent,
             record_codex_prompt_completed,

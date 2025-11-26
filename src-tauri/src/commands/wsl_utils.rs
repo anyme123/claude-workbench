@@ -3,6 +3,7 @@
 //! 提供 Windows 主机与 WSL 环境之间的路径转换和命令执行支持
 //! 主要用于 Windows + WSL Codex 场景
 
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
@@ -18,6 +19,106 @@ use log::{debug, info, warn};
 // Windows CREATE_NO_WINDOW 标志
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+// ============================================================================
+// Codex 模式配置
+// ============================================================================
+
+/// Codex 执行模式偏好
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum CodexMode {
+    /// 自动检测（默认）：原生优先，WSL 作为后备
+    #[default]
+    Auto,
+    /// 强制使用 Windows 原生 Codex
+    Native,
+    /// 强制使用 WSL Codex
+    Wsl,
+}
+
+/// Codex 配置结构
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexConfig {
+    /// Codex 执行模式偏好
+    #[serde(default)]
+    pub mode: CodexMode,
+    /// WSL 发行版名称（可选，留空则使用默认）
+    pub wsl_distro: Option<String>,
+}
+
+impl Default for CodexConfig {
+    fn default() -> Self {
+        Self {
+            mode: CodexMode::Auto,
+            wsl_distro: None,
+        }
+    }
+}
+
+/// 全局 Codex 配置缓存
+static CODEX_CONFIG: OnceLock<CodexConfig> = OnceLock::new();
+
+/// 获取 Codex 配置（带缓存）
+pub fn get_codex_config() -> &'static CodexConfig {
+    CODEX_CONFIG.get_or_init(|| {
+        load_codex_config().unwrap_or_default()
+    })
+}
+
+/// 从配置文件加载 Codex 配置
+fn load_codex_config() -> Option<CodexConfig> {
+    let home_dir = dirs::home_dir()?;
+    let config_file = home_dir.join(".codex").join("workbench_config.json");
+
+    if !config_file.exists() {
+        log::debug!("[Codex Config] Config file not found: {:?}", config_file);
+        return None;
+    }
+
+    match std::fs::read_to_string(&config_file) {
+        Ok(content) => {
+            match serde_json::from_str::<CodexConfig>(&content) {
+                Ok(config) => {
+                    log::info!("[Codex Config] Loaded config: mode={:?}, wsl_distro={:?}",
+                        config.mode, config.wsl_distro);
+                    Some(config)
+                }
+                Err(e) => {
+                    log::warn!("[Codex Config] Failed to parse config: {}", e);
+                    None
+                }
+            }
+        }
+        Err(e) => {
+            log::warn!("[Codex Config] Failed to read config file: {}", e);
+            None
+        }
+    }
+}
+
+/// 保存 Codex 配置到文件
+pub fn save_codex_config(config: &CodexConfig) -> Result<(), String> {
+    let home_dir = dirs::home_dir()
+        .ok_or_else(|| "Failed to get home directory".to_string())?;
+
+    let codex_dir = home_dir.join(".codex");
+    if !codex_dir.exists() {
+        std::fs::create_dir_all(&codex_dir)
+            .map_err(|e| format!("Failed to create .codex directory: {}", e))?;
+    }
+
+    let config_file = codex_dir.join("workbench_config.json");
+    let content = serde_json::to_string_pretty(config)
+        .map_err(|e| format!("Failed to serialize config: {}", e))?;
+
+    std::fs::write(&config_file, content)
+        .map_err(|e| format!("Failed to write config file: {}", e))?;
+
+    log::info!("[Codex Config] Saved config to {:?}", config_file);
+    Ok(())
+}
 
 // ============================================================================
 // WSL 配置结构
@@ -44,28 +145,61 @@ static WSL_CONFIG: OnceLock<WslConfig> = OnceLock::new();
 impl WslConfig {
     /// 自动检测并创建 WSL 配置
     ///
-    /// 检测策略：
-    /// 1. 先检测 Windows 原生 Codex 是否可用
-    /// 2. 如果原生可用，禁用 WSL 模式（原生优先）
-    /// 3. 如果原生不可用，检测 WSL Codex 作为后备
+    /// 检测策略（根据用户配置）：
+    /// - Auto（默认）：原生优先，WSL 作为后备
+    /// - Native：强制使用原生，不启用 WSL
+    /// - Wsl：强制使用 WSL（如果可用）
     #[cfg(target_os = "windows")]
     pub fn detect() -> Self {
-        info!("[WSL] Detecting Codex configuration...");
+        let codex_config = get_codex_config();
+        info!("[WSL] Detecting Codex configuration (mode: {:?})...", codex_config.mode);
 
-        // 首先检测 Windows 原生 Codex
-        if is_native_codex_available() {
-            info!("[WSL] Native Windows Codex is available, WSL mode disabled");
-            return Self::default();
+        match codex_config.mode {
+            CodexMode::Native => {
+                // 强制原生模式，不启用 WSL
+                info!("[WSL] Mode set to Native, WSL disabled");
+                return Self::default();
+            }
+            CodexMode::Wsl => {
+                // 强制 WSL 模式
+                info!("[WSL] Mode set to WSL, attempting to use WSL Codex...");
+                return Self::detect_wsl_config(codex_config.wsl_distro.as_deref());
+            }
+            CodexMode::Auto => {
+                // 自动模式：原生优先
+                if is_native_codex_available() {
+                    info!("[WSL] Native Windows Codex is available, WSL mode disabled");
+                    return Self::default();
+                }
+                info!("[WSL] Native Codex not found, checking WSL as fallback...");
+                return Self::detect_wsl_config(codex_config.wsl_distro.as_deref());
+            }
         }
+    }
 
-        info!("[WSL] Native Codex not found, checking WSL...");
-
+    /// 检测 WSL 配置（内部方法）
+    #[cfg(target_os = "windows")]
+    fn detect_wsl_config(preferred_distro: Option<&str>) -> Self {
         if !is_wsl_available() {
             info!("[WSL] WSL is not available");
             return Self::default();
         }
 
-        let distro = get_default_wsl_distro();
+        // 使用用户指定的发行版或默认发行版
+        let distro = if let Some(d) = preferred_distro {
+            // 验证用户指定的发行版是否存在
+            let distros = get_wsl_distros();
+            if distros.iter().any(|name| name == d) {
+                info!("[WSL] Using user-specified distro: {}", d);
+                Some(d.to_string())
+            } else {
+                warn!("[WSL] User-specified distro '{}' not found, using default", d);
+                get_default_wsl_distro()
+            }
+        } else {
+            get_default_wsl_distro()
+        };
+
         if distro.is_none() {
             info!("[WSL] No WSL distro found");
             return Self::default();

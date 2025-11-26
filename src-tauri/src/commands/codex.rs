@@ -692,6 +692,91 @@ fn get_codex_command_candidates() -> Vec<String> {
 }
 
 // ============================================================================
+// Codex Mode Configuration API
+// ============================================================================
+
+/// Codex 模式配置信息（用于前端显示）
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexModeInfo {
+    /// 当前配置的模式
+    pub mode: String,
+    /// WSL 发行版（如果配置了）
+    pub wsl_distro: Option<String>,
+    /// 实际使用的模式（检测结果）
+    pub actual_mode: String,
+    /// Windows 原生 Codex 是否可用
+    pub native_available: bool,
+    /// WSL Codex 是否可用
+    pub wsl_available: bool,
+    /// 可用的 WSL 发行版列表
+    pub available_distros: Vec<String>,
+}
+
+/// 获取 Codex 模式配置
+#[tauri::command]
+pub async fn get_codex_mode_config() -> Result<CodexModeInfo, String> {
+    log::info!("[Codex] Getting mode configuration...");
+
+    let config = wsl_utils::get_codex_config();
+    let wsl_config = wsl_utils::get_wsl_config();
+
+    // 检测可用性
+    #[cfg(target_os = "windows")]
+    let (native_available, wsl_available, available_distros) = {
+        let native = wsl_utils::is_native_codex_available();
+        let distros = wsl_utils::get_wsl_distros();
+        let wsl = !distros.is_empty() && wsl_utils::check_wsl_codex(None).is_some();
+        (native, wsl, distros)
+    };
+
+    #[cfg(not(target_os = "windows"))]
+    let (native_available, wsl_available, available_distros) = (true, false, vec![]);
+
+    let mode_str = match config.mode {
+        wsl_utils::CodexMode::Auto => "auto",
+        wsl_utils::CodexMode::Native => "native",
+        wsl_utils::CodexMode::Wsl => "wsl",
+    };
+
+    let actual_mode = if wsl_config.enabled { "wsl" } else { "native" };
+
+    Ok(CodexModeInfo {
+        mode: mode_str.to_string(),
+        wsl_distro: config.wsl_distro.clone(),
+        actual_mode: actual_mode.to_string(),
+        native_available,
+        wsl_available,
+        available_distros,
+    })
+}
+
+/// 设置 Codex 模式配置
+#[tauri::command]
+pub async fn set_codex_mode_config(
+    mode: String,
+    wsl_distro: Option<String>,
+) -> Result<String, String> {
+    log::info!("[Codex] Setting mode configuration: mode={}, wsl_distro={:?}", mode, wsl_distro);
+
+    let codex_mode = match mode.to_lowercase().as_str() {
+        "auto" => wsl_utils::CodexMode::Auto,
+        "native" => wsl_utils::CodexMode::Native,
+        "wsl" => wsl_utils::CodexMode::Wsl,
+        _ => return Err(format!("Invalid mode: {}. Use 'auto', 'native', or 'wsl'", mode)),
+    };
+
+    let config = wsl_utils::CodexConfig {
+        mode: codex_mode,
+        wsl_distro,
+    };
+
+    wsl_utils::save_codex_config(&config)?;
+
+    Ok("Configuration saved. Please restart the application for changes to take effect.".to_string())
+}
+
+// ============================================================================
 // Helper Functions
 // ============================================================================
 
