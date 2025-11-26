@@ -773,7 +773,7 @@ pub async fn set_codex_mode_config(
 
     wsl_utils::save_codex_config(&config)?;
 
-    Ok("Configuration saved. Please restart the application for changes to take effect.".to_string())
+    Ok("配置已保存。是否立即重启应用以使更改生效？".to_string())
 }
 
 // ============================================================================

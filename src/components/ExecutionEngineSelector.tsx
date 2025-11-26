@@ -19,6 +19,7 @@ import { Popover } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { api } from '@/lib/api';
+import { relaunchApp } from '@/lib/updater';
 import type { CodexExecutionMode } from '@/types/codex';
 
 // ============================================================================
@@ -107,7 +108,10 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
     try {
       const message = await api.setCodexModeConfig(mode, codexModeConfig.wslDistro);
       setCodexModeConfig({ ...codexModeConfig, mode });
-      alert(message); // Notify user to restart
+      // 询问用户是否重启
+      if (confirm(message)) {
+        await relaunchApp();
+      }
     } catch (error) {
       console.error('[ExecutionEngineSelector] Failed to save Codex mode config:', error);
       alert('保存配置失败: ' + (error instanceof Error ? error.message : String(error)));
@@ -124,7 +128,10 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
     try {
       const message = await api.setCodexModeConfig(codexModeConfig.mode, newDistro);
       setCodexModeConfig({ ...codexModeConfig, wslDistro: newDistro });
-      alert(message);
+      // 询问用户是否重启
+      if (confirm(message)) {
+        await relaunchApp();
+      }
     } catch (error) {
       console.error('[ExecutionEngineSelector] Failed to save WSL distro:', error);
       alert('保存配置失败: ' + (error instanceof Error ? error.message : String(error)));
