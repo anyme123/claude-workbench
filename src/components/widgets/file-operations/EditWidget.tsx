@@ -38,6 +38,7 @@ export const EditWidget: React.FC<EditWidgetProps> = ({
   result: _result,
 }) => {
   const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const [isExpanded, setIsExpanded] = useState(false);
 
   const diffResult = Diff.diffLines(old_string || '', new_string || '', {
@@ -83,19 +84,25 @@ export const EditWidget: React.FC<EditWidgetProps> = ({
 
         {/* Diff 视图 */}
         {isExpanded && (
-          <div className="rounded-lg border bg-zinc-950 overflow-hidden text-xs font-mono mt-2">
+          <div className={cn(
+            "rounded-lg border overflow-hidden text-xs font-mono mt-2",
+            isDark ? "bg-zinc-950 border-zinc-800" : "bg-zinc-100 border-zinc-300"
+          )}>
             <div className="max-h-[440px] overflow-y-auto overflow-x-auto">
               {diffResult.map((part, index) => {
                 const partClass = part.added
-                  ? 'bg-green-950/20'
+                  ? isDark ? 'bg-green-950/20' : 'bg-green-100'
                   : part.removed
-                  ? 'bg-red-950/20'
+                  ? isDark ? 'bg-red-950/20' : 'bg-red-100'
                   : '';
 
                 // 折叠大量未更改的行
                 if (!part.added && !part.removed && part.count && part.count > 8) {
                   return (
-                    <div key={index} className="px-4 py-1 bg-zinc-900 border-y border-zinc-800 text-center text-zinc-500 text-xs">
+                    <div key={index} className={cn(
+                      "px-4 py-1 border-y text-center text-xs",
+                      isDark ? "bg-zinc-900 border-zinc-800 text-zinc-500" : "bg-zinc-200 border-zinc-300 text-zinc-500"
+                    )}>
                       ... {part.count} 未更改的行 ...
                     </div>
                   );
@@ -106,7 +113,7 @@ export const EditWidget: React.FC<EditWidgetProps> = ({
                 return (
                   <div key={index} className={cn(partClass, "flex")}>
                     <div className="w-8 select-none text-center flex-shrink-0">
-                      {part.added ? <span className="text-green-400">+</span> : part.removed ? <span className="text-red-400">-</span> : null}
+                      {part.added ? <span className={isDark ? "text-green-400" : "text-green-600"}>+</span> : part.removed ? <span className={isDark ? "text-red-400" : "text-red-600"}>-</span> : null}
                     </div>
                     <div className="flex-1">
                       <SyntaxHighlighter

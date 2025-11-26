@@ -767,13 +767,15 @@ export const WriteWidget: React.FC<{ filePath: string; content: string; result?:
  * Widget for Grep tool
  */
 
-export const GrepWidget: React.FC<{ 
-  pattern: string; 
-  include?: string; 
+export const GrepWidget: React.FC<{
+  pattern: string;
+  include?: string;
   path?: string;
   exclude?: string;
   result?: any;
 }> = ({ pattern, include, path, exclude, result }) => {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const [isExpanded, setIsExpanded] = useState(false);
   
   // Extract result content if available
@@ -982,7 +984,10 @@ export const GrepWidget: React.FC<{
               </button>
 
               {isExpanded && (
-                <div className="rounded-lg border bg-zinc-950 overflow-hidden">
+                <div className={cn(
+                  "rounded-lg border overflow-hidden",
+                  isDark ? "bg-zinc-950 border-zinc-800" : "bg-zinc-100 border-zinc-300"
+                )}>
                   <div className="max-h-[400px] overflow-y-auto">
                     {grepResults.map((match, idx) => {
                       const fileName = match.file.split('/').pop() || match.file;
@@ -992,14 +997,17 @@ export const GrepWidget: React.FC<{
                         <div
                           key={idx}
                           className={cn(
-                            "flex items-start gap-3 p-3 border-b border-zinc-800 hover:bg-zinc-900/50 transition-colors",
+                            "flex items-start gap-3 p-3 border-b transition-colors",
+                            isDark
+                              ? "border-zinc-800 hover:bg-zinc-900/50"
+                              : "border-zinc-300 hover:bg-zinc-200/50",
                             idx === grepResults.length - 1 && "border-b-0"
                           )}
                         >
                           <div className="flex items-center gap-2 min-w-[60px]">
                             <FileText className="h-3.5 w-3.5 text-emerald-500" />
                             {match.lineNumber > 0 ? (
-                              <span className="text-xs font-mono text-emerald-400">
+                              <span className={cn("text-xs font-mono", isDark ? "text-emerald-400" : "text-emerald-600")}>
                                 {match.lineNumber}
                               </span>
                             ) : (
@@ -1011,7 +1019,7 @@ export const GrepWidget: React.FC<{
 
                           <div className="flex-1 space-y-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className="text-xs font-medium text-blue-400 truncate">
+                              <span className={cn("text-xs font-medium truncate", isDark ? "text-blue-400" : "text-blue-600")}>
                                 {fileName}
                               </span>
                               {dirPath && (
@@ -1021,7 +1029,7 @@ export const GrepWidget: React.FC<{
                               )}
                             </div>
                             {match.content && (
-                              <code className="text-xs font-mono text-zinc-300 block whitespace-pre-wrap break-all">
+                              <code className={cn("text-xs font-mono block whitespace-pre-wrap break-all", isDark ? "text-zinc-300" : "text-zinc-700")}>
                                 {match.content.trim()}
                               </code>
                             )}
