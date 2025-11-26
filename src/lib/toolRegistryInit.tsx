@@ -192,13 +192,28 @@ export function initializeToolRegistry(): void {
     },
 
     // Update Plan - 计划更新（Codex 专用）
+    // Codex 格式: { plan: [{ status: "completed", step: "步骤描述" }, ...] }
     {
       name: 'update_plan',
-      render: createToolAdapter(UpdatePlanWidget, (props) => ({
-        plan: props.input?.plan,
-        items: props.input?.items,
-        result: props.result,
-      })),
+      render: createToolAdapter(UpdatePlanWidget, (props) => {
+        // Codex update_plan 的 arguments 是 JSON 字符串，包含 plan 数组
+        let plan = props.input?.plan;
+
+        // 如果 plan 是字符串，尝试解析
+        if (typeof plan === 'string') {
+          try {
+            const parsed = JSON.parse(plan);
+            plan = parsed.plan || parsed;
+          } catch {
+            // 忽略解析错误
+          }
+        }
+
+        return {
+          plan: Array.isArray(plan) ? plan : [],
+          result: props.result,
+        };
+      }),
       description: 'Codex 计划更新工具',
     },
 

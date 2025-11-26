@@ -229,6 +229,16 @@ export class CodexEventConverter {
       return this.convertFunctionCallOutput(event);
     }
 
+    // Handle custom_tool_call (e.g., apply_patch for file editing)
+    if (payloadType === 'custom_tool_call') {
+      return this.convertCustomToolCall(event);
+    }
+
+    // Handle custom_tool_call_output (result of custom tool call)
+    if (payloadType === 'custom_tool_call_output') {
+      return this.convertCustomToolCallOutput(event);
+    }
+
     if (payloadType === 'reasoning') {
       // Extended thinking (encrypted content)
       return this.convertReasoningPayload(event);
@@ -376,6 +386,130 @@ export class CodexEventConverter {
             type: 'tool_result',
             tool_use_id: callId,
             content: typeof resultContent === 'string' ? resultContent : JSON.stringify(resultContent),
+          },
+        ],
+      },
+      timestamp: event.timestamp || new Date().toISOString(),
+      receivedAt: event.timestamp || new Date().toISOString(),
+      engine: 'codex' as const,
+    };
+  }
+
+  /**
+   * Converts custom_tool_call response_item to tool_use message
+   * Handles tools like apply_patch for file editing
+   *
+   * Format:
+   * {
+   *   "type": "custom_tool_call",
+   *   "status": "completed",
+   *   "call_id": "call_xxx",
+   *   "name": "apply_patch",
+   *   "input": "*** Begin Patch\n*** Update File: path/to/file\n..."
+   * }
+   */
+  private convertCustomToolCall(event: any): ClaudeStreamMessage {
+    const payload = event.payload;
+    const rawToolName = payload.name || 'unknown_tool';
+    const toolName = mapCodexToolName(rawToolName);
+    const callId = payload.call_id || `call_${Date.now()}`;
+    const input = payload.input || '';
+
+    // Parse apply_patch input to extract file path and changes
+    let normalizedInput: Record<string, any> = { raw_input: input };
+
+    if (rawToolName === 'apply_patch' && typeof input === 'string') {
+      // Extract file path from patch format: "*** Update File: path/to/file"
+      const fileMatch = input.match(/\*\*\* (?:Update|Create|Delete) File: (.+)/);
+      const filePath = fileMatch ? fileMatch[1].trim() : '';
+
+      // Extract the patch content (everything between @@ markers)
+      const patchMatch = input.match(/@@\n([\s\S]*?)(?:\n\*\*\* End Patch|$)/);
+      const patchContent = patchMatch ? patchMatch[1] : input;
+
+      // Parse diff-like content for old_string/new_string
+      const lines = patchContent.split('\n');
+      const oldLines: string[] = [];
+      const newLines: string[] = [];
+
+      for (const line of lines) {
+        if (line.startsWith('-') && !line.startsWith('---')) {
+          oldLines.push(line.slice(1));
+        } else if (line.startsWith('+') && !line.startsWith('+++')) {
+          newLines.push(line.slice(1));
+        } else if (!line.startsWith('@@') && !line.startsWith('***')) {
+          // Context line - add to both
+          oldLines.push(line);
+          newLines.push(line);
+        }
+      }
+
+      normalizedInput = {
+        file_path: filePath,
+        old_string: oldLines.join('\n'),
+        new_string: newLines.join('\n'),
+        patch: input,
+      };
+    }
+
+    return {
+      type: 'assistant',
+      message: {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool_use',
+            id: callId,
+            name: toolName,
+            input: normalizedInput,
+          },
+        ],
+      },
+      timestamp: event.timestamp || new Date().toISOString(),
+      receivedAt: event.timestamp || new Date().toISOString(),
+      engine: 'codex' as const,
+    };
+  }
+
+  /**
+   * Converts custom_tool_call_output response_item to tool_result message
+   *
+   * Format:
+   * {
+   *   "type": "custom_tool_call_output",
+   *   "call_id": "call_xxx",
+   *   "output": "{\"output\":\"Success. Updated...\",\"metadata\":{...}}"
+   * }
+   */
+  private convertCustomToolCallOutput(event: any): ClaudeStreamMessage {
+    const payload = event.payload;
+    const callId = payload.call_id || `call_${Date.now()}`;
+    const output = payload.output || '';
+
+    // Parse output if it's JSON string
+    let resultContent = output;
+    let isError = false;
+
+    try {
+      if (typeof output === 'string' && output.trim().startsWith('{')) {
+        const parsed = JSON.parse(output);
+        resultContent = parsed.output || parsed.message || output;
+        isError = parsed.metadata?.exit_code !== 0;
+      }
+    } catch {
+      // Keep original output if parsing fails
+    }
+
+    return {
+      type: 'assistant',
+      message: {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: callId,
+            content: typeof resultContent === 'string' ? resultContent : JSON.stringify(resultContent),
+            is_error: isError,
           },
         ],
       },

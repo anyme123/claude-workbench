@@ -2,19 +2,38 @@
  * ✅ Update Plan Widget - 计划更新展示
  *
  * 用于展示 Codex update_plan 工具的调用结果
- * 显示计划更新状态和内容
+ * 显示计划步骤和状态
+ *
+ * Codex update_plan 格式:
+ * {
+ *   "plan": [
+ *     {"status": "completed", "step": "步骤描述"},
+ *     {"status": "in_progress", "step": "步骤描述"}
+ *   ]
+ * }
  */
 
 import React, { useState } from "react";
-import { ClipboardList, CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  ClipboardList,
+  CheckCircle2,
+  Circle,
+  Loader2,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
+/** 计划步骤项 */
+interface PlanStep {
+  step: string;
+  status: "completed" | "in_progress" | "pending" | string;
+}
+
 export interface UpdatePlanWidgetProps {
-  /** 计划内容/更新说明 */
-  plan?: string;
-  /** 计划条目列表 */
-  items?: Array<{ text: string; status?: string }>;
+  /** 计划步骤数组 (Codex 实际格式) */
+  plan?: PlanStep[];
   /** 工具结果 */
   result?: {
     content?: any;
@@ -23,131 +42,141 @@ export interface UpdatePlanWidgetProps {
 }
 
 /**
+ * 获取状态图标
+ */
+const StatusIcon: React.FC<{ status: string }> = ({ status }) => {
+  switch (status) {
+    case "completed":
+      return <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />;
+    case "in_progress":
+      return <Loader2 className="h-4 w-4 text-blue-500 animate-spin flex-shrink-0" />;
+    default:
+      return <Circle className="h-4 w-4 text-muted-foreground flex-shrink-0" />;
+  }
+};
+
+/**
  * Update Plan Widget
  *
  * 展示 Codex 的计划更新操作
- * - 显示更新成功状态
- * - 支持展开查看详细计划内容
+ * - 显示计划步骤列表
+ * - 显示每个步骤的状态（完成/进行中/待处理）
  */
 export const UpdatePlanWidget: React.FC<UpdatePlanWidgetProps> = ({
   plan,
-  items,
   result,
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
 
-  // 从 result 中提取内容
-  const resultContent = result?.content;
   const isError = result?.is_error;
 
-  // 尝试解析计划内容
-  let planText = plan || '';
-  let planItems = items || [];
+  // 解析计划步骤
+  let planSteps: PlanStep[] = [];
 
-  if (resultContent) {
-    if (typeof resultContent === 'string') {
-      planText = resultContent;
-    } else if (typeof resultContent === 'object') {
-      if (resultContent.plan) {
-        planText = resultContent.plan;
-      }
-      if (Array.isArray(resultContent.items)) {
-        planItems = resultContent.items;
-      }
-    }
+  if (Array.isArray(plan)) {
+    planSteps = plan;
   }
 
-  const hasContent = planText || planItems.length > 0;
+  // 统计状态
+  const completedCount = planSteps.filter((s) => s.status === "completed").length;
+  const inProgressCount = planSteps.filter((s) => s.status === "in_progress").length;
+  const totalCount = planSteps.length;
+
+  // 生成摘要
+  const summary =
+    totalCount > 0
+      ? `${completedCount}/${totalCount} 完成${inProgressCount > 0 ? `, ${inProgressCount} 进行中` : ""}`
+      : "Plan updated";
 
   return (
-    <div className={cn(
-      "rounded-lg border overflow-hidden",
-      isError
-        ? "border-destructive/20 bg-gradient-to-br from-destructive/5 to-destructive/10"
-        : "border-emerald-500/20 bg-gradient-to-br from-emerald-500/5 to-teal-500/5"
-    )}>
-      {/* 头部 */}
-      <div className={cn(
-        "px-4 py-3 border-b",
+    <div
+      className={cn(
+        "rounded-lg border overflow-hidden",
         isError
-          ? "bg-destructive/10 border-destructive/20"
-          : "bg-zinc-700/30 border-emerald-500/20"
-      )}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ClipboardList className={cn(
+          ? "border-destructive/20 bg-gradient-to-br from-destructive/5 to-destructive/10"
+          : "border-emerald-500/20 bg-gradient-to-br from-emerald-500/5 to-teal-500/5"
+      )}
+    >
+      {/* 头部 */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className={cn(
+          "w-full px-4 py-3 border-b flex items-center justify-between",
+          "hover:bg-muted/30 transition-colors",
+          isError
+            ? "bg-destructive/10 border-destructive/20"
+            : "bg-zinc-700/30 border-emerald-500/20"
+        )}
+      >
+        <div className="flex items-center gap-2">
+          <ClipboardList
+            className={cn(
               "h-4 w-4",
               isError ? "text-destructive" : "text-emerald-500"
-            )} />
-            <span className={cn(
+            )}
+          />
+          <span
+            className={cn(
               "text-sm font-medium",
               isError ? "text-destructive" : "text-emerald-600 dark:text-emerald-400"
-            )}>
-              update_plan
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge
-              variant="outline"
+            )}
+          >
+            update_plan
+          </span>
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-xs ml-2",
+              isError
+                ? "border-destructive/30 text-destructive"
+                : "border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+            )}
+          >
+            {summary}
+          </Badge>
+        </div>
+        <div className="flex items-center gap-2">
+          {isExpanded ? (
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          )}
+        </div>
+      </button>
+
+      {/* 计划步骤列表 */}
+      {isExpanded && planSteps.length > 0 && (
+        <div className="px-4 py-3 space-y-2">
+          {planSteps.map((item, idx) => (
+            <div
+              key={idx}
               className={cn(
-                "text-xs",
-                isError
-                  ? "border-destructive/30 text-destructive"
-                  : "border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                "flex items-start gap-3 p-2.5 rounded-md border text-sm",
+                item.status === "completed"
+                  ? "bg-emerald-500/5 border-emerald-500/20"
+                  : item.status === "in_progress"
+                    ? "bg-blue-500/5 border-blue-500/20"
+                    : "bg-muted/30 border-border/50"
               )}
             >
-              <CheckCircle2 className="h-3 w-3 mr-1" />
-              {isError ? "失败" : "成功"}
-            </Badge>
-            {hasContent && (
-              <button
-                onClick={() => setIsExpanded(!isExpanded)}
+              <StatusIcon status={item.status} />
+              <span
                 className={cn(
-                  "transition-colors",
-                  isError
-                    ? "text-destructive hover:text-destructive/80"
-                    : "text-emerald-500 hover:text-emerald-600"
+                  "flex-1",
+                  item.status === "completed" && "text-emerald-700 dark:text-emerald-300"
                 )}
               >
-                {isExpanded ? (
-                  <ChevronUp className="h-3.5 w-3.5" />
-                ) : (
-                  <ChevronDown className="h-3.5 w-3.5" />
-                )}
-              </button>
-            )}
-          </div>
+                {item.step}
+              </span>
+            </div>
+          ))}
         </div>
-      </div>
+      )}
 
-      {/* 摘要信息 */}
-      <div className="px-4 py-2">
-        <p className="text-sm text-muted-foreground">
-          Plan updated
-        </p>
-      </div>
-
-      {/* 展开内容 */}
-      {isExpanded && hasContent && (
-        <div className="px-4 pb-3 space-y-2">
-          {planText && (
-            <div className="p-3 rounded-md bg-background/50 border text-sm whitespace-pre-wrap">
-              {planText}
-            </div>
-          )}
-          {planItems.length > 0 && (
-            <div className="space-y-1">
-              {planItems.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-start gap-2 p-2 rounded-md bg-background/50 border text-sm"
-                >
-                  <span className="text-muted-foreground">{idx + 1}.</span>
-                  <span>{typeof item === 'string' ? item : item.text}</span>
-                </div>
-              ))}
-            </div>
-          )}
+      {/* 无内容时显示成功状态 */}
+      {planSteps.length === 0 && (
+        <div className="px-4 py-2">
+          <p className="text-sm text-muted-foreground">Plan updated</p>
         </div>
       )}
     </div>
