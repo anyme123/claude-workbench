@@ -2643,6 +2643,51 @@ export const api = {
   },
 
   // ============================================================================
+  // Codex Mode Configuration (WSL Support)
+  // ============================================================================
+
+  /**
+   * Gets Codex mode configuration
+   * @returns Promise resolving to mode configuration info
+   */
+  async getCodexModeConfig(): Promise<{
+    mode: 'auto' | 'native' | 'wsl';
+    wslDistro: string | null;
+    actualMode: 'native' | 'wsl';
+    nativeAvailable: boolean;
+    wslAvailable: boolean;
+    availableDistros: string[];
+  }> {
+    try {
+      return await invoke("get_codex_mode_config");
+    } catch (error) {
+      console.error("Failed to get Codex mode config:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Sets Codex mode configuration
+   * @param mode - The mode to set: 'auto', 'native', or 'wsl'
+   * @param wslDistro - Optional WSL distro name
+   * @returns Promise resolving to success message
+   */
+  async setCodexModeConfig(
+    mode: 'auto' | 'native' | 'wsl',
+    wslDistro?: string | null
+  ): Promise<string> {
+    try {
+      return await invoke<string>("set_codex_mode_config", {
+        mode,
+        wslDistro: wslDistro || null
+      });
+    } catch (error) {
+      console.error("Failed to set Codex mode config:", error);
+      throw error;
+    }
+  },
+
+  // ============================================================================
   // Codex Rewind Commands
   // ============================================================================
 

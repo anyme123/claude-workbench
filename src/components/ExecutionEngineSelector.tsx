@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Settings, Zap, Check } from 'lucide-react';
+import { Settings, Zap, Check, Monitor, Terminal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -26,6 +26,7 @@ import type { CodexExecutionMode } from '@/types/codex';
 // ============================================================================
 
 export type ExecutionEngine = 'claude' | 'codex';
+export type CodexRuntimeMode = 'auto' | 'native' | 'wsl';
 
 export interface ExecutionEngineConfig {
   engine: ExecutionEngine;
@@ -33,6 +34,15 @@ export interface ExecutionEngineConfig {
   codexMode?: CodexExecutionMode;
   codexModel?: string;
   codexApiKey?: string;
+}
+
+interface CodexModeConfig {
+  mode: CodexRuntimeMode;
+  wslDistro: string | null;
+  actualMode: 'native' | 'wsl';
+  nativeAvailable: boolean;
+  wslAvailable: boolean;
+  availableDistros: string[];
 }
 
 interface ExecutionEngineSelectorProps {
@@ -53,10 +63,13 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
   const [showSettings, setShowSettings] = useState(false);
   const [codexAvailable, setCodexAvailable] = useState(false);
   const [codexVersion, setCodexVersion] = useState<string | null>(null);
+  const [codexModeConfig, setCodexModeConfig] = useState<CodexModeConfig | null>(null);
+  const [savingConfig, setSavingConfig] = useState(false);
 
-  // Check Codex availability on mount
+  // Check Codex availability and mode config on mount
   useEffect(() => {
     checkCodexAvailability();
+    loadCodexModeConfig();
   }, []);
 
   const checkCodexAvailability = async () => {
@@ -72,6 +85,51 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
     } catch (error) {
       console.error('[ExecutionEngineSelector] Failed to check Codex availability:', error);
       setCodexAvailable(false);
+    }
+  };
+
+  const loadCodexModeConfig = async () => {
+    try {
+      if (!api || typeof api.getCodexModeConfig !== 'function') {
+        return;
+      }
+      const config = await api.getCodexModeConfig();
+      setCodexModeConfig(config);
+    } catch (error) {
+      console.error('[ExecutionEngineSelector] Failed to load Codex mode config:', error);
+    }
+  };
+
+  const handleCodexRuntimeModeChange = async (mode: CodexRuntimeMode) => {
+    if (!codexModeConfig) return;
+
+    setSavingConfig(true);
+    try {
+      const message = await api.setCodexModeConfig(mode, codexModeConfig.wslDistro);
+      setCodexModeConfig({ ...codexModeConfig, mode });
+      alert(message); // Notify user to restart
+    } catch (error) {
+      console.error('[ExecutionEngineSelector] Failed to save Codex mode config:', error);
+      alert('保存配置失败: ' + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      setSavingConfig(false);
+    }
+  };
+
+  const handleWslDistroChange = async (distro: string) => {
+    if (!codexModeConfig) return;
+
+    const newDistro = distro === '__default__' ? null : distro;
+    setSavingConfig(true);
+    try {
+      const message = await api.setCodexModeConfig(codexModeConfig.mode, newDistro);
+      setCodexModeConfig({ ...codexModeConfig, wslDistro: newDistro });
+      alert(message);
+    } catch (error) {
+      console.error('[ExecutionEngineSelector] Failed to save WSL distro:', error);
+      alert('保存配置失败: ' + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      setSavingConfig(false);
     }
   };
 
@@ -207,6 +265,105 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
                   {codexVersion && <span className="text-muted-foreground">• {codexVersion}</span>}
                 </div>
               </div>
+
+              {/* WSL Mode Configuration (Windows only) */}
+              {codexModeConfig && (codexModeConfig.nativeAvailable || codexModeConfig.wslAvailable) && (
+                <>
+                  <div className="h-px bg-border" />
+
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <Terminal className="h-4 w-4" />
+                      运行环境
+                    </Label>
+                    <Select
+                      value={codexModeConfig.mode}
+                      onValueChange={(v) => handleCodexRuntimeModeChange(v as CodexRuntimeMode)}
+                      disabled={savingConfig}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="auto">
+                          <div>
+                            <div className="font-medium">自动检测</div>
+                            <div className="text-xs text-muted-foreground">原生优先，WSL 后备</div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="native" disabled={!codexModeConfig.nativeAvailable}>
+                          <div className="flex items-center gap-2">
+                            <Monitor className="h-3 w-3" />
+                            <div>
+                              <div className="font-medium">Windows 原生</div>
+                              <div className="text-xs text-muted-foreground">
+                                {codexModeConfig.nativeAvailable ? '使用 Windows 版 Codex' : '未安装'}
+                              </div>
+                            </div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="wsl" disabled={!codexModeConfig.wslAvailable}>
+                          <div className="flex items-center gap-2">
+                            <Terminal className="h-3 w-3" />
+                            <div>
+                              <div className="font-medium">WSL</div>
+                              <div className="text-xs text-muted-foreground">
+                                {codexModeConfig.wslAvailable ? '使用 WSL 中的 Codex' : '未安装'}
+                              </div>
+                            </div>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* WSL Distro Selection */}
+                  {codexModeConfig.mode === 'wsl' && codexModeConfig.availableDistros.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">WSL 发行版</Label>
+                      <Select
+                        value={codexModeConfig.wslDistro || '__default__'}
+                        onValueChange={handleWslDistroChange}
+                        disabled={savingConfig}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__default__">
+                            <div className="text-muted-foreground">默认（自动选择）</div>
+                          </SelectItem>
+                          {codexModeConfig.availableDistros.map((distro) => (
+                            <SelectItem key={distro} value={distro}>
+                              {distro}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* Current Runtime Status */}
+                  <div className="rounded-md border p-2 bg-muted/30 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">当前运行环境:</span>
+                      <span className="font-medium">
+                        {codexModeConfig.actualMode === 'wsl' ? (
+                          <span className="flex items-center gap-1">
+                            <Terminal className="h-3 w-3" />
+                            WSL
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1">
+                            <Monitor className="h-3 w-3" />
+                            Windows 原生
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
             </>
           )}
 
