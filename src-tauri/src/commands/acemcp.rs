@@ -1257,28 +1257,62 @@ pub async fn save_acemcp_config(
     }
 
     // 读取现有配置（如果存在）
-    let mut existing_lines: HashMap<String, String> = HashMap::new();
+    // 需要正确处理多行数组格式（如 TEXT_EXTENSIONS = [...] 和 EXCLUDE_PATTERNS = [...]）
+    let mut existing_entries: HashMap<String, String> = HashMap::new();
     let mut other_lines = Vec::new();
 
     if config_file.exists() {
         let existing_content = fs::read_to_string(&config_file)
             .map_err(|e| format!("Failed to read existing config: {}", e))?;
 
-        for line in existing_content.lines() {
+        let lines: Vec<&str> = existing_content.lines().collect();
+        let mut i = 0;
+
+        while i < lines.len() {
+            let line = lines[i];
             let trimmed = line.trim();
+
+            // 空行和注释
             if trimmed.is_empty() || trimmed.starts_with('#') {
                 other_lines.push(line.to_string());
+                i += 1;
                 continue;
             }
 
             // 提取键名
             if let Some(eq_pos) = trimmed.find('=') {
                 let key = trimmed[..eq_pos].trim();
-                // 保留非 UI 管理的字段
-                if key != "BASE_URL" && key != "TOKEN" && key != "BATCH_SIZE" && key != "MAX_LINES_PER_BLOB" {
-                    existing_lines.insert(key.to_string(), line.to_string());
+                let value_part = trimmed[eq_pos + 1..].trim();
+
+                // 检查是否是多行数组（以 [ 开头但不以 ] 结尾）
+                if value_part.starts_with('[') && !value_part.ends_with(']') {
+                    // 多行数组：收集直到找到 ]
+                    let mut multiline_content = line.to_string();
+                    i += 1;
+
+                    while i < lines.len() {
+                        let array_line = lines[i];
+                        multiline_content.push('\n');
+                        multiline_content.push_str(array_line);
+
+                        if array_line.trim().ends_with(']') {
+                            break;
+                        }
+                        i += 1;
+                    }
+
+                    // 保留非 UI 管理的字段
+                    if key != "BASE_URL" && key != "TOKEN" && key != "BATCH_SIZE" && key != "MAX_LINES_PER_BLOB" {
+                        existing_entries.insert(key.to_string(), multiline_content);
+                    }
+                } else {
+                    // 单行配置
+                    if key != "BASE_URL" && key != "TOKEN" && key != "BATCH_SIZE" && key != "MAX_LINES_PER_BLOB" {
+                        existing_entries.insert(key.to_string(), line.to_string());
+                    }
                 }
             }
+            i += 1;
         }
     }
 
@@ -1297,9 +1331,9 @@ pub async fn save_acemcp_config(
         toml_content.push_str(&format!("MAX_LINES_PER_BLOB = {}\n", max_lines));
     }
 
-    // 保留的其他配置
-    for line in existing_lines.values() {
-        toml_content.push_str(line);
+    // 保留的其他配置（包括多行数组）
+    for entry in existing_entries.values() {
+        toml_content.push_str(entry);
         toml_content.push('\n');
     }
 
