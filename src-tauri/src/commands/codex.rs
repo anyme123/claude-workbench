@@ -769,16 +769,67 @@ fn get_npm_prefix_codex() -> Option<String> {
 fn get_codex_command_candidates() -> Vec<String> {
     let mut candidates = vec!["codex".to_string()];
 
-    // Windows: npm global install paths
+    // Windows: npm global install paths (与 wsl_utils::get_native_codex_paths 保持同步)
     #[cfg(target_os = "windows")]
     {
+        // npm 全局安装路径 (APPDATA - 标准位置)
         if let Ok(appdata) = std::env::var("APPDATA") {
             candidates.push(format!(r"{}\npm\codex.cmd", appdata));
             candidates.push(format!(r"{}\npm\codex", appdata));
+            // nvm-windows 安装的 Node.js 版本
+            let nvm_dir = format!(r"{}\nvm", appdata);
+            if let Ok(entries) = std::fs::read_dir(&nvm_dir) {
+                for entry in entries.flatten() {
+                    if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                        let codex_path = entry.path().join("codex.cmd");
+                        if codex_path.exists() {
+                            candidates.push(codex_path.to_string_lossy().to_string());
+                        }
+                    }
+                }
+            }
         }
-        // Also try common npm prefix paths
+
+        // npm 全局安装路径 (LOCALAPPDATA)
+        if let Ok(localappdata) = std::env::var("LOCALAPPDATA") {
+            candidates.push(format!(r"{}\npm\codex.cmd", localappdata));
+            candidates.push(format!(r"{}\npm\codex", localappdata));
+            // pnpm 全局安装路径
+            candidates.push(format!(r"{}\pnpm\codex.cmd", localappdata));
+            candidates.push(format!(r"{}\pnpm\codex", localappdata));
+            // Yarn 全局安装路径
+            candidates.push(format!(r"{}\Yarn\bin\codex.cmd", localappdata));
+            candidates.push(format!(r"{}\Yarn\bin\codex", localappdata));
+        }
+
+        // 用户目录下的安装路径
+        if let Ok(userprofile) = std::env::var("USERPROFILE") {
+            // 自定义 npm 全局目录
+            candidates.push(format!(r"{}\.npm-global\bin\codex.cmd", userprofile));
+            candidates.push(format!(r"{}\.npm-global\bin\codex", userprofile));
+            // Volta 安装路径
+            candidates.push(format!(r"{}\.volta\bin\codex.cmd", userprofile));
+            candidates.push(format!(r"{}\.volta\bin\codex", userprofile));
+            // fnm 安装路径
+            candidates.push(format!(r"{}\.fnm\aliases\default\codex.cmd", userprofile));
+            // Scoop 安装路径
+            candidates.push(format!(r"{}\scoop\shims\codex.cmd", userprofile));
+            candidates.push(format!(r"{}\scoop\apps\nodejs\current\codex.cmd", userprofile));
+            // 本地 bin 目录
+            candidates.push(format!(r"{}\.local\bin\codex.cmd", userprofile));
+            candidates.push(format!(r"{}\.local\bin\codex", userprofile));
+        }
+
+        // Node.js 安装路径
         if let Ok(programfiles) = std::env::var("ProgramFiles") {
             candidates.push(format!(r"{}\nodejs\codex.cmd", programfiles));
+            candidates.push(format!(r"{}\nodejs\codex", programfiles));
+        }
+
+        // Chocolatey 安装路径
+        if let Ok(programdata) = std::env::var("ProgramData") {
+            candidates.push(format!(r"{}\chocolatey\bin\codex.cmd", programdata));
+            candidates.push(format!(r"{}\chocolatey\bin\codex", programdata));
         }
     }
 
