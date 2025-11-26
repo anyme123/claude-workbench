@@ -18,3 +18,4 @@ pub mod storage;
 pub mod translator;
 pub mod url_utils;  // API URL 规范化工具
 pub mod usage;
+pub mod wsl_utils;  // WSL 兼容性工具

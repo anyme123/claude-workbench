@@ -23,6 +23,8 @@ use crate::commands::claude::apply_no_window_async;
 use super::simple_git;
 // Import rewind helpers/types shared with Claude
 use super::prompt_tracker::{RewindMode, RewindCapabilities, PromptRecord as ClaudePromptRecord, load_execution_config};
+// Import WSL utilities for Windows + WSL Codex support
+use super::wsl_utils;
 
 // Align Codex prompt record type with Claude prompt tracker representation
 type PromptRecord = ClaudePromptRecord;
@@ -272,14 +274,13 @@ pub async fn cancel_codex(
 // ============================================================================
 
 /// Lists all Codex sessions by reading ~/.codex/sessions directory
+/// On Windows with WSL mode, reads from WSL filesystem via UNC path
 #[tauri::command]
 pub async fn list_codex_sessions() -> Result<Vec<CodexSession>, String> {
     log::info!("list_codex_sessions called");
 
-    let home_dir = dirs::home_dir()
-        .ok_or_else(|| "Failed to get home directory".to_string())?;
-
-    let sessions_dir = home_dir.join(".codex").join("sessions");
+    // Use unified sessions directory function (supports WSL)
+    let sessions_dir = get_codex_sessions_dir()?;
     log::info!("Looking for Codex sessions in: {:?}", sessions_dir);
 
     if !sessions_dir.exists() {
@@ -353,7 +354,20 @@ fn parse_codex_session_file(path: &std::path::Path) -> Option<CodexSession> {
         .ok()?
         .timestamp() as u64;
 
-    let cwd = payload["cwd"].as_str().unwrap_or("").to_string();
+    // Get cwd and convert from WSL path format if needed
+    let cwd_raw = payload["cwd"].as_str().unwrap_or("");
+    #[cfg(target_os = "windows")]
+    let cwd = {
+        // Convert WSL path (/mnt/c/...) to Windows path (C:\...)
+        // This ensures the UI displays Windows-friendly paths
+        if cwd_raw.starts_with("/mnt/") {
+            wsl_utils::wsl_to_windows_path(cwd_raw)
+        } else {
+            cwd_raw.to_string()
+        }
+    };
+    #[cfg(not(target_os = "windows"))]
+    let cwd = cwd_raw.to_string();
 
     // Extract first user message and other metadata from subsequent lines
     let mut first_message: Option<String> = None;
@@ -430,15 +444,13 @@ fn parse_codex_session_file(path: &std::path::Path) -> Option<CodexSession> {
 }
 
 /// Loads Codex session history from JSONL file
+/// On Windows with WSL mode, reads from WSL filesystem via UNC path
 #[tauri::command]
 pub async fn load_codex_session_history(session_id: String) -> Result<Vec<serde_json::Value>, String> {
     log::info!("load_codex_session_history called for: {}", session_id);
 
-    // Find the session file by ID
-    let home_dir = dirs::home_dir()
-        .ok_or_else(|| "Failed to get home directory".to_string())?;
-
-    let sessions_dir = home_dir.join(".codex").join("sessions");
+    // Use unified sessions directory function (supports WSL)
+    let sessions_dir = get_codex_sessions_dir()?;
 
     // Search for file containing this session_id
     let session_file = find_session_file(&sessions_dir, &session_id)
@@ -515,14 +527,13 @@ fn find_session_file(sessions_dir: &std::path::Path, session_id: &str) -> Option
 }
 
 /// Deletes a Codex session
+/// On Windows with WSL mode, deletes from WSL filesystem via UNC path
 #[tauri::command]
 pub async fn delete_codex_session(session_id: String) -> Result<String, String> {
     log::info!("delete_codex_session called for: {}", session_id);
 
-    let home_dir = dirs::home_dir()
-        .ok_or_else(|| "Failed to get home directory".to_string())?;
-
-    let sessions_dir = home_dir.join(".codex").join("sessions");
+    // Use unified sessions directory function (supports WSL)
+    let sessions_dir = get_codex_sessions_dir()?;
 
     // Find the session file
     let session_file = find_session_file(&sessions_dir, &session_id)
@@ -544,6 +555,29 @@ pub async fn delete_codex_session(session_id: String) -> Result<String, String> 
 #[tauri::command]
 pub async fn check_codex_availability() -> Result<CodexAvailability, String> {
     log::info!("[Codex] Checking availability...");
+
+    // 🆕 First check WSL mode on Windows
+    #[cfg(target_os = "windows")]
+    {
+        let wsl_config = wsl_utils::get_wsl_config();
+        if wsl_config.enabled {
+            if let Some(ref codex_path) = wsl_config.codex_path_in_wsl {
+                // Get version from WSL
+                let version = wsl_utils::get_wsl_codex_version(wsl_config.distro.as_deref())
+                    .unwrap_or_else(|| "Unknown version".to_string());
+
+                log::info!("[Codex] ✅ Available in WSL ({:?}) - path: {}, version: {}",
+                    wsl_config.distro, codex_path, version);
+
+                return Ok(CodexAvailability {
+                    available: true,
+                    version: Some(format!("WSL: {}", version)),
+                    error: None,
+                });
+            }
+        }
+        log::info!("[Codex] WSL mode not available, trying native paths...");
+    }
 
     // Try multiple possible Codex command locations
     let codex_commands = get_codex_command_candidates();
@@ -611,7 +645,7 @@ pub async fn check_codex_availability() -> Result<CodexAvailability, String> {
     Ok(CodexAvailability {
         available: false,
         version: None,
-        error: Some("Codex CLI not found. Tried: codex, npm global paths".to_string()),
+        error: Some("Codex CLI not found. Tried: codex, npm global paths, WSL".to_string()),
     })
 }
 
@@ -663,11 +697,24 @@ fn get_codex_command_candidates() -> Vec<String> {
 
 /// Builds a Codex command with the given options
 /// Returns (Command, Option<String>) where the String is the prompt to be passed via stdin
+/// Supports both native execution and WSL mode on Windows
 fn build_codex_command(
     options: &CodexExecutionOptions,
     is_resume: bool,
     session_id: Option<&str>,
 ) -> Result<(Command, Option<String>), String> {
+    // 🆕 Check if we should use WSL mode on Windows
+    #[cfg(target_os = "windows")]
+    {
+        let wsl_config = wsl_utils::get_wsl_config();
+        if wsl_config.enabled {
+            log::info!("[Codex] Using WSL mode (distro: {:?})", wsl_config.distro);
+            return build_wsl_codex_command(options, is_resume, session_id, &wsl_config);
+        }
+    }
+
+    // Native mode: Use system-installed Codex
+
     // Use full path on Windows
     #[cfg(target_os = "windows")]
     let codex_cmd = {
@@ -841,6 +888,89 @@ fn build_codex_command(
     Ok((cmd, prompt_for_stdin))
 }
 
+/// 🆕 Builds a Codex command for WSL mode
+/// This is used when Codex is installed in WSL and we're running on Windows
+#[cfg(target_os = "windows")]
+fn build_wsl_codex_command(
+    options: &CodexExecutionOptions,
+    is_resume: bool,
+    session_id: Option<&str>,
+    wsl_config: &wsl_utils::WslConfig,
+) -> Result<(Command, Option<String>), String> {
+    // Build arguments for codex command
+    let mut args: Vec<String> = vec!["exec".to_string()];
+
+    // Add --json flag first (must come before 'resume')
+    if options.json {
+        args.push("--json".to_string());
+    }
+
+    if is_resume {
+        args.push("resume".to_string());
+        if let Some(sid) = session_id {
+            args.push(sid.to_string());
+        }
+    } else {
+        match options.mode {
+            CodexExecutionMode::FullAuto => {
+                args.push("--full-auto".to_string());
+            }
+            CodexExecutionMode::DangerFullAccess => {
+                args.push("--sandbox".to_string());
+                args.push("danger-full-access".to_string());
+            }
+            CodexExecutionMode::ReadOnly => {}
+        }
+
+        if let Some(ref model) = options.model {
+            args.push("--model".to_string());
+            args.push(model.clone());
+        }
+
+        if let Some(ref schema) = options.output_schema {
+            args.push("--output-schema".to_string());
+            args.push(schema.clone());
+        }
+
+        if let Some(ref file) = options.output_file {
+            args.push("-o".to_string());
+            // Convert output file path to WSL format
+            args.push(wsl_utils::windows_to_wsl_path(file));
+        }
+
+        if options.skip_git_repo_check {
+            args.push("--skip-git-repo-check".to_string());
+        }
+    }
+
+    // Add stdin indicator
+    args.push("-".to_string());
+
+    // Build WSL command with path conversion
+    // project_path is Windows format (C:\...), will be converted to WSL format (/mnt/c/...)
+    let mut cmd = wsl_utils::build_wsl_command_async(
+        "codex",
+        &args,
+        Some(&options.project_path),
+        wsl_config.distro.as_deref(),
+    );
+
+    // Set API key environment variable if provided
+    // Note: This will be passed to WSL environment
+    if let Some(ref api_key) = options.api_key {
+        cmd.env("CODEX_API_KEY", api_key);
+    }
+
+    log::info!(
+        "[Codex WSL] Command built: wsl -d {:?} --cd {} -- codex {:?}",
+        wsl_config.distro,
+        wsl_utils::windows_to_wsl_path(&options.project_path),
+        args
+    );
+
+    Ok((cmd, Some(options.prompt.clone())))
+}
+
 /// Executes a Codex process and streams output to frontend
 async fn execute_codex_process(
     mut cmd: Command,
@@ -982,7 +1112,21 @@ fn get_codex_git_records_dir() -> Result<PathBuf, String> {
 }
 
 /// Get the Codex sessions directory
+/// On Windows with WSL mode enabled, returns the WSL UNC path
 fn get_codex_sessions_dir() -> Result<PathBuf, String> {
+    // Check for WSL mode on Windows
+    #[cfg(target_os = "windows")]
+    {
+        let wsl_config = wsl_utils::get_wsl_config();
+        if wsl_config.enabled {
+            if let Some(sessions_dir) = wsl_utils::get_wsl_codex_sessions_dir() {
+                log::debug!("[Codex] Using WSL sessions directory: {:?}", sessions_dir);
+                return Ok(sessions_dir);
+            }
+        }
+    }
+
+    // Native mode: use local home directory
     let home_dir = dirs::home_dir()
         .ok_or_else(|| "Failed to get home directory".to_string())?;
 
