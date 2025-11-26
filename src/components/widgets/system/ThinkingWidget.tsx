@@ -76,13 +76,13 @@ export const ThinkingWidget: React.FC<ThinkingWidgetProps> = ({
   // 思考中状态
   if (!hasContent) {
     return (
-      <div className="rounded-lg border border-gray-500/20 bg-gray-500/5 overflow-hidden">
+      <div className="rounded-lg border border-muted-foreground/20 bg-muted/30 overflow-hidden">
         <div className="px-4 py-3 flex items-center gap-2">
           <div className="relative">
-            <Bot className="h-4 w-4 text-gray-500" />
-            <Sparkles className="h-2.5 w-2.5 text-gray-400 absolute -top-1 -right-1 animate-pulse" />
+            <Bot className="h-4 w-4 text-muted-foreground" />
+            <Sparkles className="h-2.5 w-2.5 text-muted-foreground/70 absolute -top-1 -right-1 animate-pulse" />
           </div>
-          <span className="text-sm font-medium italic text-gray-600 dark:text-gray-400">
+          <span className="text-sm font-medium italic text-muted-foreground">
             思考中...
           </span>
         </div>
@@ -94,23 +94,23 @@ export const ThinkingWidget: React.FC<ThinkingWidgetProps> = ({
   const displayContent = translatedThinking || trimmedThinking;
 
   return (
-    <div className="rounded-lg border border-green-500/20 bg-green-500/5 overflow-hidden">
+    <div className="rounded-lg border border-success/20 bg-success/5 overflow-hidden">
       <div className="p-4">
         <div className="flex items-start justify-between mb-2">
           <div className="flex items-center gap-2">
-            <Brain className="h-4 w-4 text-green-600" />
-            <span className="text-sm font-medium text-green-700 dark:text-green-400">思考过程</span>
+            <Brain className="h-4 w-4 text-success" />
+            <span className="text-sm font-medium text-success">思考过程</span>
           </div>
 
           {/* Token 使用展示 */}
           {usage && (
-            <div className="text-xs text-green-600/80 dark:text-green-400/80">
+            <div className="text-xs text-success/80">
               {formatThinkingTokens(usage)}
             </div>
           )}
         </div>
 
-        <pre className="text-xs font-mono text-gray-600 dark:text-gray-400 whitespace-pre-wrap bg-gray-500/5 p-3 rounded-lg italic leading-relaxed">
+        <pre className="text-xs font-mono text-muted-foreground whitespace-pre-wrap bg-muted/30 p-3 rounded-lg italic leading-relaxed">
           {displayContent}
         </pre>
       </div>

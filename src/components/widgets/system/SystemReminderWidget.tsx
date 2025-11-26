@@ -25,11 +25,11 @@ export interface SystemReminderWidgetProps {
 export const SystemReminderWidget: React.FC<SystemReminderWidgetProps> = ({ message }) => {
   // 根据消息内容提取图标和样式
   let icon = <Info className="h-4 w-4" />;
-  let colorClass = "border-blue-500/20 bg-blue-500/5 text-blue-600";
+  let colorClass = "border-blue-500/20 bg-blue-500/5 text-blue-600 dark:text-blue-400";
 
   if (message.toLowerCase().includes("warning")) {
     icon = <AlertCircle className="h-4 w-4" />;
-    colorClass = "border-yellow-500/20 bg-yellow-500/5 text-yellow-600";
+    colorClass = "border-yellow-500/20 bg-yellow-500/5 text-yellow-600 dark:text-yellow-400";
   } else if (message.toLowerCase().includes("error")) {
     icon = <AlertCircle className="h-4 w-4" />;
     colorClass = "border-destructive/20 bg-destructive/5 text-destructive";

@@ -8,7 +8,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { Search, ChevronDown, ChevronUp, FileText } from "lucide-react";
-import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
 
 /** 自动折叠的高度阈值 (px) */
@@ -33,8 +32,6 @@ export interface GlobWidgetProps {
  * 支持结果自动折叠和展开/收起功能
  */
 export const GlobWidget: React.FC<GlobWidgetProps> = ({ pattern, result, defaultCollapsed }) => {
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
   const resultRef = useRef<HTMLDivElement>(null);
   const [shouldCollapse, setShouldCollapse] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
@@ -156,8 +153,8 @@ export const GlobWidget: React.FC<GlobWidgetProps> = ({ pattern, result, default
               className={cn(
                 "p-3 text-xs font-mono whitespace-pre-wrap overflow-x-auto transition-[max-height] duration-200",
                 isError
-                  ? "text-red-400"
-                  : isDark ? "text-green-300" : "text-green-700",
+                  ? "text-red-600 dark:text-red-400"
+                  : "text-green-700 dark:text-green-300",
                 shouldCollapse && isCollapsed && "overflow-hidden"
               )}
               style={shouldCollapse && isCollapsed ? { maxHeight: `${COLLAPSE_HEIGHT}px` } : undefined}
