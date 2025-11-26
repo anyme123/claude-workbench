@@ -20,6 +20,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { api } from '@/lib/api';
 import { relaunchApp } from '@/lib/updater';
+import { ask, message } from '@tauri-apps/plugin-dialog';
 import type { CodexExecutionMode } from '@/types/codex';
 
 // ============================================================================
@@ -106,20 +107,32 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
 
     setSavingConfig(true);
     try {
-      const message = await api.setCodexModeConfig(mode, codexModeConfig.wslDistro);
+      await api.setCodexModeConfig(mode, codexModeConfig.wslDistro);
       setCodexModeConfig({ ...codexModeConfig, mode });
-      // 询问用户是否重启
-      if (confirm(message)) {
+      // 使用 Tauri 原生对话框询问用户是否重启
+      const shouldRestart = await ask('配置已保存。是否立即重启应用以使更改生效？', {
+        title: '重启应用',
+        kind: 'info',
+        okLabel: '立即重启',
+        cancelLabel: '稍后重启',
+      });
+      if (shouldRestart) {
         try {
           await relaunchApp();
         } catch (restartError) {
           console.error('[ExecutionEngineSelector] Failed to restart:', restartError);
-          alert('配置已保存，但自动重启失败。请手动重启应用以使更改生效。');
+          await message('配置已保存，但自动重启失败。请手动重启应用以使更改生效。', {
+            title: '提示',
+            kind: 'warning',
+          });
         }
       }
     } catch (error) {
       console.error('[ExecutionEngineSelector] Failed to save Codex mode config:', error);
-      alert('保存配置失败: ' + (error instanceof Error ? error.message : String(error)));
+      await message('保存配置失败: ' + (error instanceof Error ? error.message : String(error)), {
+        title: '错误',
+        kind: 'error',
+      });
     } finally {
       setSavingConfig(false);
     }
@@ -131,20 +144,32 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
     const newDistro = distro === '__default__' ? null : distro;
     setSavingConfig(true);
     try {
-      const message = await api.setCodexModeConfig(codexModeConfig.mode, newDistro);
+      await api.setCodexModeConfig(codexModeConfig.mode, newDistro);
       setCodexModeConfig({ ...codexModeConfig, wslDistro: newDistro });
-      // 询问用户是否重启
-      if (confirm(message)) {
+      // 使用 Tauri 原生对话框询问用户是否重启
+      const shouldRestart = await ask('配置已保存。是否立即重启应用以使更改生效？', {
+        title: '重启应用',
+        kind: 'info',
+        okLabel: '立即重启',
+        cancelLabel: '稍后重启',
+      });
+      if (shouldRestart) {
         try {
           await relaunchApp();
         } catch (restartError) {
           console.error('[ExecutionEngineSelector] Failed to restart:', restartError);
-          alert('配置已保存，但自动重启失败。请手动重启应用以使更改生效。');
+          await message('配置已保存，但自动重启失败。请手动重启应用以使更改生效。', {
+            title: '提示',
+            kind: 'warning',
+          });
         }
       }
     } catch (error) {
       console.error('[ExecutionEngineSelector] Failed to save WSL distro:', error);
-      alert('保存配置失败: ' + (error instanceof Error ? error.message : String(error)));
+      await message('保存配置失败: ' + (error instanceof Error ? error.message : String(error)), {
+        title: '错误',
+        kind: 'error',
+      });
     } finally {
       setSavingConfig(false);
     }
