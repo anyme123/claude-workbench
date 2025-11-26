@@ -152,6 +152,9 @@ pub struct ClaudeInstallation {
     pub installation_type: InstallationType,
 }
 
+/// Current app version - used to detect upgrades and clear stale caches
+const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+
 /// Main function to find the Claude binary - Cross-platform version
 /// Supports Windows and macOS, only uses system-installed Claude CLI
 pub fn find_claude_binary(app_handle: &tauri::AppHandle) -> Result<String, String> {
@@ -162,38 +165,68 @@ pub fn find_claude_binary(app_handle: &tauri::AppHandle) -> Result<String, Strin
         let db_path = app_data_dir.join("agents.db");
         if db_path.exists() {
             if let Ok(conn) = rusqlite::Connection::open(&db_path) {
-                if let Ok(stored_path) = conn.query_row(
-                    "SELECT value FROM app_settings WHERE key = 'claude_binary_path'",
-                    [],
-                    |row| row.get::<_, String>(0),
-                ) {
-                    info!("Found stored claude path in database: {}", stored_path);
+                // Check if app version has changed - if so, clear CLI path cache
+                let stored_version: Option<String> = conn
+                    .query_row(
+                        "SELECT value FROM app_settings WHERE key = 'app_version'",
+                        [],
+                        |row| row.get::<_, String>(0),
+                    )
+                    .ok();
 
-                    // Verify the stored path still exists and is accessible
-                    let path_buf = PathBuf::from(&stored_path);
-                    if path_buf.exists() && path_buf.is_file() {
-                        // Test if the binary is actually executable
-                        if test_claude_binary(&stored_path) {
-                            info!("Using cached Claude CLI path: {}", stored_path);
-                            return Ok(stored_path);
+                let version_changed = stored_version.as_deref() != Some(APP_VERSION);
+                if version_changed {
+                    info!(
+                        "App version changed from {:?} to {}, clearing CLI path cache",
+                        stored_version, APP_VERSION
+                    );
+                    // Clear cached CLI paths on version upgrade
+                    let _ = conn.execute(
+                        "DELETE FROM app_settings WHERE key = 'claude_binary_path'",
+                        [],
+                    );
+                    // Update stored version
+                    let _ = conn.execute(
+                        "INSERT OR REPLACE INTO app_settings (key, value) VALUES ('app_version', ?1)",
+                        rusqlite::params![APP_VERSION],
+                    );
+                }
+
+                // Only use cached path if version hasn't changed
+                if !version_changed {
+                    if let Ok(stored_path) = conn.query_row(
+                        "SELECT value FROM app_settings WHERE key = 'claude_binary_path'",
+                        [],
+                        |row| row.get::<_, String>(0),
+                    ) {
+                        info!("Found stored claude path in database: {}", stored_path);
+
+                        // Verify the stored path still exists and is accessible
+                        let path_buf = PathBuf::from(&stored_path);
+                        if path_buf.exists() && path_buf.is_file() {
+                            // Test if the binary is actually executable
+                            if test_claude_binary(&stored_path) {
+                                info!("Using cached Claude CLI path: {}", stored_path);
+                                return Ok(stored_path);
+                            } else {
+                                warn!(
+                                    "Stored claude path exists but is not executable: {}",
+                                    stored_path
+                                );
+                                // Remove invalid cached path
+                                let _ = conn.execute(
+                                    "DELETE FROM app_settings WHERE key = 'claude_binary_path'",
+                                    [],
+                                );
+                            }
                         } else {
-                            warn!(
-                                "Stored claude path exists but is not executable: {}",
-                                stored_path
-                            );
+                            warn!("Stored claude path no longer exists: {}", stored_path);
                             // Remove invalid cached path
                             let _ = conn.execute(
                                 "DELETE FROM app_settings WHERE key = 'claude_binary_path'",
                                 [],
                             );
                         }
-                    } else {
-                        warn!("Stored claude path no longer exists: {}", stored_path);
-                        // Remove invalid cached path
-                        let _ = conn.execute(
-                            "DELETE FROM app_settings WHERE key = 'claude_binary_path'",
-                            [],
-                        );
                     }
                 }
             }
