@@ -7,6 +7,8 @@
 
 import React from "react";
 import { Terminal } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
+import { cn } from "@/lib/utils";
 
 export interface CommandWidgetProps {
   /** 命令名称 */
@@ -27,27 +29,36 @@ export const CommandWidget: React.FC<CommandWidgetProps> = ({
   commandMessage,
   commandArgs,
 }) => {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+
   return (
-    <div className="rounded-lg border bg-zinc-950/50 overflow-hidden">
+    <div className={cn(
+      "rounded-lg border overflow-hidden",
+      isDark ? "bg-zinc-950/50 border-zinc-800" : "bg-zinc-100 border-zinc-300"
+    )}>
       {/* 命令头部 */}
-      <div className="px-4 py-2 border-b bg-zinc-700/30 flex items-center gap-2">
+      <div className={cn(
+        "px-4 py-2 border-b flex items-center gap-2",
+        isDark ? "bg-zinc-700/30 border-zinc-800" : "bg-zinc-200/50 border-zinc-300"
+      )}>
         <Terminal className="h-3.5 w-3.5 text-blue-500" />
-        <span className="text-xs font-mono text-blue-400">命令</span>
+        <span className={cn("text-xs font-mono", isDark ? "text-blue-400" : "text-blue-600")}>命令</span>
       </div>
 
       {/* 命令内容 */}
       <div className="p-3 space-y-1">
         <div className="flex items-center gap-2">
-          <span className="text-xs text-green-400">$</span>
-          <code className="text-sm font-mono text-green-300">{commandName}</code>
+          <span className={cn("text-xs", isDark ? "text-green-400" : "text-green-600")}>$</span>
+          <code className={cn("text-sm font-mono", isDark ? "text-green-300" : "text-green-600")}>{commandName}</code>
           {commandArgs && (
-            <code className="text-sm font-mono text-zinc-300">{commandArgs}</code>
+            <code className={cn("text-sm font-mono", isDark ? "text-zinc-300" : "text-zinc-600")}>{commandArgs}</code>
           )}
         </div>
 
         {/* 命令消息（如果与命令名不同） */}
         {commandMessage && commandMessage !== commandName && (
-          <div className="text-xs text-zinc-300 ml-4">{commandMessage}</div>
+          <div className={cn("text-xs ml-4", isDark ? "text-zinc-300" : "text-zinc-600")}>{commandMessage}</div>
         )}
       </div>
     </div>

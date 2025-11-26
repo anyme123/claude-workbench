@@ -8,6 +8,7 @@
 import React, { useState } from "react";
 import { Terminal, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
 
 export interface BashOutputWidgetProps {
@@ -26,6 +27,8 @@ export const BashOutputWidget: React.FC<BashOutputWidgetProps> = ({
   bash_id,
   result,
 }) => {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const [isExpanded, setIsExpanded] = useState(false);
 
   // 提取结果内容
@@ -57,11 +60,17 @@ export const BashOutputWidget: React.FC<BashOutputWidgetProps> = ({
   const cleanContent = stripAnsiCodes(resultContent);
 
   return (
-    <div className="rounded-lg border bg-zinc-950 overflow-hidden">
-      <div className="px-4 py-2 bg-zinc-700/30 flex items-center gap-2 border-b">
+    <div className={cn(
+      "rounded-lg border overflow-hidden",
+      isDark ? "bg-zinc-950 border-zinc-800" : "bg-zinc-100 border-zinc-300"
+    )}>
+      <div className={cn(
+        "px-4 py-2 flex items-center gap-2 border-b",
+        isDark ? "bg-zinc-700/30 border-zinc-800" : "bg-zinc-200/50 border-zinc-300"
+      )}>
         <Terminal className="h-3.5 w-3.5 text-blue-500" />
-        <span className="text-xs font-mono text-zinc-300">Bash 输出</span>
-        <code className="text-xs font-mono text-blue-400">ID: {bash_id}</code>
+        <span className={cn("text-xs font-mono", isDark ? "text-zinc-300" : "text-zinc-600")}>Bash 输出</span>
+        <code className={cn("text-xs font-mono", isDark ? "text-blue-400" : "text-blue-600")}>ID: {bash_id}</code>
 
         {/* 展开/收起按钮 */}
         {result && cleanContent && (

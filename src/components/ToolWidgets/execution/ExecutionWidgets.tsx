@@ -39,20 +39,29 @@ export const BashWidget: React.FC<{
     }
   }
 
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+
   return (
-    <div className="rounded-lg border bg-zinc-950 overflow-hidden">
-      <div className="px-4 py-2 bg-zinc-700/30 flex items-center gap-2 border-b">
+    <div className={cn(
+      "rounded-lg border overflow-hidden",
+      isDark ? "bg-zinc-950 border-zinc-800" : "bg-zinc-100 border-zinc-300"
+    )}>
+      <div className={cn(
+        "px-4 py-2 flex items-center gap-2 border-b",
+        isDark ? "bg-zinc-700/30 border-zinc-800" : "bg-zinc-200/50 border-zinc-300"
+      )}>
         <Terminal className="h-3.5 w-3.5 text-green-500" />
-        <span className="text-xs font-mono text-zinc-300">终端</span>
+        <span className={cn("text-xs font-mono", isDark ? "text-zinc-300" : "text-zinc-600")}>终端</span>
         {description && (
           <>
-            <ChevronRight className="h-3 w-3 text-zinc-400" />
-            <span className="text-xs text-zinc-300">{description}</span>
+            <ChevronRight className={cn("h-3 w-3", isDark ? "text-zinc-400" : "text-zinc-500")} />
+            <span className={cn("text-xs", isDark ? "text-zinc-300" : "text-zinc-600")}>{description}</span>
           </>
         )}
         {/* Show loading indicator when no result yet */}
         {!result && (
-          <div className="ml-auto flex items-center gap-1 text-xs text-zinc-300">
+          <div className={cn("ml-auto flex items-center gap-1 text-xs", isDark ? "text-zinc-300" : "text-zinc-600")}>
             <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
             <span>正在运行...</span>
           </div>
@@ -80,7 +89,7 @@ export const BashWidget: React.FC<{
         )}
       </div>
       <div className="p-4 space-y-3">
-        <code className="text-xs font-mono text-green-400 block">
+        <code className={cn("text-xs font-mono block", isDark ? "text-green-400" : "text-green-600")}>
           $ {command}
         </code>
         
@@ -108,6 +117,8 @@ export const BashOutputWidget: React.FC<{
   bash_id: string;
   result?: any;
 }> = ({ bash_id, result }) => {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Extract result content if available
@@ -140,11 +151,17 @@ export const BashOutputWidget: React.FC<{
   const cleanContent = stripAnsiCodes(resultContent);
 
   return (
-    <div className="rounded-lg border bg-zinc-950 overflow-hidden">
-      <div className="px-4 py-2 bg-zinc-700/30 flex items-center gap-2 border-b">
+    <div className={cn(
+      "rounded-lg border overflow-hidden",
+      isDark ? "bg-zinc-950 border-zinc-800" : "bg-zinc-100 border-zinc-300"
+    )}>
+      <div className={cn(
+        "px-4 py-2 flex items-center gap-2 border-b",
+        isDark ? "bg-zinc-700/30 border-zinc-800" : "bg-zinc-200/50 border-zinc-300"
+      )}>
         <Terminal className="h-3.5 w-3.5 text-blue-500" />
-        <span className="text-xs font-mono text-zinc-300">Bash 输出</span>
-        <code className="text-xs font-mono text-blue-400">ID: {bash_id}</code>
+        <span className={cn("text-xs font-mono", isDark ? "text-zinc-300" : "text-zinc-600")}>Bash 输出</span>
+        <code className={cn("text-xs font-mono", isDark ? "text-blue-400" : "text-blue-600")}>ID: {bash_id}</code>
 
         {/* Expand/Collapse button */}
         {result && cleanContent && (
@@ -793,27 +810,36 @@ export const MCPWidget: React.FC<{
  * Widget for user commands (e.g., model, clear)
  */
 
-export const CommandWidget: React.FC<{ 
+export const CommandWidget: React.FC<{
   commandName: string;
   commandMessage: string;
   commandArgs?: string;
 }> = ({ commandName, commandMessage, commandArgs }) => {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+
   return (
-    <div className="rounded-lg border bg-zinc-950/50 overflow-hidden">
-      <div className="px-4 py-2 border-b bg-zinc-700/30 flex items-center gap-2">
+    <div className={cn(
+      "rounded-lg border overflow-hidden",
+      isDark ? "bg-zinc-950/50 border-zinc-800" : "bg-zinc-100 border-zinc-300"
+    )}>
+      <div className={cn(
+        "px-4 py-2 border-b flex items-center gap-2",
+        isDark ? "bg-zinc-700/30 border-zinc-800" : "bg-zinc-200/50 border-zinc-300"
+      )}>
         <Terminal className="h-3.5 w-3.5 text-blue-500" />
-        <span className="text-xs font-mono text-blue-400">命令</span>
+        <span className={cn("text-xs font-mono", isDark ? "text-blue-400" : "text-blue-600")}>命令</span>
       </div>
       <div className="p-3 space-y-1">
         <div className="flex items-center gap-2">
-          <span className="text-xs text-green-400">$</span>
-          <code className="text-sm font-mono text-green-300">{commandName}</code>
+          <span className={cn("text-xs", isDark ? "text-green-400" : "text-green-600")}>$</span>
+          <code className={cn("text-sm font-mono", isDark ? "text-green-300" : "text-green-600")}>{commandName}</code>
           {commandArgs && (
-            <code className="text-sm font-mono text-zinc-300">{commandArgs}</code>
+            <code className={cn("text-sm font-mono", isDark ? "text-zinc-300" : "text-zinc-600")}>{commandArgs}</code>
           )}
         </div>
         {commandMessage && commandMessage !== commandName && (
-          <div className="text-xs text-zinc-300 ml-4">{commandMessage}</div>
+          <div className={cn("text-xs ml-4", isDark ? "text-zinc-300" : "text-zinc-600")}>{commandMessage}</div>
         )}
       </div>
     </div>
@@ -824,13 +850,16 @@ export const CommandWidget: React.FC<{
  * Widget for command output/stdout
  */
 
-export const CommandOutputWidget: React.FC<{ 
+export const CommandOutputWidget: React.FC<{
   output: string;
   onLinkDetected?: (url: string) => void;
 }> = ({ output, onLinkDetected }) => {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+
   // Check if this is a compact command success message
   const isCompactSuccess = output.includes("Compacted.") && output.includes("ctrl+r to see full summary");
-  
+
   // Check for links on mount and when output changes
   React.useEffect(() => {
     if (output && onLinkDetected) {
@@ -910,14 +939,20 @@ export const CommandOutputWidget: React.FC<{
   }
 
   return (
-    <div className="rounded-lg border bg-zinc-950/50 overflow-hidden">
-      <div className="px-4 py-2 bg-zinc-700/30 flex items-center gap-2">
+    <div className={cn(
+      "rounded-lg border overflow-hidden",
+      isDark ? "bg-zinc-950/50 border-zinc-800" : "bg-zinc-100 border-zinc-300"
+    )}>
+      <div className={cn(
+        "px-4 py-2 flex items-center gap-2",
+        isDark ? "bg-zinc-700/30" : "bg-zinc-200/50"
+      )}>
         <ChevronRight className="h-3 w-3 text-green-500" />
         <span className="text-xs font-mono text-green-400">输出</span>
       </div>
       <div className="p-3">
-        <pre className="text-sm font-mono text-zinc-300 whitespace-pre-wrap">
-          {output ? parseAnsiToReact(output) : <span className="text-zinc-500 italic">无输出</span>}
+        <pre className={cn("text-sm font-mono whitespace-pre-wrap", isDark ? "text-zinc-300" : "text-zinc-700")}>
+          {output ? parseAnsiToReact(output) : <span className={cn("italic", isDark ? "text-zinc-500" : "text-zinc-400")}>无输出</span>}
         </pre>
       </div>
     </div>
