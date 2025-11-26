@@ -632,14 +632,26 @@ fn get_codex_command_candidates() -> Vec<String> {
         }
     }
 
-    // macOS/Linux: npm global paths
-    #[cfg(not(target_os = "windows"))]
+    // macOS-specific paths (aligned with claude_binary.rs)
+    #[cfg(target_os = "macos")]
+    {
+        if let Ok(home) = std::env::var("HOME") {
+            // npm global install path
+            candidates.push(format!("{}/.npm-global/bin/codex", home));
+        }
+        // Homebrew paths (Apple Silicon and Intel)
+        candidates.push("/opt/homebrew/bin/codex".to_string()); // Apple Silicon (M1/M2/M3)
+        candidates.push("/usr/local/bin/codex".to_string());    // Intel Mac / Homebrew legacy
+    }
+
+    // Linux: npm global paths
+    #[cfg(target_os = "linux")]
     {
         if let Ok(home) = std::env::var("HOME") {
             candidates.push(format!("{}/.npm-global/bin/codex", home));
-            candidates.push("/usr/local/bin/codex".to_string());
-            candidates.push("/usr/bin/codex".to_string());
         }
+        candidates.push("/usr/local/bin/codex".to_string());
+        candidates.push("/usr/bin/codex".to_string());
     }
 
     candidates
@@ -673,8 +685,73 @@ fn build_codex_command(
         }
     };
 
-    #[cfg(not(target_os = "windows"))]
-    let codex_cmd = "codex".to_string();
+    // macOS: Try Homebrew and standard paths (aligned with claude_binary.rs)
+    #[cfg(target_os = "macos")]
+    let codex_cmd = {
+        let paths_to_try = [
+            "/opt/homebrew/bin/codex",  // Apple Silicon (M1/M2/M3)
+            "/usr/local/bin/codex",     // Intel Mac / Homebrew legacy
+        ];
+
+        let mut found_path: Option<String> = None;
+        for path in paths_to_try {
+            if std::path::Path::new(path).exists() {
+                log::info!("[Codex] Using macOS path: {}", path);
+                found_path = Some(path.to_string());
+                break;
+            }
+        }
+
+        // Also check npm global path
+        if found_path.is_none() {
+            if let Ok(home) = std::env::var("HOME") {
+                let npm_path = format!("{}/.npm-global/bin/codex", home);
+                if std::path::Path::new(&npm_path).exists() {
+                    log::info!("[Codex] Using npm global path: {}", npm_path);
+                    found_path = Some(npm_path);
+                }
+            }
+        }
+
+        found_path.unwrap_or_else(|| {
+            log::warn!("[Codex] No explicit path found, using 'codex' from PATH");
+            "codex".to_string()
+        })
+    };
+
+    // Linux: Try standard paths
+    #[cfg(target_os = "linux")]
+    let codex_cmd = {
+        let paths_to_try = [
+            "/usr/local/bin/codex",
+            "/usr/bin/codex",
+        ];
+
+        let mut found_path: Option<String> = None;
+        for path in paths_to_try {
+            if std::path::Path::new(path).exists() {
+                log::info!("[Codex] Using Linux path: {}", path);
+                found_path = Some(path.to_string());
+                break;
+            }
+        }
+
+        // Also check npm global path
+        if found_path.is_none() {
+            if let Ok(home) = std::env::var("HOME") {
+                let npm_path = format!("{}/.npm-global/bin/codex", home);
+                if std::path::Path::new(&npm_path).exists() {
+                    log::info!("[Codex] Using npm global path: {}", npm_path);
+                    found_path = Some(npm_path);
+                }
+            }
+        }
+
+        found_path.unwrap_or_else(|| {
+            log::warn!("[Codex] No explicit path found, using 'codex' from PATH");
+            "codex".to_string()
+        })
+    };
 
     let mut cmd = Command::new(&codex_cmd);
     cmd.arg("exec");
