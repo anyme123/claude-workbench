@@ -634,6 +634,60 @@ npm run tauri:build-fast
 
 ## 🏗️ 技术架构
 
+### 项目目录结构
+
+```
+claude-workbench/
+├── .factory/                    # Factory 配置（skills）
+├── .github/workflows/           # GitHub Actions CI/CD 工作流
+├── .vscode/                     # VSCode 编辑器配置
+├── dist/                        # 前端构建输出目录
+├── scripts/                     # 构建和部署脚本
+├── src/                         # 前端源代码 (React + TypeScript)
+│   ├── assets/                  # 静态资源
+│   ├── components/              # React 组件
+│   │   ├── common/              # 通用组件
+│   │   ├── dialogs/             # 对话框组件
+│   │   ├── FloatingPromptInput/ # 浮动输入框组件
+│   │   ├── layout/              # 布局组件
+│   │   ├── message/             # 消息展示组件
+│   │   ├── ToolWidgets/         # 工具小部件
+│   │   ├── ui/                  # 基础 UI 组件
+│   │   └── widgets/             # 功能小部件
+│   ├── contexts/                # React Context 状态管理
+│   ├── hooks/                   # 自定义 React Hooks
+│   ├── i18n/locales/            # 国际化语言文件 (en.json, zh.json)
+│   ├── lib/                     # 工具库和服务
+│   ├── types/                   # TypeScript 类型定义
+│   ├── App.tsx                  # 主应用组件
+│   ├── main.tsx                 # 应用入口
+│   └── styles.css               # 全局样式
+├── src-tauri/                   # Rust 后端源代码 (Tauri)
+│   ├── src/
+│   │   ├── commands/            # Tauri 命令模块
+│   │   │   ├── claude/          # Claude CLI 集成
+│   │   │   ├── acemcp.rs        # MCP 代码上下文搜索
+│   │   │   ├── codex.rs         # OpenAI Codex 集成
+│   │   │   ├── storage.rs       # SQLite 数据库操作
+│   │   │   ├── translator.rs    # 翻译服务
+│   │   │   ├── provider.rs      # API 代理商管理
+│   │   │   ├── mcp.rs           # MCP 服务器管理
+│   │   │   ├── usage.rs         # 使用统计和成本追踪
+│   │   │   ├── prompt_tracker.rs    # 提示词历史和回滚
+│   │   │   ├── context_manager.rs   # 自动上下文压缩
+│   │   │   ├── enhanced_hooks.rs    # Hooks 自动化系统
+│   │   │   └── extensions.rs        # 插件和扩展管理
+│   │   └── main.rs              # Rust 入口
+│   ├── icons/                   # 应用图标
+│   ├── Cargo.toml               # Rust 依赖配置
+│   └── tauri.conf.json          # Tauri 配置
+├── package.json                 # npm 配置和依赖
+├── tsconfig.json                # TypeScript 配置
+├── vite.config.ts               # Vite 构建配置
+├── index.html                   # HTML 入口
+└── README.md                    # 项目文档
+```
+
 ### 整体架构
 
 ```
@@ -680,6 +734,9 @@ npm run tauri:build-fast
 | **Radix UI** | Latest | 组件库 |
 | **React Markdown** | 9.0.3 | Markdown 渲染 |
 | **React Syntax Highlighter** | 15.6.1 | 代码高亮 |
+| **date-fns** | 3.6.0 | 日期处理 |
+| **Zod** | 3.24.1 | 数据校验 |
+| **@tauri-apps/api** | 2.9.0 | Tauri 前端 API |
 
 ### 后端技术栈
 
@@ -691,6 +748,38 @@ npm run tauri:build-fast
 | **Tokio** | 1.x | 异步运行时 |
 | **Serde** | 1.x | 序列化/反序列化 |
 | **Reqwest** | 0.12 | HTTP 客户端 |
+| **Chrono** | 0.4 | 时间处理 |
+| **anyhow** | 1.x | 错误处理 |
+| **regex** | 1.x | 正则表达式 |
+| **uuid** | 1.6 | UUID 生成 |
+
+### 核心前端组件
+
+| 组件/模块 | 位置 | 功能描述 |
+|----------|------|---------|
+| **AppLayout** | `layout/` | 应用主布局和导航 |
+| **ClaudeCodeSession** | `components/` | Claude 会话管理核心 |
+| **ExecutionEngineSelector** | `components/` | 引擎切换器（Claude/Codex）|
+| **FloatingPromptInput** | `components/` | 浮动输入框组件 |
+| **AIMessage / UserMessage** | `message/` | 消息展示组件 |
+| **StreamMessageV2** | `message/` | 流式消息渲染 |
+| **ToolCallsGroup** | `message/` | 工具调用展示 |
+| **SubagentMessageGroup** | `message/` | 子代理消息组 |
+| **MCPManager** | `components/` | MCP 服务器管理 |
+| **UsageDashboard** | `components/` | 使用统计仪表板 |
+| **TranslationSettings** | `components/` | 翻译配置组件 |
+
+### 核心 React Hooks
+
+| Hook | 功能描述 |
+|------|---------|
+| **usePromptExecution** | 提示词执行逻辑（最核心）|
+| **useMessageTranslation** | 消息翻译处理 |
+| **useSessionLifecycle** | 会话生命周期管理 |
+| **useSessionCostCalculation** | 成本计算 |
+| **useTabs** | 多标签页管理 |
+| **useDisplayableMessages** | 消息展示处理 |
+| **useKeyboardShortcuts** | 键盘快捷键 |
 
 ### 数据流架构
 
@@ -747,6 +836,33 @@ CREATE INDEX idx_usage_timestamp ON usage_entries(timestamp DESC);
 CREATE INDEX idx_usage_project_path ON usage_entries(project_path);
 CREATE INDEX idx_usage_model_timestamp ON usage_entries(model, timestamp DESC);
 ```
+
+### API 接口分类
+
+前端通过 `src/lib/api.ts` 封装了所有 Tauri 命令调用：
+
+| 分类 | 主要接口 | 功能描述 |
+|-----|---------|---------|
+| **项目管理** | `listProjects()`, `getProjectSessions()`, `deleteSession()` | 项目和会话的 CRUD 操作 |
+| **Claude 执行** | `executeClaudeCode()`, `continueClaudeCode()`, `resumeClaudeCode()`, `cancelClaudeExecution()` | Claude CLI 调用和控制 |
+| **Codex 执行** | `executeCodex()`, `resumeCodex()`, `listCodexSessions()` | OpenAI Codex API 调用 |
+| **存储管理** | `storageListTables()`, `storageExecuteSql()`, `storageInsertRow()` | SQLite 数据库操作 |
+| **MCP 管理** | `mcpAdd()`, `mcpList()`, `mcpTestConnection()` | MCP 服务器配置和测试 |
+| **翻译服务** | `translate()`, `getTranslationConfig()`, `clearTranslationCache()` | 翻译中间件接口 |
+| **使用统计** | `getUsageStats()`, `getUsageByModel()`, `getUsageByProject()` | 成本和 Token 统计 |
+| **上下文管理** | `compressContext()`, `getCompressionHistory()` | 自动上下文压缩 |
+
+### 架构特点总结
+
+| 特点 | 描述 |
+|-----|------|
+| **双引擎架构** | 同时支持 Claude Code CLI 和 OpenAI Codex，一键切换 |
+| **现代化技术栈** | Tauri 2.9 + React 18 + Rust 2021，跨平台高性能 |
+| **流式渲染** | IPC 事件流驱动，实时流式输出 AI 响应 |
+| **嵌入式存储** | SQLite WAL 模式，高性能本地数据持久化 |
+| **翻译中间件** | 透明的中英文翻译，8 种内容提取策略 |
+| **自动上下文管理** | 智能监控和压缩，优化 Token 使用 |
+| **扩展生态** | MCP 协议支持、Hooks 自动化、插件系统 |
 
 ---
 
