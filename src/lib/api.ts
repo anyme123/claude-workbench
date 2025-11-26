@@ -2670,20 +2670,64 @@ export const api = {
    * Sets Codex mode configuration
    * @param mode - The mode to set: 'auto', 'native', or 'wsl'
    * @param wslDistro - Optional WSL distro name
+   * @param customCodexPath - Optional custom Codex path
    * @returns Promise resolving to success message
    */
   async setCodexModeConfig(
     mode: 'auto' | 'native' | 'wsl',
-    wslDistro?: string | null
+    wslDistro?: string | null,
+    customCodexPath?: string | null
   ): Promise<string> {
     try {
       return await invoke<string>("set_codex_mode_config", {
         mode,
-        wslDistro: wslDistro || null
+        wslDistro: wslDistro || null,
+        customCodexPath: customCodexPath || null
       });
     } catch (error) {
       console.error("Failed to set Codex mode config:", error);
       throw error;
+    }
+  },
+
+  /**
+   * Sets custom Codex CLI path
+   * @param path - Path to custom Codex CLI executable (null to clear)
+   * @returns Promise resolving to success message
+   */
+  async setCodexCustomPath(path: string | null): Promise<string> {
+    try {
+      return await invoke<string>("set_codex_custom_path", { path });
+    } catch (error) {
+      console.error("Failed to set custom Codex path:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Validates a Codex path
+   * @param path - Path to validate
+   * @returns Promise resolving to whether the path is valid
+   */
+  async validateCodexPath(path: string): Promise<boolean> {
+    try {
+      return await invoke<boolean>("validate_codex_path_cmd", { path });
+    } catch (error) {
+      console.error("Failed to validate Codex path:", error);
+      return false;
+    }
+  },
+
+  /**
+   * Scans for all possible Codex installation paths
+   * @returns Promise resolving to array of found paths
+   */
+  async scanCodexPaths(): Promise<string[]> {
+    try {
+      return await invoke<string[]>("scan_codex_paths");
+    } catch (error) {
+      console.error("Failed to scan Codex paths:", error);
+      return [];
     }
   },
 

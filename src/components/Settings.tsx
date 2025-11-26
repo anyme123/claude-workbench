@@ -101,6 +101,13 @@ export const Settings: React.FC<SettingsProps> = ({
   const [customClaudePath, setCustomClaudePath] = useState<string>("");
   const [isCustomPathMode, setIsCustomPathMode] = useState(false);
   const [customPathError, setCustomPathError] = useState<string | null>(null);
+
+  // Custom Codex path state
+  const [customCodexPath, setCustomCodexPath] = useState<string>("");
+  const [isCodexCustomPathMode, setIsCodexCustomPathMode] = useState(false);
+  const [codexPathError, setCodexPathError] = useState<string | null>(null);
+  const [codexPathValid, setCodexPathValid] = useState<boolean | null>(null);
+  const [validatingCodexPath, setValidatingCodexPath] = useState(false);
   
   // Permission rules state
   const [allowRules, setAllowRules] = useState<PermissionRule[]>([]);
@@ -166,12 +173,103 @@ export const Settings: React.FC<SettingsProps> = ({
       setIsCustomPathMode(false);
       setCustomClaudePath("");
       setCustomPathError(null);
-      
+
       // Show success message
       setToast({ message: "已恢复到自动检测", type: "success" });
-      
+
       // Trigger status refresh
       window.dispatchEvent(new CustomEvent('validate-claude-installation'));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "清除自定义路径失败";
+      setToast({ message: errorMessage, type: "error" });
+    }
+  };
+
+  /**
+   * Validate Codex path and update status
+   */
+  const handleValidateCodexPath = async (path: string) => {
+    if (!path.trim()) {
+      setCodexPathValid(null);
+      return;
+    }
+
+    setValidatingCodexPath(true);
+    try {
+      const isValid = await api.validateCodexPath(path.trim());
+      setCodexPathValid(isValid);
+      if (!isValid) {
+        setCodexPathError("路径无效或 Codex 不可执行");
+      } else {
+        setCodexPathError(null);
+      }
+    } catch (error) {
+      setCodexPathValid(false);
+      setCodexPathError("验证路径时出错");
+    } finally {
+      setValidatingCodexPath(false);
+    }
+  };
+
+  /**
+   * Handle setting custom Codex path
+   */
+  const handleSetCodexCustomPath = async () => {
+    if (!customCodexPath.trim()) {
+      setCodexPathError("请输入有效的路径");
+      return;
+    }
+
+    // First validate the path
+    setValidatingCodexPath(true);
+    try {
+      const isValid = await api.validateCodexPath(customCodexPath.trim());
+      if (!isValid) {
+        setCodexPathError("路径无效或 Codex 不可执行");
+        setCodexPathValid(false);
+        return;
+      }
+
+      // Path is valid, save it
+      await api.setCodexCustomPath(customCodexPath.trim());
+
+      // Update state
+      setCodexPathValid(true);
+      setCodexPathError(null);
+      setIsCodexCustomPathMode(false);
+      setCustomCodexPath("");
+
+      // Show success message
+      setToast({ message: "自定义 Codex 路径设置成功", type: "success" });
+
+      // Trigger Codex status refresh
+      window.dispatchEvent(new CustomEvent('refresh-codex-status'));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "设置自定义路径失败";
+      setCodexPathError(errorMessage);
+    } finally {
+      setValidatingCodexPath(false);
+    }
+  };
+
+  /**
+   * Handle clearing custom Codex path
+   */
+  const handleClearCodexCustomPath = async () => {
+    try {
+      await api.setCodexCustomPath(null);
+
+      // Exit custom mode
+      setIsCodexCustomPathMode(false);
+      setCustomCodexPath("");
+      setCodexPathError(null);
+      setCodexPathValid(null);
+
+      // Show success message
+      setToast({ message: "已恢复 Codex 自动检测", type: "success" });
+
+      // Trigger Codex status refresh
+      window.dispatchEvent(new CustomEvent('refresh-codex-status'));
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "清除自定义路径失败";
       setToast({ message: errorMessage, type: "error" });
@@ -714,11 +812,127 @@ export const Settings: React.FC<SettingsProps> = ({
                         </AnimatePresence>
                       </div>
                     </div>
+
+                    {/* Custom Codex Path Configuration */}
+                    <div className="space-y-4">
+                      <div className="border-t pt-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <Label className="text-sm font-medium">自定义 Codex CLI 路径</Label>
+                            <p className="text-xs text-muted-foreground">
+                              手动指定自定义的 Codex 可执行文件路径（例如：D:\nodejs\node_global\codex.ps1）
+                            </p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setIsCodexCustomPathMode(!isCodexCustomPathMode);
+                              setCodexPathError(null);
+                              setCustomCodexPath("");
+                              setCodexPathValid(null);
+                            }}
+                          >
+                            {isCodexCustomPathMode ? "取消" : "设置自定义路径"}
+                          </Button>
+                        </div>
+
+                        <AnimatePresence>
+                          {isCodexCustomPathMode && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
+                              className="space-y-3"
+                            >
+                              <div className="space-y-2">
+                                <div className="flex gap-2">
+                                  <Input
+                                    placeholder="例如：D:\nodejs\node_global\codex.ps1 或 codex"
+                                    value={customCodexPath}
+                                    onChange={(e) => {
+                                      setCustomCodexPath(e.target.value);
+                                      setCodexPathError(null);
+                                      setCodexPathValid(null);
+                                    }}
+                                    onBlur={() => {
+                                      if (customCodexPath.trim()) {
+                                        handleValidateCodexPath(customCodexPath);
+                                      }
+                                    }}
+                                    className={cn(
+                                      "flex-1",
+                                      codexPathError && "border-red-500",
+                                      codexPathValid === true && "border-green-500"
+                                    )}
+                                  />
+                                  {validatingCodexPath && (
+                                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                  )}
+                                  {!validatingCodexPath && codexPathValid === true && (
+                                    <span className="text-green-500 text-sm flex items-center">✓ 有效</span>
+                                  )}
+                                  {!validatingCodexPath && codexPathValid === false && (
+                                    <span className="text-red-500 text-sm flex items-center">✗ 无效</span>
+                                  )}
+                                </div>
+                                {codexPathError && (
+                                  <p className="text-xs text-red-500">{codexPathError}</p>
+                                )}
+                              </div>
+
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  onClick={handleSetCodexCustomPath}
+                                  disabled={!customCodexPath.trim() || validatingCodexPath}
+                                >
+                                  {validatingCodexPath ? (
+                                    <>
+                                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                      验证中...
+                                    </>
+                                  ) : (
+                                    "设置路径"
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={handleClearCodexCustomPath}
+                                >
+                                  恢复自动检测
+                                </Button>
+                              </div>
+
+                              <div className="p-3 bg-muted rounded-md">
+                                <div className="flex items-start gap-2">
+                                  <AlertCircle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                                  <div className="flex-1">
+                                    <p className="text-xs text-muted-foreground">
+                                      <strong>提示:</strong> 在 Windows 上，Codex 可能位于 npm/pnpm/yarn 的全局安装目录。
+                                    </p>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      常见路径：
+                                    </p>
+                                    <ul className="text-xs text-muted-foreground mt-1 ml-3 list-disc">
+                                      <li>C:\Users\用户名\AppData\Roaming\npm\codex.ps1</li>
+                                      <li>D:\nodejs\node_global\codex.ps1</li>
+                                      <li>您的自定义 npm 全局安装目录</li>
+                                    </ul>
+                                  </div>
+                                </div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </Card>
             </TabsContent>
-            
+
             {/* Permissions Settings */}
             <TabsContent value="permissions" className="space-y-6">
               <Card className="p-6">
