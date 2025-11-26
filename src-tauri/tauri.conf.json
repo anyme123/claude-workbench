@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Claude Workbench",
+  "productName": "Any code",
   "version": "4.4.0",
-  "identifier": "claude.workbench.app",
+  "identifier": "any.code.app",
   "build": {
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
@@ -11,7 +11,7 @@
   "app": {
     "windows": [
       {
-        "title": "Claude Workbench",
+        "title": "Any code",
         "width": 1200,
         "height": 800,
         "minWidth": 800,
@@ -63,8 +63,8 @@
     "resources": [],
     "copyright": "",
     "category": "DeveloperTool",
-    "shortDescription": "Professional GUI Toolkit for Claude CLI",
-    "longDescription": "Claude Workbench is a professional desktop application and comprehensive toolkit for Claude CLI. Provides an intuitive interface for AI-powered development workflows, project management, and advanced Claude interactions. Supports Windows and macOS.",
+    "shortDescription": "Professional GUI Toolkit for AI CLI",
+    "longDescription": "Any code is a professional desktop application and comprehensive toolkit for AI CLI. Provides an intuitive interface for AI-powered development workflows, project management, and advanced AI interactions. Supports Windows and macOS.",
     "windows": {
       "nsis": {
         "installerIcon": "icons/icon.ico",
