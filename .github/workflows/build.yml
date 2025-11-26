@@ -101,8 +101,8 @@ jobs:
         shell: pwsh
         run: |
           $version = "${{ github.ref_name }}".TrimStart('v')
-          $exePath = "src-tauri/target/release/claude-workbench.exe"
-          $portableName = "Claude_Workbench_${version}_x64-portable.exe"
+          $exePath = "src-tauri/target/release/any-code.exe"
+          $portableName = "Any_Code_${version}_x64-portable.exe"
           $portablePath = "src-tauri/target/release/bundle/$portableName"
           New-Item -ItemType Directory -Force -Path "src-tauri/target/release/bundle"
           Copy-Item $exePath $portablePath
@@ -176,19 +176,19 @@ jobs:
             "platforms": {
               "darwin-aarch64": {
                 "signature": "$DARWIN_AARCH64_SIGNATURE",
-                "url": "https://github.com/${{ github.repository }}/releases/download/$GITHUB_REF_NAME/claude-workbench_${VERSION}_aarch64.app.tar.gz"
+                "url": "https://github.com/${{ github.repository }}/releases/download/$GITHUB_REF_NAME/any-code_${VERSION}_aarch64.app.tar.gz"
               },
               "darwin-x86_64": {
                 "signature": "$DARWIN_X64_SIGNATURE",
-                "url": "https://github.com/${{ github.repository }}/releases/download/$GITHUB_REF_NAME/claude-workbench_${VERSION}_x64.app.tar.gz"
+                "url": "https://github.com/${{ github.repository }}/releases/download/$GITHUB_REF_NAME/any-code_${VERSION}_x64.app.tar.gz"
               },
               "linux-x86_64": {
                 "signature": "$LINUX_SIGNATURE",
-                "url": "https://github.com/${{ github.repository }}/releases/download/$GITHUB_REF_NAME/claude-workbench_${VERSION}_amd64.AppImage"
+                "url": "https://github.com/${{ github.repository }}/releases/download/$GITHUB_REF_NAME/any-code_${VERSION}_amd64.AppImage"
               },
               "windows-x86_64": {
                 "signature": "$WINDOWS_NSIS_SIGNATURE",
-                "url": "https://github.com/${{ github.repository }}/releases/download/$GITHUB_REF_NAME/claude-workbench_${VERSION}_x64-setup.exe"
+                "url": "https://github.com/${{ github.repository }}/releases/download/$GITHUB_REF_NAME/any-code_${VERSION}_x64-setup.exe"
               }
             }
           }
@@ -203,9 +203,9 @@ jobs:
           draft: true
           prerelease: false
           fail_on_unmatched_files: false
-          name: Claude Workbench ${{ github.ref_name }}
+          name: Any Code ${{ github.ref_name }}
           body: |
-            ## Claude Workbench ${{ github.ref_name }}
+            ## Any Code ${{ github.ref_name }}
 
             ### Downloads
             Choose the appropriate installer for your platform:
