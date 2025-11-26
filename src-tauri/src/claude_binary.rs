@@ -26,8 +26,6 @@ fn get_home_dir() -> Result<String, String> {
 /// This function runs the user's default shell to get the actual PATH
 #[cfg(target_os = "macos")]
 fn get_shell_path() -> Option<String> {
-    use std::time::Duration;
-
     // Get the user's default shell
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
     debug!("User's default shell: {}", shell);
@@ -60,21 +58,21 @@ fn get_shell_path() -> Option<String> {
     // Fallback: try to read from common profile files
     if let Ok(home) = get_home_dir() {
         // Try to construct PATH from common locations
-        let common_paths = vec![
-            "/opt/homebrew/bin",
-            "/usr/local/bin",
-            "/usr/bin",
-            "/bin",
-            &format!("{}/.local/bin", home),
-            &format!("{}/.npm-global/bin", home),
-            &format!("{}/.volta/bin", home),
-            &format!("{}/.fnm", home),
-            &format!("{}/.nvm/versions/node", home), // Will need expansion
+        let common_paths: Vec<String> = vec![
+            "/opt/homebrew/bin".to_string(),
+            "/usr/local/bin".to_string(),
+            "/usr/bin".to_string(),
+            "/bin".to_string(),
+            format!("{}/.local/bin", home),
+            format!("{}/.npm-global/bin", home),
+            format!("{}/.volta/bin", home),
+            format!("{}/.fnm", home),
+            format!("{}/.nvm/versions/node", home),
         ];
 
         let existing_paths: Vec<&str> = common_paths
             .iter()
-            .map(|s| s.as_str())
+            .map(|s| s.as_ref())
             .filter(|p| std::path::Path::new(p).exists())
             .collect();
 

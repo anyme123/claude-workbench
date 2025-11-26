@@ -694,20 +694,20 @@ fn get_shell_path_codex() -> Option<String> {
 
     // Fallback: construct PATH from common locations
     if let Ok(home) = std::env::var("HOME") {
-        let common_paths = vec![
-            "/opt/homebrew/bin",
-            "/usr/local/bin",
-            "/usr/bin",
-            "/bin",
-            &format!("{}/.local/bin", home),
-            &format!("{}/.npm-global/bin", home),
-            &format!("{}/.volta/bin", home),
-            &format!("{}/.fnm", home),
+        let common_paths: Vec<String> = vec![
+            "/opt/homebrew/bin".to_string(),
+            "/usr/local/bin".to_string(),
+            "/usr/bin".to_string(),
+            "/bin".to_string(),
+            format!("{}/.local/bin", home),
+            format!("{}/.npm-global/bin", home),
+            format!("{}/.volta/bin", home),
+            format!("{}/.fnm", home),
         ];
 
         let existing_paths: Vec<&str> = common_paths
             .iter()
-            .map(|s| s.as_str())
+            .map(|s| s.as_ref())
             .filter(|p| std::path::Path::new(p).exists())
             .collect();
 
