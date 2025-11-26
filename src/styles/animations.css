@@ -1,0 +1,151 @@
+/* ========================================
+   🎬 ANIMATIONS & TRANSITIONS
+   ======================================== */
+
+:root, .dark {
+  /* ⚡ Transitions - Smooth & expressive (Material 3 Motion) */
+  --duration-instant: 75ms;
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 350ms;
+  --duration-slower: 500ms;
+  
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-decelerate: cubic-bezier(0, 0, 0.2, 1);
+  --ease-accelerate: cubic-bezier(0.4, 0, 1, 1);
+  --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --ease-elastic: cubic-bezier(0.68, -0.6, 0.32, 1.6);
+}
+
+/* Custom utilities */
+@utility animate-in {
+  animation-name: enter;
+  animation-duration: 150ms;
+  animation-fill-mode: both;
+}
+
+@utility animate-out {
+  animation-name: exit;
+  animation-duration: 150ms;
+  animation-fill-mode: both;
+}
+
+/* Smooth color transitions */
+@utility transition-interactive {
+  transition-property: background-color, border-color, color;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@utility transition-overlay {
+  transition-property: opacity, transform;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes enter {
+  from {
+    opacity: var(--tw-enter-opacity, 1);
+    transform: translate3d(var(--tw-enter-translate-x, 0), var(--tw-enter-translate-y, 0), 0) scale3d(var(--tw-enter-scale, 1), var(--tw-enter-scale, 1), var(--tw-enter-scale, 1)) rotate(var(--tw-enter-rotate, 0));
+  }
+}
+
+@keyframes exit {
+  to {
+    opacity: var(--tw-exit-opacity, 1);
+    transform: translate3d(var(--tw-exit-translate-x, 0), var(--tw-exit-translate-y, 0), 0) scale3d(var(--tw-exit-scale, 1), var(--tw-exit-scale, 1), var(--tw-exit-scale, 1)) rotate(var(--tw-exit-rotate, 0));
+  }
+}
+
+/* Rotating symbol animation */
+@keyframes rotate-symbol {
+  0%   { content: "◐"; transform: scale(1); }
+  25%  { content: "◓"; transform: scale(1); }
+  50%  { content: "◑"; transform: scale(1); }
+  75%  { content: "◒"; transform: scale(1); }
+  100% { content: "◐"; transform: scale(1); }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.rotating-symbol {
+  display: inline-block;
+  vertical-align: middle;
+  line-height: 1;
+  animation: fade-in 0.2s ease-out;
+  font-weight: normal;
+  font-size: 1.5rem; /* Make it bigger! */
+  position: relative;
+  top: -2px;
+}
+
+.rotating-symbol::before {
+  content: "◐";
+  animation: rotate-symbol 1.6s steps(4, end) infinite;
+  display: inline-block;
+  font-size: inherit;
+  line-height: 1;
+  vertical-align: baseline;
+  transform-origin: center;
+}
+
+/* NFO Credits Scanlines Animation */
+@keyframes scanlines {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+.animate-scanlines {
+  animation: scanlines 8s linear infinite;
+}
+
+/* Screenshot Shutter Animation */
+@keyframes shutterFlash {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.shutter-flash {
+  animation: shutterFlash 0.5s ease-in-out;
+}
+
+/* Image Move to Input Animation */
+@keyframes moveToInput {
+  0% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.3) translateY(50%);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(0.1) translateY(100vh);
+    opacity: 0;
+  }
+}
+
+.image-move-to-input {
+  animation: moveToInput 0.8s ease-in-out forwards;
+}

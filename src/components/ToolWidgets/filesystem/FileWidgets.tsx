@@ -396,12 +396,12 @@ export const ReadResultWidget: React.FC<{ content: string; filePath?: string }> 
     <div className="rounded-lg overflow-hidden border bg-zinc-950 w-full">
       <div className="px-4 py-2 border-b bg-zinc-700/30 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-xs font-mono text-muted-foreground">
+          <FileText className="h-3.5 w-3.5 text-zinc-400" />
+          <span className="text-xs font-mono text-zinc-200">
             {filePath || "File content"}
           </span>
           {isLargeFile && (
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs text-zinc-400">
               ({lineCount} lines)
             </span>
           )}
@@ -409,7 +409,7 @@ export const ReadResultWidget: React.FC<{ content: string; filePath?: string }> 
         {isLargeFile && (
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center gap-1 text-xs text-zinc-300 hover:text-zinc-100 transition-colors"
           >
             <ChevronRight className={cn("h-3 w-3 transition-transform", isExpanded && "rotate-90")} />
             {isExpanded ? "收起" : "展开"}
@@ -705,8 +705,8 @@ export const WriteWidget: React.FC<{ filePath: string; content: string; result?:
             {/* Header */}
             <div className="px-6 py-4 border-b border-border flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3 min-w-0 flex-1">
-                <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span className="text-sm font-mono text-muted-foreground truncate">{filePath}</span>
+                <FileText className="h-4 w-4 text-zinc-400 shrink-0" />
+                <span className="text-sm font-mono text-zinc-200 truncate">{filePath}</span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <button

@@ -92,11 +92,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <div className={cn(
-      "flex flex-col items-center py-4 bg-card/50 backdrop-blur-xl border-r border-border/50 w-16 h-full",
+      "flex flex-col items-center py-4 w-16 h-full",
+      "bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] border-r border-[var(--glass-border)]",
       className
     )}>
       <div className="mb-6">
-        <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
+        <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 ring-1 ring-white/10">
           <Zap className="w-6 h-6 text-primary-foreground" fill="currentColor" />
         </div>
       </div>
@@ -107,7 +108,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         ))}
       </div>
 
-      <div className="flex flex-col w-full items-center mt-auto pt-4 border-t border-border/40">
+      <div className="flex flex-col w-full items-center mt-auto pt-4 border-t border-[var(--glass-border)]">
         {bottomNavItems.map((item) => (
           <NavButton key={item.view} item={item} />
         ))}

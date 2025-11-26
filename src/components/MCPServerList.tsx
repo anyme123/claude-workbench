@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { api, type MCPServer } from "@/lib/api";
 import { copyTextToClipboard } from "@/lib/clipboard";
+import { MCPServerListSkeleton } from "@/components/skeletons/MCPServerListSkeleton";
 
 interface MCPServerListProps {
   /**
@@ -346,11 +347,7 @@ export const MCPServerList: React.FC<MCPServerListProps> = ({
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <MCPServerListSkeleton />;
   }
 
   return (

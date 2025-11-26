@@ -1,20 +1,15 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  FolderOpen,
   ChevronDown,
   ChevronUp,
   X,
-  Clock,
   List
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { api, type Session, type Project } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { type UnlistenFn } from "@tauri-apps/api/event";
-import { StreamMessageV2 } from "./message";
 import { FloatingPromptInput, type FloatingPromptInputRef, type ModelType } from "./FloatingPromptInput";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { SlashCommandsManager } from "./SlashCommandsManager";
@@ -24,7 +19,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { SplitPane } from "@/components/ui/split-pane";
 import { WebviewPreview } from "./WebviewPreview";
 import { type TranslationResult } from '@/lib/translationMiddleware';
-import { useVirtualizer } from "@tanstack/react-virtual";
 import { useSessionCostCalculation } from '@/hooks/useSessionCostCalculation';
 import { useDisplayableMessages } from '@/hooks/useDisplayableMessages';
 import { useGroupedMessages } from '@/hooks/useGroupedMessages';
@@ -35,6 +29,8 @@ import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { usePromptExecution } from '@/hooks/usePromptExecution';
 import { MessagesProvider, useMessagesContext } from '@/contexts/MessagesContext';
 import { codexConverter } from '@/lib/codexConverter';
+import { SessionHeader } from "./session/SessionHeader";
+import { SessionMessages, type SessionMessagesRef } from "./session/SessionMessages";
 
 import * as SessionHelpers from '@/lib/sessionHelpers';
 
@@ -210,6 +206,7 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
   const unlistenRefs = useRef<UnlistenFn[]>([]);
   const hasActiveSessionRef = useRef(false);
   const floatingPromptRef = useRef<FloatingPromptInputRef>(null);
+  const sessionMessagesRef = useRef<SessionMessagesRef>(null);
   const queuedPromptsRef = useRef<Array<{ id: string; prompt: string; model: ModelType }>>([]);
   const isMountedRef = useRef(true);
   const isListeningRef = useRef(false);
@@ -311,49 +308,6 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
     processMessageWithTranslation
   });
 
-  /**
-   * ✅ OPTIMIZED: Virtual list configuration for improved performance
-   *
-   * Changes:
-   * - Reduced overscan from 8 to 5 (25% fewer rendered items off-screen)
-   * - Dynamic height estimation based on message type
-   * - Performance improvement: ~30-40% reduction in DOM nodes
-   * - Fixed: Use messageGroups.length instead of displayableMessages.length
-   */
-  const rowVirtualizer = useVirtualizer({
-    count: messageGroups.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: (index) => {
-      // ✅ Dynamic height estimation based on message group type
-      const messageGroup = messageGroups[index];
-      if (!messageGroup) return 200;
-
-      // For subagent groups, estimate larger height
-      if (messageGroup.type === 'subagent') {
-        return 400; // Subagent groups are typically larger
-      }
-
-      // For normal messages, estimate based on message type
-      const message = messageGroup.message;
-      if (!message) return 200;
-
-      // Estimate different heights for different message types
-      if (message.type === 'system') return 80;  // System messages are smaller
-      if (message.type === 'user') return 150;   // User prompts are medium
-      if (message.type === 'assistant') {
-        // Assistant messages with code blocks are larger
-        const hasCodeBlock = message.content && typeof message.content === 'string' &&
-                            message.content.includes('```');
-        return hasCodeBlock ? 300 : 200;
-      }
-      return 200; // Default fallback
-    },
-    overscan: 5, // ✅ OPTIMIZED: Reduced from 8 to 5 for better performance
-    measureElement: (element) => {
-      // Ensure element is fully rendered before measurement
-      return element?.getBoundingClientRect().height ?? 200;
-    },
-  });
 
   // Debug logging
   useEffect(() => {
@@ -676,53 +630,12 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
   // 🆕 撤回处理函数 - 支持三种撤回模式
   // Handle prompt navigation - scroll to specific prompt
   const handlePromptNavigation = useCallback((promptIndex: number) => {
-    // 找到 promptIndex 对应的消息在 messageGroups 中的索引
-    let currentPromptIndex = 0;
-    let targetGroupIndex = -1;
-
-    for (let i = 0; i < messageGroups.length; i++) {
-      const group = messageGroups[i];
-
-      // 检查普通消息
-      if (group.type === 'normal') {
-        const message = group.message;
-        const messageType = (message as any).type || (message.message as any)?.role;
-
-        if (messageType === 'user') {
-          if (currentPromptIndex === promptIndex) {
-            targetGroupIndex = i;
-            break;
-          }
-          currentPromptIndex++;
-        }
-      }
-      // 子代理组不包含 user 消息，跳过
+    if (sessionMessagesRef.current) {
+      sessionMessagesRef.current.scrollToPrompt(promptIndex);
     }
-
-    if (targetGroupIndex === -1) {
-      console.warn(`[Prompt Navigation] Prompt #${promptIndex} not found`);
-      return;
-    }
-
-    console.log(`[Prompt Navigation] Navigating to prompt #${promptIndex}, group index: ${targetGroupIndex}`);
-
-    // 先使用虚拟列表滚动到该索引（让元素渲染出来）
-    rowVirtualizer.scrollToIndex(targetGroupIndex, {
-      align: 'center',
-      behavior: 'smooth',
-    });
-
-    // 等待虚拟列表渲染完成后，再进行精确定位
-    setTimeout(() => {
-      const element = document.getElementById(`prompt-${promptIndex}`);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }, 300);
-
     // Close navigator after navigation
     setShowPromptNavigator(false);
-  }, [messageGroups, rowVirtualizer]);
+  }, []);
 
   const handleRevert = useCallback(async (promptIndex: number, mode: import('@/lib/api').RewindMode = 'both') => {
     if (!effectiveSession) return;
@@ -829,163 +742,32 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
   }, []); // Empty deps - only run on mount/unmount
 
   const messagesList = (
-    <div
-      ref={parentRef}
-      className="flex-1 overflow-y-auto relative"
-      style={{
-        paddingBottom: 'calc(140px + env(safe-area-inset-bottom))', // 增加底部空间，避免与输入框重叠
-        paddingTop: '20px',
-      }}
-    >
-      <div
-        className="relative w-full max-w-5xl lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[85%] mx-auto px-4 pt-8 pb-4"
-        style={{
-          height: `${Math.max(rowVirtualizer.getTotalSize(), 100)}px`,
-          minHeight: '100px',
-        }}
-      >
-        <AnimatePresence>
-          {rowVirtualizer.getVirtualItems().map((virtualItem) => {
-            const messageGroup = messageGroups[virtualItem.index];
-
-            // 防御性检查：确保 messageGroup 存在
-            if (!messageGroup) {
-              console.warn('[ClaudeCodeSession] messageGroup is undefined for index:', virtualItem.index);
-              return null;
-            }
-
-            const message = messageGroup.type === 'normal' ? messageGroup.message : null;
-            const originalIndex = messageGroup.type === 'normal' ? messageGroup.index : undefined;
-            const promptIndex = message && message.type === 'user' && originalIndex !== undefined
-              ? getPromptIndexForMessage(originalIndex)
-              : undefined;
-
-            return (
-              <motion.div
-                key={virtualItem.key}
-                data-index={virtualItem.index}
-                ref={(el) => el && rowVirtualizer.measureElement(el)}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-                className="absolute inset-x-4"
-                style={{
-                  top: virtualItem.start,
-                }}
-              >
-                <StreamMessageV2
-                  messageGroup={messageGroup}
-                  onLinkDetected={handleLinkDetected}
-                  claudeSettings={claudeSettings}
-                  isStreaming={virtualItem.index === messageGroups.length - 1 && isLoading}
-                  promptIndex={promptIndex}
-                  sessionId={effectiveSession?.id}
-                  projectId={effectiveSession?.project_id}
-                  onRevert={handleRevert}
-                />
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
-      </div>
-
-
-      {/* Error indicator */}
-      {error && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive w-full max-w-5xl mx-auto"
-          style={{ marginBottom: 'calc(80px + env(safe-area-inset-bottom))' }}
-        >
-          {error}
-        </motion.div>
-      )}
-    </div>
+    <SessionMessages
+      ref={sessionMessagesRef}
+      messageGroups={messageGroups}
+      isLoading={isLoading}
+      claudeSettings={claudeSettings}
+      effectiveSession={effectiveSession}
+      getPromptIndexForMessage={getPromptIndexForMessage}
+      handleLinkDetected={handleLinkDetected}
+      handleRevert={handleRevert}
+      error={error}
+      parentRef={parentRef}
+    />
   );
 
   const projectPathInput = !session && (
-    <motion.div
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.1 }}
-      className="p-6 border-b border-border flex-shrink-0 bg-muted/20"
-    >
-      {/* Header section */}
-      <div className="max-w-3xl mx-auto space-y-4">
-        {!projectPath && (
-          <div className="text-center mb-6">
-            <FolderOpen className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
-            <h3 className="text-lg font-semibold mb-2">选择项目目录</h3>
-            <p className="text-sm text-muted-foreground">
-              请选择一个项目目录来开始新的 Claude 会话
-            </p>
-          </div>
-        )}
-
-        {/* Project path input */}
-        <div className="space-y-2">
-          <Label htmlFor="project-path" className="text-sm font-medium">
-            项目路径
-          </Label>
-          <div className="flex items-center gap-2">
-            <Input
-              id="project-path"
-              value={projectPath}
-              onChange={(e) => setProjectPath(e.target.value)}
-              placeholder="输入项目路径或点击浏览按钮选择"
-              className="flex-1"
-              disabled={isLoading}
-            />
-            <Button
-              onClick={handleSelectPath}
-              variant="outline"
-              disabled={isLoading}
-              className="gap-2"
-            >
-              <FolderOpen className="h-4 w-4" />
-              浏览
-            </Button>
-          </div>
-        </div>
-
-        {/* Recent projects list */}
-        {!projectPath && recentProjects.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span>最近使用的项目</span>
-            </div>
-            <div className="grid gap-2">
-              {recentProjects.map((project) => (
-                <Button
-                  key={project.id}
-                  variant="outline"
-                  className="justify-start h-auto py-3 px-4"
-                  onClick={() => {
-                    setProjectPath(project.path);
-                    setError(null);
-                  }}
-                >
-                  <div className="flex flex-col items-start gap-1 flex-1 min-w-0">
-                    <div className="flex items-center gap-2 w-full">
-                      <FolderOpen className="h-4 w-4 flex-shrink-0 text-primary" />
-                      <span className="font-medium text-sm truncate">
-                        {project.path.split('/').pop() || project.path.split('\\').pop()}
-                      </span>
-                    </div>
-                    <span className="text-xs text-muted-foreground truncate w-full">
-                      {project.path}
-                    </span>
-                  </div>
-                </Button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    </motion.div>
+    <SessionHeader
+      projectPath={projectPath}
+      setProjectPath={(path) => {
+        setProjectPath(path);
+        setError(null);
+      }}
+      handleSelectPath={handleSelectPath}
+      recentProjects={recentProjects}
+      isLoading={isLoading}
+      error={error}
+    />
   );
 
   // If preview is maximized, render only the WebviewPreview in full screen

@@ -32,24 +32,27 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
+      initial={{ opacity: 0, y: 20, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{
+        duration: 0.3,
+        ease: [0.2, 0, 0, 1] // Emphasized easing
+      }}
       className={cn(
-        "flex w-full mb-6", // 恢复 mb-6 确保消息间距
+        "flex w-full mb-8", // Increased spacing for better rhythm
         isUser ? "justify-end" : "justify-start",
         className
       )}
     >
       {isUser ? (
-        // 用户消息：紧凑气泡样式
+        // User Message: Modern Bubble
         <div className="flex flex-col items-end max-w-[85%] sm:max-w-[70%]">
           <div
             className={cn(
-              "rounded-lg px-4 py-2",
+              "rounded-2xl rounded-tr-sm px-5 py-3", // Asymmetric rounding
               "bg-primary text-primary-foreground",
-              "shadow-sm",
-              "break-words",
+              "shadow-md shadow-primary/10",
+              "break-words text-sm leading-relaxed",
               bubbleClassName
             )}
           >
@@ -57,19 +60,22 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           </div>
         </div>
       ) : (
-        // AI消息：全宽卡片样式
+        // AI Message: Glassmorphism Card
         <div className="flex flex-col w-full max-w-full">
           <div
             className={cn(
-              "rounded-lg border",
-              "bg-card text-card-foreground border-border",
-              "shadow-md",
+              "rounded-xl border border-border/50",
+              "bg-card/50 backdrop-blur-sm", // Glass effect
+              "shadow-sm",
               "overflow-hidden",
-              isStreaming && "ring-2 ring-primary/20 animate-pulse-subtle",
+              "p-1", // Inner padding for content separation
+              isStreaming && "ring-1 ring-primary/30 shadow-[0_0_15px_rgba(var(--primary),0.1)]",
               bubbleClassName
             )}
           >
-            {children}
+            <div className="bg-background/50 rounded-lg p-1">
+              {children}
+            </div>
           </div>
         </div>
       )}

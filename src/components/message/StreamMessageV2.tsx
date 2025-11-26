@@ -22,6 +22,15 @@ interface StreamMessageV2Props {
   onRevert?: (promptIndex: number, mode: RewindMode) => void;
 }
 
+// Message renderer strategy map
+const MESSAGE_RENDERERS: Record<string, React.FC<any>> = {
+  user: UserMessage,
+  assistant: AIMessage,
+  system: SystemMessage,
+  result: ResultMessage,
+  summary: SummaryMessage,
+};
+
 /**
  * StreamMessage V2 - 重构版消息渲染组件
  *
@@ -96,93 +105,62 @@ const StreamMessageV2Component: React.FC<StreamMessageV2Props> = ({
 
   const messageType = (message as ClaudeStreamMessage & { type?: string }).type ?? (message as any).type;
 
-  switch (messageType) {
-    case 'user':
-      return (
-        <UserMessage
-          message={message}
-          className={className}
-          promptIndex={promptIndex}
-          sessionId={sessionId}
-          projectId={projectId}
-          onRevert={onRevert}
-        />
-      );
-
-    case 'assistant':
-      return (
-        <AIMessage
-          message={message}
-          isStreaming={isStreaming}
-          onLinkDetected={onLinkDetected}
-          className={className}
-        />
-      );
-
-    case 'system':
-      return (
-        <SystemMessage
-          message={message}
-          className={className}
-          claudeSettings={claudeSettings}
-        />
-      );
-
-    case 'result':
-      return (
-        <ResultMessage
-          message={message}
-          className={className}
-        />
-      );
-
-    case 'summary':
-      return (
-        <SummaryMessage
-          message={message}
-          className={className}
-        />
-      );
-
-    // 🆕 Codex integration: Handle thinking messages
-    case 'thinking':
-      return (
-        <AIMessage
-          message={{
-            ...message,
-            type: 'assistant',
-            message: {
-              content: [
-                {
-                  type: 'thinking',
-                  thinking: (message as any).content || ''
-                }
-              ]
-            }
-          }}
-          isStreaming={isStreaming}
-          onLinkDetected={onLinkDetected}
-          className={className}
-        />
-      );
-
-    // 🆕 Codex integration: tool_use messages are now converted to assistant type
-    // This case should not be hit anymore, but keep for safety
-    case 'tool_use':
-      console.warn('[StreamMessageV2] Unexpected tool_use message type (should be assistant now)');
-      return null;
-
-    // Silently ignore queue-operation messages (internal operations)
-    case 'queue-operation':
-      return null;
-
-    default:
-      if (process.env.NODE_ENV !== 'production') {
-        console.warn('[StreamMessageV2] Unhandled message type:', (message as any).type, message);
-      }
-
-      return null;
+  // Handle special cases
+  if (messageType === 'thinking') {
+    return (
+      <AIMessage
+        message={{
+          ...message,
+          type: 'assistant',
+          message: {
+            content: [
+              {
+                type: 'thinking',
+                thinking: (message as any).content || ''
+              }
+            ]
+          }
+        }}
+        isStreaming={isStreaming}
+        onLinkDetected={onLinkDetected}
+        className={className}
+      />
+    );
   }
+
+  if (messageType === 'tool_use' || messageType === 'queue-operation') {
+    return null;
+  }
+
+  const Renderer = MESSAGE_RENDERERS[messageType];
+
+  if (!Renderer) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[StreamMessageV2] Unhandled message type:', messageType, message);
+    }
+    return null;
+  }
+
+  // Common props
+  const commonProps = {
+    message,
+    className,
+  };
+
+  // Specific props based on type
+  const specificProps = messageType === 'user' ? {
+    promptIndex,
+    sessionId,
+    projectId,
+    onRevert
+  } : messageType === 'assistant' ? {
+    isStreaming,
+    onLinkDetected
+  } : messageType === 'system' ? {
+    claudeSettings
+  } : {};
+
+  return <Renderer {...commonProps} {...specificProps} />;
 };
 
 /**

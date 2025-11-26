@@ -38,16 +38,16 @@ export const CommandWidget: React.FC<CommandWidgetProps> = ({
       {/* 命令内容 */}
       <div className="p-3 space-y-1">
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">$</span>
-          <code className="text-sm font-mono text-foreground">{commandName}</code>
+          <span className="text-xs text-green-400">$</span>
+          <code className="text-sm font-mono text-green-300">{commandName}</code>
           {commandArgs && (
-            <code className="text-sm font-mono text-muted-foreground">{commandArgs}</code>
+            <code className="text-sm font-mono text-zinc-300">{commandArgs}</code>
           )}
         </div>
 
         {/* 命令消息（如果与命令名不同） */}
         {commandMessage && commandMessage !== commandName && (
-          <div className="text-xs text-muted-foreground ml-4">{commandMessage}</div>
+          <div className="text-xs text-zinc-300 ml-4">{commandMessage}</div>
         )}
       </div>
     </div>

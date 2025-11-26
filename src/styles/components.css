@@ -1,0 +1,420 @@
+/* ========================================
+   🧩 COMPONENT STYLES
+   ======================================== */
+
+/* Markdown Editor Dark Mode Styles */
+[data-color-mode="dark"] {
+  --color-border-default: rgb(48, 54, 61);
+  --color-canvas-default: rgb(13, 17, 23);
+  --color-canvas-subtle: rgb(22, 27, 34);
+  --color-fg-default: rgb(201, 209, 217);
+  --color-fg-muted: rgb(139, 148, 158);
+  --color-fg-subtle: rgb(110, 118, 129);
+  --color-accent-fg: rgb(88, 166, 255);
+  --color-danger-fg: rgb(248, 81, 73);
+}
+
+.w-md-editor {
+  background-color: transparent !important;
+  color: var(--color-foreground) !important;
+}
+
+.w-md-editor.w-md-editor-focus {
+  box-shadow: none !important;
+  border-color: var(--color-border) !important;
+  outline: none !important;
+}
+
+.w-md-editor-toolbar {
+  background-color: var(--color-card) !important;
+  border-bottom: 1px solid var(--color-border) !important;
+}
+
+.w-md-editor-toolbar-divider {
+  background-color: var(--color-border) !important;
+}
+
+.w-md-editor-toolbar button {
+  color: var(--color-foreground) !important;
+}
+
+.w-md-editor-toolbar button:hover {
+  background-color: var(--color-accent) !important;
+  color: var(--color-accent-foreground) !important;
+}
+
+.w-md-editor-content {
+  background-color: var(--color-background) !important;
+}
+
+.w-md-editor-text-pre,
+.w-md-editor-text-input,
+.w-md-editor-text {
+  color: var(--color-foreground) !important;
+  background-color: transparent !important;
+}
+
+.w-md-editor-preview {
+  background-color: var(--color-background) !important;
+}
+
+.wmde-markdown {
+  background-color: transparent !important;
+  color: var(--color-foreground) !important;
+}
+
+/* Light theme markdown editor styles */
+[data-color-mode="light"] {
+  --color-border-default: rgb(208, 215, 222);
+  --color-canvas-default: rgb(255, 255, 255);
+  --color-canvas-subtle: rgb(246, 248, 250);
+  --color-fg-default: rgb(31, 35, 40);
+  --color-fg-muted: rgb(101, 109, 118);
+  --color-fg-subtle: rgb(139, 148, 158);
+  --color-accent-fg: rgb(9, 105, 218);
+  --color-danger-fg: rgb(207, 34, 46);
+}
+
+/* --- CROSS-PLATFORM SCROLLBARS (OverlayScrollbars Style) --- */
+
+/* Global scrollbar reset */
+html * {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+/* Show scrollbar on hover */
+html *:hover {
+  scrollbar-color: var(--color-muted-foreground) transparent;
+}
+
+/* Webkit Scrollbar Styling (Chrome, Edge, Safari) */
+html *::-webkit-scrollbar {
+  width: 8px;  /* Slightly wider for better usability */
+  height: 8px;
+}
+
+html *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html *::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 4px; /* Pill shape */
+  border: 2px solid transparent; /* Creates padding effect */
+  background-clip: content-box;
+  transition: background-color 0.2s ease;
+}
+
+html *:hover::-webkit-scrollbar-thumb {
+  background-color: var(--color-muted-foreground);
+  opacity: 0.5;
+}
+
+html *::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-foreground); /* Darker on direct hover */
+  opacity: 0.8;
+}
+
+html *::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Code blocks and editors specific scrollbar */
+pre::-webkit-scrollbar,
+.w-md-editor-content::-webkit-scrollbar,
+code::-webkit-scrollbar,
+.overflow-auto::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+pre::-webkit-scrollbar-thumb,
+.w-md-editor-content::-webkit-scrollbar-thumb,
+code::-webkit-scrollbar-thumb,
+.overflow-auto::-webkit-scrollbar-thumb {
+  background-color: transparent;
+}
+
+pre:hover::-webkit-scrollbar-thumb,
+.w-md-editor-content:hover::-webkit-scrollbar-thumb,
+code:hover::-webkit-scrollbar-thumb,
+.overflow-auto:hover::-webkit-scrollbar-thumb {
+  background-color: var(--color-muted-foreground);
+  opacity: 0.5;
+}
+
+/* Syntax highlighter specific */
+.bg-zinc-950 ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.bg-zinc-950 ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.bg-zinc-950 ::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+}
+
+.bg-zinc-950:hover ::-webkit-scrollbar-thumb {
+  background-color: var(--color-muted-foreground);
+  opacity: 0.5;
+}
+
+/* Code preview specific scrollbar */
+.code-preview-scroll::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.code-preview-scroll::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+}
+
+.code-preview-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(107, 114, 128, 0.4);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.code-preview-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(107, 114, 128, 0.6);
+}
+
+.code-preview-scroll::-webkit-scrollbar-thumb:active {
+  background-color: rgba(107, 114, 128, 0.8);
+}
+
+.code-preview-scroll::-webkit-scrollbar-corner {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+}
+
+/* Firefox scrollbar for code preview */
+.code-preview-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(107, 114, 128, 0.4) rgba(0, 0, 0, 0.2);
+}
+
+/* Light theme scrollbars */
+.light * {
+  scrollbar-color: transparent transparent;
+}
+
+.light *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.light *::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border: none;
+}
+
+.light *:hover {
+  scrollbar-color: var(--color-muted-foreground) transparent;
+}
+
+.light *:hover::-webkit-scrollbar-thumb {
+  background-color: var(--color-muted-foreground);
+}
+
+.light .bg-zinc-950 ::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.light .bg-zinc-950 ::-webkit-scrollbar-thumb {
+  background-color: rgba(107, 114, 128, 0.2);
+}
+
+.light .bg-zinc-950 ::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(107, 114, 128, 0.4);
+}
+
+/* Layout improvements for better UI separation */
+.chat-container {
+  /* Ensure proper spacing for floating input */
+  padding-bottom: calc(120px + env(safe-area-inset-bottom));
+  min-height: 100vh;
+}
+
+.floating-input-container {
+  /* Enhanced backdrop and positioning */
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border-top: 1px solid var(--color-border);
+  box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1), 0 -2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Responsive layout adjustments */
+@media (max-width: 768px) {
+  .chat-container {
+    padding-bottom: calc(140px + env(safe-area-inset-bottom));
+  }
+
+  .floating-input-container {
+    padding: 12px;
+  }
+
+  /* Adjust navigation arrows for mobile */
+  .navigation-arrows {
+    bottom: calc(160px + env(safe-area-inset-bottom)) !important;
+    right: 12px !important;
+  }
+
+  /* Adjust token counter for mobile */
+  .token-counter {
+    bottom: calc(120px + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+/* Ensure proper z-index layering */
+.z-layer-background { z-index: 0; }
+.z-layer-content { z-index: 10; }
+.z-layer-overlay { z-index: 20; }
+.z-layer-modal { z-index: 30; }
+.z-layer-floating { z-index: 40; }
+.z-layer-input { z-index: 50; }
+.z-layer-tooltip { z-index: 60; }
+
+/* Additional contrast improvements for accessibility */
+.contrast-enhanced {
+  /* Ensure minimum contrast ratio of 4.5:1 for normal text */
+  color: var(--color-foreground);
+  background-color: var(--color-background);
+}
+
+.contrast-enhanced-muted {
+  /* Ensure minimum contrast ratio of 3:1 for large text */
+  color: var(--color-muted-foreground);
+}
+
+/* Fix potential transparency issues */
+.backdrop-enhanced {
+  backdrop-filter: blur(12px) saturate(180%) brightness(1.1);
+  -webkit-backdrop-filter: blur(12px) saturate(180%) brightness(1.1);
+}
+
+/* Ensure floating elements are always visible */
+.floating-element {
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Dark theme specific enhancements */
+.dark .floating-element {
+  background-color: oklch(0.13 0.015 240 / 0.95);
+  backdrop-filter: blur(12px) saturate(180%);
+}
+
+/* Dark theme specific backdrop and transparency fixes */
+.dark .bg-background\/95 {
+  background-color: oklch(0.13 0.015 240 / 0.95) !important;
+  backdrop-filter: blur(12px) saturate(180%);
+}
+
+.dark .bg-background\/80 {
+  background-color: oklch(0.13 0.015 240 / 0.80) !important;
+  backdrop-filter: blur(8px) saturate(150%);
+}
+
+/* Improve floating input contrast in dark theme */
+.dark .floating-input-container {
+  background-color: oklch(0.13 0.015 240 / 0.95) !important;
+  border-top-color: oklch(0.24 0.018 240) !important;
+  box-shadow: 0 -8px 16px -4px rgba(0, 0, 0, 0.4), 0 -4px 8px -2px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Better text contrast on dark backgrounds */
+.dark .text-muted-foreground {
+  color: oklch(0.65 0.01 240) !important;
+}
+
+/* Improve card contrast in dark theme */
+.dark .bg-card {
+  background-color: oklch(0.16 0.018 240) !important;
+  border-color: oklch(0.24 0.018 240) !important;
+}
+
+/* Better popover contrast in dark theme */
+.dark .bg-popover {
+  background-color: oklch(0.14 0.016 240) !important;
+  border-color: oklch(0.24 0.018 240) !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Enhanced border visibility in dark theme */
+.dark .border-border\/50 {
+  border-color: oklch(0.30 0.022 240 / 0.5) !important;
+}
+
+/* Better shadow for dark theme */
+.dark .shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -2px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dark .shadow-xl {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.7), 0 10px 10px -5px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Light theme specific enhancements */
+.light .floating-element {
+  background-color: oklch(0.99 0.002 240 / 0.98);
+  backdrop-filter: blur(12px) saturate(180%) brightness(1.05);
+  box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.12), 0 4px 8px -2px rgba(0, 0, 0, 0.08);
+}
+
+/* Light theme specific styles */
+.light .bg-background\/95 {
+  background-color: oklch(0.99 0.005 240 / 0.98) !important;
+  backdrop-filter: blur(12px) saturate(180%);
+}
+
+.light .bg-background\/80 {
+  background-color: oklch(0.99 0.005 240 / 0.92) !important;
+  backdrop-filter: blur(8px) saturate(150%);
+}
+
+/* Improve floating elements contrast */
+.light .border-border\/50 {
+  border-color: oklch(0.80 0.005 240 / 0.8) !important;
+}
+
+/* Enhanced shadow for better separation */
+.light .shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.08) !important;
+}
+
+.light .shadow-xl {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Improve floating input contrast in light theme */
+.light .floating-input-container {
+  background-color: oklch(0.99 0.005 240 / 0.98) !important;
+  border-top-color: oklch(0.80 0.005 240) !important;
+  box-shadow: 0 -8px 16px -4px rgba(0, 0, 0, 0.12), 0 -4px 8px -2px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Better text contrast on light backgrounds */
+.light .text-muted-foreground {
+  color: oklch(0.45 0.01 240) !important;
+}
+
+/* Improve card contrast */
+.light .bg-card {
+  background-color: oklch(0.98 0.005 240) !important;
+  border-color: oklch(0.82 0.005 240) !important;
+}
+
+/* Better popover contrast */
+.light .bg-popover {
+  background-color: oklch(0.99 0.005 240) !important;
+  border-color: oklch(0.82 0.005 240) !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.08) !important;
+}

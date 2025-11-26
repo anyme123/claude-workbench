@@ -1,4 +1,4 @@
-import React, { ReactNode, useState, useRef } from 'react';
+import React, { ReactNode, useState } from 'react';
 import { Sidebar } from "@/components/layout/Sidebar";
 import { AppBreadcrumbs } from "@/components/layout/AppBreadcrumbs";
 import { useNavigation } from '@/contexts/NavigationContext';
@@ -10,6 +10,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { HelpCircle, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useHeaderVisibility } from '@/hooks/useHeaderVisibility';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -23,71 +24,35 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
   const [showAboutDialog, setShowAboutDialog] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
 
   const sidebarWidth = isSidebarOpen ? "4rem" : "0px";
 
   // Auto-hide header on session pages
   const isSessionPage = currentView === 'claude-code-session' || currentView === 'claude-tab-manager';
-
-  // 用于追踪 Header 可见性状态的 ref（避免闭包问题）
-  const headerVisibilityRef = useRef(isHeaderVisible);
-  headerVisibilityRef.current = isHeaderVisible;
-
-  // 优化的 Header 自动隐藏逻辑（带 RAF 节流）
-  React.useEffect(() => {
-    if (!isSessionPage) {
-      setIsHeaderVisible(true);
-      return;
-    }
-
-    let rafId: number;
-    let lastY = 0;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      // 位移阈值过滤，减少不必要的处理
-      if (Math.abs(e.clientY - lastY) < 10) return;
-      lastY = e.clientY;
-
-      cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(() => {
-        const shouldShow = e.clientY < 80;
-        const shouldHide = e.clientY > 150;
-
-        if (shouldShow && !headerVisibilityRef.current) {
-          setIsHeaderVisible(true);
-        } else if (shouldHide && headerVisibilityRef.current) {
-          setIsHeaderVisible(false);
-        }
-      });
-    };
-
-    window.addEventListener('mousemove', handleMouseMove, { passive: true });
-
-    return () => {
-      cancelAnimationFrame(rafId);
-      window.removeEventListener('mousemove', handleMouseMove);
-    };
-  }, [isSessionPage]);
+  
+  // Use custom hook for header visibility logic
+  const isHeaderVisible = useHeaderVisibility(isSessionPage);
 
   return (
-    <div 
+    <div
       className="h-screen w-screen overflow-hidden bg-background flex text-foreground selection:bg-primary/20 selection:text-primary relative"
       style={{ "--sidebar-width": sidebarWidth } as React.CSSProperties}
     >
-      {/* ✨ Subtle background pattern mesh - Global Background */}
-      <div className="absolute inset-0 pointer-events-none z-0 opacity-[0.03] dark:opacity-[0.02]"
-        style={{
-          backgroundImage: `radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)`,
-          backgroundSize: '24px 24px'
-        }}
-      />
+      {/* ✨ Neo-Modern Fluid Background */}
+      <div className="absolute inset-0 pointer-events-none z-0">
+        {/* Noise Texture */}
+        <div className="absolute inset-0 opacity-[0.015] dark:opacity-[0.03] mix-blend-overlay"
+             style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}
+        />
+        {/* Subtle Gradient Mesh */}
+        <div className="absolute inset-0 opacity-30 dark:opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-background to-background" />
+      </div>
 
       {/* Sidebar */}
       <div
         id="app-sidebar"
         className={cn(
-          "z-50 flex-shrink-0 transition-all duration-250 ease-[cubic-bezier(0.2,0,0,1)] overflow-hidden",
+          "z-50 flex-shrink-0 transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)] overflow-hidden",
           isSidebarOpen
             ? "w-16 opacity-100 translate-x-0"
             : "w-0 opacity-0 -translate-x-full"
@@ -102,13 +67,13 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
       {/* Main Content Area */}
       <main className="flex-1 relative flex flex-col min-w-0 overflow-hidden z-10 transition-all duration-300">
-        {/* Header */}
+        {/* Header - Glassmorphism 2.0 Style */}
         <header
           className={cn(
             // 基础样式
             "flex items-center justify-between px-6 py-3",
-            "border-b border-border/50 bg-background/50 backdrop-blur-md",
-            "transition-all duration-250 ease-[cubic-bezier(0.2,0,0,1)]",
+            "border-b border-[var(--glass-border)] bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] shadow-[var(--glass-shadow)]",
+            "transition-all duration-300 ease-[cubic-bezier(0.2,0,0,1)]",
             "z-40",
             // 条件样式（使用对象语法提高可读性）
             {

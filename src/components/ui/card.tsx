@@ -8,18 +8,21 @@ import { cva, type VariantProps } from "class-variance-authority";
  */
 
 const cardVariants = cva(
-  "rounded-lg border bg-card text-card-foreground",
+  "rounded-xl border transition-all duration-200",
   {
     variants: {
       variant: {
-        default: "border-border",
-        subtle: "border-border/50 bg-muted/30",
+        default: "bg-card text-card-foreground border-border shadow-sm",
+        subtle: "bg-muted/30 border-border/50 text-card-foreground",
+        glass: "bg-[var(--glass-bg)] backdrop-blur-[var(--glass-blur)] border-[var(--glass-border)] shadow-[var(--glass-shadow)] text-card-foreground",
+        outline: "bg-transparent border-border text-card-foreground",
+        ghost: "bg-transparent border-transparent text-card-foreground hover:bg-muted/50",
       },
       padding: {
         none: "p-0",
         sm: "p-3",
-        default: "p-4",
-        lg: "p-6",
+        default: "p-5",
+        lg: "p-8",
       },
     },
     defaultVariants: {

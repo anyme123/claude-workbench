@@ -97,12 +97,12 @@ export const ReadResultWidget: React.FC<ReadResultWidgetProps> = ({ content, fil
       {/* 头部 */}
       <div className="px-4 py-2 border-b bg-zinc-700/30 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-xs font-mono text-muted-foreground">
+          <FileText className="h-3.5 w-3.5 text-zinc-400" />
+          <span className="text-xs font-mono text-zinc-200">
             {filePath || "File content"}
           </span>
           {isLargeFile && (
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs text-zinc-400">
               ({lineCount} lines)
             </span>
           )}
@@ -112,7 +112,7 @@ export const ReadResultWidget: React.FC<ReadResultWidgetProps> = ({ content, fil
         {isLargeFile && (
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center gap-1 text-xs text-zinc-300 hover:text-zinc-100 transition-colors"
           >
             <ChevronRight className={cn("h-3 w-3 transition-transform", isExpanded && "rotate-90")} />
             {isExpanded ? "收起" : "展开"}

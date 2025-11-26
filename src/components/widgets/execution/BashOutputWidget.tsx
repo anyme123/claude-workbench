@@ -60,7 +60,7 @@ export const BashOutputWidget: React.FC<BashOutputWidgetProps> = ({
     <div className="rounded-lg border bg-zinc-950 overflow-hidden">
       <div className="px-4 py-2 bg-zinc-700/30 flex items-center gap-2 border-b">
         <Terminal className="h-3.5 w-3.5 text-blue-500" />
-        <span className="text-xs font-mono text-muted-foreground">Bash 输出</span>
+        <span className="text-xs font-mono text-zinc-300">Bash 输出</span>
         <code className="text-xs font-mono text-blue-400">ID: {bash_id}</code>
 
         {/* 展开/收起按钮 */}

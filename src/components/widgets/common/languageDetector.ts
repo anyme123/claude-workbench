@@ -35,6 +35,7 @@ export const getLanguage = (path: string): string => {
     fish: "bash",
     yml: "yaml",
     yaml: "yaml",
+    toml: "toml",
     json: "json",
     xml: "xml",
     html: "html",

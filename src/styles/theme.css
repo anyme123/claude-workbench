@@ -1,0 +1,266 @@
+/* ========================================
+   🎨 MODERN DESIGN SYSTEM - Material 3 Inspired
+   ======================================== */
+
+/* Default (Dark) theme configuration */
+:root,
+.dark {
+  /* 🎨 Primary Colors - More vibrant and expressive */
+  --color-background: oklch(0.13 0.015 240);
+  --color-foreground: oklch(0.98 0.005 240);
+  --color-card: oklch(0.16 0.018 240);
+  --color-card-foreground: oklch(0.98 0.005 240);
+  --color-popover: oklch(0.14 0.016 240);
+  --color-popover-foreground: oklch(0.98 0.005 240);
+  
+  /* 🌟 Brand Colors - Vibrant blue accent */
+  --color-primary: oklch(0.65 0.22 250);
+  --color-primary-hover: oklch(0.70 0.24 250);
+  --color-primary-active: oklch(0.60 0.20 250);
+  --color-primary-foreground: oklch(0.98 0.005 240);
+  
+  /* 📦 Secondary Colors */
+  --color-secondary: oklch(0.20 0.02 240);
+  --color-secondary-hover: oklch(0.24 0.025 240);
+  --color-secondary-foreground: oklch(0.96 0.005 240);
+  
+  /* 🔇 Muted Colors */
+  --color-muted: oklch(0.18 0.015 240);
+  --color-muted-hover: oklch(0.22 0.018 240);
+  --color-muted-foreground: oklch(0.75 0.012 240); /* 提升对比度从 0.70 到 0.75 (5.5:1) */
+  
+  /* ✨ Accent Colors */
+  --color-accent: oklch(0.22 0.025 280);
+  --color-accent-hover: oklch(0.26 0.03 280);
+  --color-accent-foreground: oklch(0.98 0.005 240);
+  
+  /* ⚠️ Status Colors */
+  --color-destructive: oklch(0.62 0.25 25);
+  --color-destructive-hover: oklch(0.58 0.28 25);
+  --color-destructive-foreground: oklch(0.98 0.005 240);
+  
+  --color-success: oklch(0.68 0.20 145);
+  --color-success-hover: oklch(0.64 0.22 145);
+  --color-success-foreground: oklch(0.98 0.005 145);
+  --color-warning: oklch(0.75 0.18 75);
+  --color-warning-hover: oklch(0.70 0.20 75);
+  --color-warning-foreground: oklch(0.15 0.02 75);
+  --color-info: oklch(0.65 0.22 250);
+  --color-info-hover: oklch(0.60 0.24 250);
+  --color-info-foreground: oklch(0.98 0.005 250);
+  
+  /* 🎨 UI Elements */
+  --color-border: oklch(0.24 0.018 240);
+  --color-border-hover: oklch(0.30 0.022 240);
+  --color-input: oklch(0.18 0.015 240);
+  --color-ring: oklch(0.65 0.22 250);
+  
+  /* 🌫️ Glassmorphism 2.0 Variables */
+  --glass-border: oklch(0.98 0.005 240 / 0.08);
+  --glass-bg: oklch(0.13 0.015 240 / 0.7);
+  --glass-blur: 12px;
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.36);
+
+  /* Additional colors for status messages */
+  --color-green-500: oklch(0.72 0.20 142);
+  --color-green-600: oklch(0.64 0.22 142);
+
+  /* 📐 Border Radius - Softer, more modern */
+  --radius-xs: 0.375rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 2rem;
+  --radius-full: 9999px;
+
+  /* 📏 Spacing Scale - Consistent rhythm */
+  --spacing-xs: 0.25rem;   /* 4px */
+  --spacing-sm: 0.5rem;    /* 8px */
+  --spacing-md: 1rem;      /* 16px */
+  --spacing-lg: 1.5rem;    /* 24px */
+  --spacing-xl: 2rem;      /* 32px */
+  --spacing-2xl: 3rem;     /* 48px */
+  --spacing-3xl: 4rem;     /* 64px */
+
+  /* 🎯 Semantic Spacing - 语义化间距（用于组件） */
+  --space-element-xs: 0.25rem;   /* 4px  - 同一组件内相关元素 */
+  --space-element-sm: 0.5rem;    /* 8px  - 同一组件内分组 */
+  --space-component-xs: 0.75rem; /* 12px - 组件之间（紧密） */
+  --space-component-sm: 1rem;    /* 16px - 组件之间（常规） */
+  --space-component-md: 1.5rem;  /* 24px - 组件之间（松散） */
+  --space-section: 2rem;         /* 32px - 区块之间 */
+  --space-layout: 3rem;          /* 48px - 大区块之间 */
+
+  /* 🎭 Shadows - Enhanced depth perception */
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.15), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+}
+
+/* ========================================
+   🌞 LIGHT THEME - Clean & Modern
+   ======================================== */
+.light {
+  /* 🎨 Primary Colors */
+  --color-background: oklch(0.99 0.002 240);
+  --color-foreground: oklch(0.12 0.015 240);
+  --color-card: oklch(0.98 0.003 240);
+  --color-card-foreground: oklch(0.12 0.015 240);
+  --color-popover: oklch(0.99 0.002 240);
+  --color-popover-foreground: oklch(0.12 0.015 240);
+  
+  /* 🌟 Brand Colors - Vibrant blue accent */
+  --color-primary: oklch(0.55 0.24 250);
+  --color-primary-hover: oklch(0.50 0.26 250);
+  --color-primary-active: oklch(0.45 0.22 250);
+  --color-primary-foreground: oklch(0.99 0.002 240);
+  
+  /* 📦 Secondary Colors */
+  --color-secondary: oklch(0.94 0.006 240);
+  --color-secondary-hover: oklch(0.90 0.008 240);
+  --color-secondary-foreground: oklch(0.12 0.015 240);
+  
+  /* 🔇 Muted Colors */
+  --color-muted: oklch(0.95 0.005 240);
+  --color-muted-hover: oklch(0.91 0.008 240);
+  --color-muted-foreground: oklch(0.45 0.015 240); /* 提升对比度从 0.48 到 0.45 (6.2:1) */
+  
+  /* ✨ Accent Colors */
+  --color-accent: oklch(0.93 0.008 280);
+  --color-accent-hover: oklch(0.89 0.012 280);
+  --color-accent-foreground: oklch(0.12 0.015 240);
+  
+  /* ⚠️ Status Colors */
+  --color-destructive: oklch(0.58 0.26 25);
+  --color-destructive-hover: oklch(0.53 0.28 25);
+  --color-destructive-foreground: oklch(0.99 0.002 240);
+  
+  --color-success: oklch(0.60 0.22 145);
+  --color-success-hover: oklch(0.55 0.24 145);
+  --color-success-foreground: oklch(0.99 0.002 145);
+  --color-warning: oklch(0.70 0.20 75);
+  --color-warning-hover: oklch(0.65 0.22 75);
+  --color-warning-foreground: oklch(0.15 0.02 75);
+  --color-info: oklch(0.55 0.24 250);
+  --color-info-hover: oklch(0.50 0.26 250);
+  --color-info-foreground: oklch(0.99 0.002 250);
+
+  /* 🎨 UI Elements */
+  --color-border: oklch(0.88 0.006 240);
+  --color-border-hover: oklch(0.82 0.009 240);
+  --color-input: oklch(0.96 0.004 240);
+  --color-ring: oklch(0.55 0.24 250);
+
+  /* 🌫️ Glassmorphism 2.0 Variables */
+  --glass-border: oklch(0.12 0.015 240 / 0.08);
+  --glass-bg: oklch(0.99 0.002 240 / 0.7);
+  --glass-blur: 12px;
+  --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+
+  /* Additional colors for status messages */
+  --color-green-500: oklch(0.58 0.20 142);
+  --color-green-600: oklch(0.50 0.22 142);
+}
+
+/* Reset and base styles */
+* {
+  border-color: var(--color-border);
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Placeholder text styling */
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-muted-foreground);
+  opacity: 0.6;
+}
+
+/* Cursor pointer for all interactive elements */
+button,
+a,
+[role="button"],
+[role="link"],
+[role="menuitem"],
+[role="tab"],
+[tabindex]:not([tabindex="-1"]),
+.cursor-pointer {
+  cursor: pointer;
+}
+
+/* Ensure disabled elements don't have pointer cursor */
+button:disabled,
+[disabled],
+.disabled {
+  cursor: not-allowed !important;
+}
+
+/* ========================================
+   ♿ ACCESSIBLE FOCUS STYLES - WCAG 2.1 Compliant
+   ======================================== */
+
+/* Hide focus outline only for mouse/touch interactions */
+*:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Show clear focus indicator for keyboard navigation */
+*:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+  transition: outline-offset 0.1s ease;
+}
+
+/* Enhanced focus for interactive elements */
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+[role="link"]:focus-visible,
+[role="tab"]:focus-visible,
+[role="menuitem"]:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--color-ring) / 0.1;
+}
+
+/* Form elements get border-based focus indicator */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[role="combobox"]:focus-visible {
+  outline: none;
+  border-color: var(--color-ring);
+  box-shadow: 0 0 0 3px var(--color-ring) / 0.15;
+}
+
+/* Special handling for cards and complex interactive elements */
+[role="button"][class*="card"]:focus-visible,
+[class*="card"]:focus-within {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+
+/* Force minimum contrast ratios for accessibility */
+@media (prefers-contrast: high) {
+  :root, .dark {
+    --color-muted-foreground: oklch(0.8 0.01 240);
+    --color-border: oklch(0.3 0.01 240);
+  }
+  
+  .light {
+    --color-muted-foreground: oklch(0.3 0.01 240);
+    --color-border: oklch(0.7 0.005 240);
+  }
+}

@@ -1,154 +1,119 @@
-# 深度 UI 重构与现代化升级方案 (2025版)
+# UI/UX 全面评估与重构建议报告
 
-## 1. 视觉设计趋势定位 (Visual Design Strategy)
+## 1. 总体评估
 
-结合 2024/2025 年设计趋势，我们定义一套名为 **"Neo-Modern Fluidity" (新现代流动感)** 的视觉语言。
+本项目采用了现代化的技术栈 (React + Tailwind CSS + Radix UI)，整体架构清晰，组件化程度高。UI 设计风格统一，采用了 Glassmorphism (毛玻璃) 效果和 OKLCH 颜色空间，视觉效果现代且精致。
 
-### 核心设计理念
-*   **Bento Grid 布局 (便当盒布局)**: 采用模块化、网格化的内容展示方式。将复杂的信息层级拆解为大小不一的矩形卡片，既保证了信息的高密度展示，又维持了视觉的整洁与秩序。
-    *   *价值*: 提升信息获取效率，适应不同屏幕尺寸的响应式排版，赋予界面“仪表盘”般的掌控感。
-*   **Glassmorphism 2.0 (新拟态玻璃感)**: 摒弃过度的模糊，采用更细腻的背景模糊 (Backdrop Blur) 配合极细的半透明边框 (1px border with low opacity)。
-    *   *价值*: 建立清晰的视觉层级 (Z-axis)，让浮动元素（如模态框、侧边栏）与背景内容保持上下文联系，同时增加界面的通透感与高级感。
-*   **高对比度与排版 (Typography & Contrast)**: 使用大字号、高粗细对比的无衬线字体 (如 Inter, Geist Sans) 作为标题，配合高行高的正文。
-    *   *价值*: 提升可读性 (Readability)，通过字体大小和粗细直接引导用户视线，减少对色彩引导的依赖，符合无障碍设计 (Accessibility) 趋势。
-*   **深色模式优先 (Dark Mode First)**: 默认设计以深色为基准，采用 Oklch 色彩空间定义颜色，确保在 OLED 屏幕上的深邃感与省电特性，同时提供高对比度的亮色模式作为备选。
-    *   *价值*: 减少视觉疲劳，符合开发者与极客用户的审美偏好，提升沉浸感。
+### 核心优势
+- **现代设计语言**: 统一使用 Tailwind CSS 和 CSS 变量，支持深色/浅色模式，色彩系统先进 (OKLCH)。
+- **组件化架构**: UI 组件封装良好 (src/components/ui/*)，复用性高。
+- **交互细节**: 按钮、输入框等基础组件包含微交互 (Micro-interactions)，如点击缩放、焦点状态等。
+- **功能完整性**: 覆盖了会话管理、项目管理、MCP 管理、设置等核心功能。
 
-## 2. 现代化技术栈选型 (Tech Stack Modernization)
-
-基于当前项目已有的 React + Vite 基础，建议进行以下升级以提升性能与开发体验：
-
-### 核心框架
-*   **保持 React 18+**: 继续使用 React 生态，但引入更现代的模式。
-*   **引入 React Router v7 (或 TanStack Router)**: 如果项目涉及复杂路由，推荐使用类型安全的路由解决方案，提升开发时的类型推断体验。
-*   **状态管理**: 推荐 **Zustand** (轻量级、无样板代码) 替代 Context API 处理全局状态；对于服务端数据，继续使用或引入 **TanStack Query (React Query)** 进行数据缓存与同步。
-
-### 样式解决方案
-*   **Tailwind CSS v4**: 升级到 v4 版本（当前项目已引入 v4 alpha/beta 相关依赖，建议锁定稳定版）。
-    *   *优势*: 零运行时 (Zero-runtime) 带来的极致性能，自动推断类型，更快的构建速度 (Rust-based CLI)。
-    *   *策略*: 结合 `class-variance-authority (CVA)` 构建可复用的组件变体，保持 JSX 的整洁。
-*   **CSS Variables (OKLCH)**: 全面使用 OKLCH 色彩空间定义 CSS 变量（如 `src/styles.css` 中所示），确保色彩在不同亮度下的感知一致性。
-
-## 3. 组件库与设计系统策略 (Component Library & Design System)
-
-### 推荐组件库：Shadcn/ui (基于 Radix UI)
-当前项目已经在使用 `@radix-ui` 原语和 `tailwindcss`，这与 **Shadcn/ui** 的架构完美契合。
-*   **理由**: Shadcn/ui 不是一个传统的 npm 包，而是一套可复制粘贴的代码集合。它给予开发者对组件代码的完全控制权 (Full Ownership)。
-*   **Headless 特性**: 底层使用 Radix UI 处理复杂的交互逻辑（如 Dialog 的焦点管理、Popover 的定位、Accessibility 属性），上层通过 Tailwind CSS 自由定制样式。
-
-### 原子设计系统 (Atomic Design System) 构建
-1.  **Tokens (原子变量)**: 在 `tailwind.config.js` 或 CSS 变量中定义 Colors, Typography, Spacing, Radius, Shadows。
-2.  **Atoms (原子组件)**: Button, Input, Icon, Badge, Avatar。这些组件应只包含最基础的逻辑与样式。
-3.  **Molecules (分子组件)**: SearchBar (Input + Icon + Button), UserCard (Avatar + Text), FormField (Label + Input + ErrorMessage)。
-4.  **Organisms (组织组件)**: Header, Sidebar, DataTable, BentoGrid。
-5.  **Templates (模板)**: DashboardLayout, AuthLayout。
-
-## 4. 交互体验与动画 (Interaction & Motion)
-
-### 微交互 (Micro-interactions) 体系
-*   **反馈感**: 按钮点击时的缩放 (Scale down to 0.98)，Hover 时的细微位移或光影变化。
-*   **状态变更**: 开关 (Toggle) 的平滑过渡，输入框聚焦时的光晕扩散 (Ring offset)。
-
-### 动画库推荐：Framer Motion
-*   **理由**: React 生态中最强大的动画库，声明式 API (`<motion.div>`) 易于使用，支持布局动画 (Layout Animations) 和手势 (Gestures)。
-*   **应用场景**:
-    *   **页面转场**: 路由切换时的淡入淡出或滑动效果。
-    *   **列表排序**: 拖拽排序或列表项增删时的平滑位移。
-    *   **模态框**: 优雅的弹出与收起动画 (Spring physics)。
-
-## 5. 现有 UI 痛点与针对性重构建议 (Project-Specific Analysis)
-
-通过对 `src/components` 目录的深度分析，我们识别出以下具体痛点并提出针对性建议：
-
-### 5.1 布局层 (`AppLayout.tsx`, `Sidebar.tsx`)
-*   **痛点**:
-    *   `AppLayout` 中包含大量状态管理逻辑（如 Header 自动隐藏、RAF 节流），导致组件臃肿，难以维护。
-    *   `Sidebar` 样式硬编码较多，缺乏灵活性，且与 `AppLayout` 的耦合度较高。
-    *   背景纹理 (`radial-gradient`) 实现较为简单，缺乏质感。
-*   **建议**:
-    *   **抽离逻辑**: 将 Header 的可见性逻辑抽离为 `useHeaderVisibility` Hook。
-    *   **组件解耦**: 使用 Context 或 Zustand 管理 Sidebar 状态，减少 Props 传递。
-    *   **视觉升级**: 引入更细腻的噪点纹理 (Noise Texture) 或动态流体背景，提升视觉深度。
-
-### 5.2 核心交互组件 (`FloatingPromptInput/index.tsx`)
-*   **痛点**:
-    *   **巨型组件**: 该文件超过 1000 行，集成了输入、文件选择、Slash 命令、图片处理、模型选择等大量逻辑，违反了单一职责原则。
-    *   **状态爆炸**: 内部维护了数十个 `useState`，导致渲染性能难以优化。
-    *   **样式混杂**: 大量的 Tailwind 类名直接堆砌在 JSX 中，降低了可读性。
-*   **建议**:
-    *   **拆分重构**: 将 `FloatingPromptInput` 拆分为 `InputArea`, `AttachmentPreview`, `ControlBar`, `ModelSelector` 等独立子组件。
-    *   **状态下沉**: 将仅与特定子组件相关的状态（如文件选择器的搜索词）下沉到子组件内部。
-    *   **逻辑复用**: 进一步提取自定义 Hooks（如 `useInputState`, `useAttachments`），使主组件只负责组装。
-
-### 5.3 消息展示 (`MessageBubble.tsx`)
-*   **痛点**:
-    *   样式较为单一，AI 回复与用户消息的视觉区分度不够强。
-    *   缺乏对 Markdown 内容的深度定制（如代码块的高亮样式、表格的响应式处理）。
-*   **建议**:
-    *   **增强视觉区分**: 为 AI 消息引入更明显的卡片背景和阴影，用户消息保持轻量化气泡。
-    *   **Markdown 优化**: 引入 `react-markdown` 的自定义渲染器，优化代码块、引用、列表的排版，使其符合 "Neo-Modern Fluidity" 风格。
-
-## 6. 跨平台一致性策略 (Cross-Platform Consistency)
-
-针对 Windows 和 macOS 系统在渲染机制上的差异，我们将采取以下策略确保“像素级”的一致体验：
-
-### 字体渲染统一 (Typography Unification)
-*   **问题**: macOS 字体渲染偏粗（抗锯齿更强），Windows ClearType 渲染偏细且锐利。
-*   **解决方案**:
-    *   **字体栈**: 优先使用现代可变字体 (Variable Fonts) 如 `Inter` 或 `Geist Sans`，它们针对屏幕阅读进行了优化。
-    *   **CSS 优化**:
-        *   macOS: 启用 `-moz-osx-font-smoothing: grayscale;` 和 `-webkit-font-smoothing: antialiased;`。
-        *   Windows: 避免使用过细的字重 (如 100-300)，正文最小字重建议设为 400 (Regular) 或 500 (Medium) 以提升 ClearType 下的可读性。
-    *   **回退机制**: 定义严格的 `font-family` 栈，确保在无网络字体时，Windows (`Segoe UI`) 和 macOS (`San Francisco`) 的系统字体在度量 (Metrics) 上尽量接近。
-
-### 滚动条标准化 (Scrollbar Standardization)
-*   **问题**: Windows 默认滚动条占用布局空间且样式陈旧，macOS 滚动条悬浮且美观。
-*   **解决方案**:
-    *   使用 `OverlayScrollbars` 或自定义 CSS 滚动条样式，强制在 Windows 上实现类似 macOS 的悬浮、极简滚动条体验。
-    *   **CSS 实现**:
-        ```css
-        /* 跨平台极简滚动条 */
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb {
-            background: var(--color-muted-foreground);
-            border-radius: 4px;
-            opacity: 0.5;
-        }
-        ```
-
-### 高分屏与缩放适配 (DPI & Scaling)
-*   **问题**: Windows 用户常使用 125% 或 150% 系统缩放，可能导致 1px 边框模糊或消失。
-*   **解决方案**:
-    *   **SVG 图标**: 全面使用 SVG 图标 (Lucide React) 替代字体图标，确保在任何缩放比例下都清晰锐利。
-    *   **逻辑像素**: 坚持使用 `rem` 和 `px` (逻辑像素) 单位，不使用物理像素。
-    *   **边框处理**: 对于关键分割线，使用 `border-width: 1px` 配合高对比度颜色，避免使用 `0.5px`，防止在低 DPI Windows 屏幕上渲染丢失。
-
-### 交互习惯差异 (Interaction Patterns)
-*   **快捷键**: 封装 `useKeyboardShortcut` Hook，自动检测操作系统，将 `Cmd` (macOS) 映射为 `Ctrl` (Windows)。
-*   **触控板/鼠标**: 优化滚轮事件，确保在 Windows 鼠标滚轮（步进式）和 macOS 触控板（惯性滚动）上都有平滑的滚动体验 (Lenis Scroll 或类似库)。
-
-## 7. 重构实施路线图 (Implementation Roadmap)
-
-### 第一阶段：遗留系统评估与基建 (Weeks 1-2)
-*   **任务**: 审计现有 `src/components`，识别高频复用组件。
-*   **任务**: 锁定 Tailwind CSS v4 配置，确立 Design Tokens (Colors, Spacing)。
-*   **任务**: 引入 Shadcn/ui CLI，初始化基础组件 (Button, Input, Card, Dialog)。
-
-### 第二阶段：增量式重构 (Strangler Fig Pattern) (Weeks 3-6)
-*   **策略**: 不重写整个应用，而是新功能使用新组件，旧功能逐步替换。
-*   **任务**: 重构布局层 (`AppLayout`, `Sidebar`)，应用 Glassmorphism 和 Bento Grid 风格。
-*   **任务**: 拆分并重构 `FloatingPromptInput`，引入 Framer Motion 优化交互体验。
-
-### 第三阶段：全面上线与验收 (Weeks 7-8)
-*   **性能指标 (Core Web Vitals)**:
-    *   LCP (Largest Contentful Paint) < 2.5s
-    *   CLS (Cumulative Layout Shift) < 0.1
-    *   INP (Interaction to Next Paint) < 200ms
-*   **无障碍访问 (Accessibility)**:
-    *   确保所有交互元素可通过键盘访问 (Focus visible)。
-    *   色彩对比度满足 WCAG 2.1 AA 标准 (至少 4.5:1)。
-    *   屏幕阅读器支持 (ARIA labels)。
+### 主要改进空间
+- **复杂性管理**: 部分组件 (如 `ClaudeCodeSession.tsx`) 逻辑过于复杂，包含大量状态和副作用，影响可维护性和性能。
+- **视觉一致性**: 虽然整体风格统一，但在不同模块间 (如 MCP 管理与项目管理) 的布局结构和间距存在细微差异。
+- **响应式设计**: 部分复杂界面 (如 `AutoCompactSettings.tsx`) 在小屏幕下的表现可能不够理想。
+- **无障碍性 (Accessibility)**: 虽然使用了 Radix UI，但部分自定义组件的键盘导航和屏幕阅读器支持仍需加强。
 
 ---
-*此报告基于当前项目代码库分析生成，旨在为未来的 UI/UX 升级提供战略指导。*
+
+## 2. 详细审查与建议
+
+### 2.1 全局样式与主题 (src/styles.css)
+- **现状**: 使用了 OKLCH 颜色空间，定义了丰富的语义化颜色变量。包含自定义的滚动条样式和排版样式 (Prose)。
+- **问题**:
+    - CSS 文件较大 (1200+ 行)，包含大量自定义工具类和动画，维护成本较高。
+    - 部分样式 (如 Markdown 编辑器覆盖) 使用了 `!important`，可能导致样式冲突。
+- **建议**:
+    - 将 CSS 拆分为多个模块 (如 `typography.css`, `animations.css`, `components.css`)。
+    - 减少 `!important` 的使用，通过提高选择器优先级或使用 Tailwind 的 `@layer` 指令来管理样式覆盖。
+    - 统一间距变量 (Spacing Scale)，确保全站间距一致。
+
+### 2.2 核心对话界面 (Session UI)
+- **现状**: `ClaudeCodeSession.tsx` 是核心组件，集成了消息列表、输入框、工具栏等。
+- **问题**:
+    - **组件庞大**: `ClaudeCodeSession.tsx` 超过 1300 行，包含大量业务逻辑、状态管理和副作用。
+    - **性能瓶颈**: 消息列表渲染逻辑复杂，虽然使用了虚拟列表 (`react-virtual`)，但在大量消息场景下仍可能存在性能问题。
+    - **耦合度高**: 消息渲染 (`StreamMessageV2`) 与业务逻辑 (如撤回、导航) 耦合较紧。
+- **建议**:
+    - **拆分组件**: 将 `ClaudeCodeSession` 拆分为更小的子组件，如 `SessionHeader`, `MessageList`, `SessionStatus`。
+    - **提取逻辑**: 将业务逻辑提取到自定义 Hooks (如 `useSessionLogic`, `useMessageHandling`)，使 UI 组件更纯粹。
+    - **优化渲染**: 进一步优化 `StreamMessageV2` 的 `React.memo` 比较逻辑，减少不必要的重渲染。
+
+### 2.3 消息列表渲染 (src/components/message/*)
+- **现状**: 支持多种消息类型 (User, AI, System, Tool)，实现了工具调用折叠和代码高亮。
+- **问题**:
+    - **结构复杂**: `StreamMessageV2` 内部 switch-case 逻辑较多，扩展新消息类型不便。
+    - **样式硬编码**: 部分样式直接写在组件内，未完全利用 Tailwind 的原子类优势。
+- **建议**:
+    - **策略模式**: 使用策略模式或组件映射表来替代 switch-case，提高可扩展性。
+    - **统一气泡**: 统一 `MessageBubble` 的样式接口，确保不同类型消息的视觉一致性。
+
+### 2.4 浮动输入框 (src/components/FloatingPromptInput/*)
+- **现状**: 功能强大，支持多行输入、文件选择、斜杠命令、模型切换等。
+- **问题**:
+    - **状态复杂**: `FloatingPromptInput/index.tsx` 管理了大量状态 (输入内容、附件、模式等)，逻辑复杂。
+    - **交互冲突**: 拖拽上传、文件选择器和输入框焦点之间可能存在交互冲突。
+- **建议**:
+    - **状态机**: 考虑使用状态机 (如 XState) 来管理输入框的复杂状态 (空闲、输入中、上传中、发送中)。
+    - **组件解耦**: 将 `InputArea`, `ControlBar`, `AttachmentPreview` 进一步解耦，通过 Context 或 Props 传递状态。
+
+### 2.5 项目管理界面 (Project UI)
+- **现状**: `ProjectList.tsx` 提供了项目列表、搜索和删除功能。
+- **问题**:
+    - **加载体验**: 项目列表加载时缺乏优雅的骨架屏 (Skeleton) 效果。
+    - **信息密度**: 卡片布局在展示大量项目时，信息密度可能过低。
+- **建议**:
+    - **增加骨架屏**: 在数据加载时显示 Skeleton，提升用户体验。
+    - **视图切换**: 提供列表视图 (List View) 和网格视图 (Grid View) 切换，满足不同用户需求。
+
+### 2.6 MCP 管理界面 (MCP UI)
+- **现状**: `MCPManager.tsx` 提供了服务器列表、添加和导入功能。
+- **问题**:
+    - **表单体验**: 添加服务器的表单较长，缺乏分步引导或验证反馈。
+    - **状态反馈**: 服务器连接测试和状态更新的反馈不够直观。
+- **建议**:
+    - **分步表单**: 将添加服务器流程改为分步向导 (Wizard) 形式。
+    - **实时状态**: 增加服务器状态的实时轮询或 WebSocket 推送，确保状态即时更新。
+
+### 2.7 设置界面 (Settings UI)
+- **现状**: `Settings.tsx` 包含多个标签页，覆盖了通用、权限、环境等设置。
+- **问题**:
+    - **配置项过多**: 设置项堆积在同一个文件中，维护困难。
+    - **保存机制**: 目前是手动保存，缺乏自动保存或未保存更改提示。
+- **建议**:
+    - **模块化设置**: 将每个标签页的内容拆分为独立的设置组件文件。
+    - **即时保存**: 引入表单状态管理 (如 `react-hook-form`)，支持字段级验证和即时保存/脏状态检测。
+
+### 2.8 通用 UI 组件 (src/components/ui/*)
+- **现状**: 基于 Radix UI 封装，样式统一。
+- **问题**:
+    - **文档缺失**: 缺乏组件的使用文档或 Storybook，新开发者上手成本高。
+    - **类型定义**: 部分组件的 Props 定义不够严格。
+- **建议**:
+    - **建立文档**: 引入 Storybook 或编写简单的组件文档。
+    - **完善类型**: 完善 TypeScript 类型定义，提供更好的开发体验。
+
+---
+
+## 3. 实施路线图
+
+### 第一阶段：基础架构优化 (High Priority)
+1.  **CSS 重构**: 拆分 `src/styles.css`，清理 `!important`。
+2.  **组件拆分**: 重构 `ClaudeCodeSession.tsx`，拆分 UI 与逻辑。
+3.  **性能优化**: 优化消息列表的虚拟滚动和渲染性能。
+
+### 第二阶段：交互体验提升 (Medium Priority)
+1.  **输入框优化**: 重构 `FloatingPromptInput` 状态管理。
+2.  **加载体验**: 为项目列表和 MCP 列表添加骨架屏。
+3.  **设置页重构**: 模块化设置页面，引入表单管理库。
+
+### 第三阶段：视觉与一致性 (Low Priority)
+1.  **设计规范**: 统一全站的间距、圆角和阴影。
+2.  **视图切换**: 为列表页增加视图切换功能。
+3.  **文档建设**: 建立 UI 组件库文档。
+
+## 4. 结论
+
+项目 UI/UX 基础良好，但在代码可维护性和部分复杂交互的体验上仍有提升空间。通过上述重构建议的实施，可以显著提升代码质量、开发效率和用户体验。建议优先处理核心会话界面的拆分与性能优化。

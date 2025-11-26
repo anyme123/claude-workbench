@@ -1,0 +1,322 @@
+/* ========================================
+   🔤 TYPOGRAPHY & PROSE
+   ======================================== */
+
+:root, .dark {
+  /* 🔤 Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", "Microsoft YaHei", "微软雅黑", "SimSun", "宋体", "Arial Unicode MS", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, "Microsoft YaHei Mono", "微软雅黑", monospace;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+  --font-size-4xl: 2.25rem;
+}
+
+/* Prose styles for markdown rendering */
+.prose {
+  color: var(--color-foreground);
+  max-width: 65ch;
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+.prose-sm {
+  font-size: 0.875rem;
+  line-height: 1.714;
+}
+
+.prose p {
+  margin-top: 1.25em;
+  margin-bottom: 1.25em;
+}
+
+.prose-sm p {
+  margin-top: 1.143em;
+  margin-bottom: 1.143em;
+}
+
+.prose [class~="lead"] {
+  font-size: 1.25em;
+  line-height: 1.6;
+  margin-top: 1.2em;
+  margin-bottom: 1.2em;
+}
+
+.prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+  margin-top: 0;
+  margin-bottom: 0.8888889em;
+  font-weight: 600;
+  line-height: 1.1111111;
+}
+
+.prose h1 {
+  font-size: 2.25em;
+}
+
+.prose h2 {
+  font-size: 1.5em;
+}
+
+.prose h3 {
+  font-size: 1.25em;
+}
+
+.prose h4 {
+  font-size: 1em;
+}
+
+.prose a {
+  color: var(--color-primary);
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.prose strong {
+  font-weight: 600;
+}
+
+.prose ol, .prose ul {
+  margin-top: 1.25em;
+  margin-bottom: 1.25em;
+  padding-left: 1.625em;
+}
+
+.prose li {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.prose > ul > li p {
+  margin-top: 0.75em;
+  margin-bottom: 0.75em;
+}
+
+.prose > ol > li > *:first-child {
+  margin-top: 1.25em;
+}
+
+.prose code {
+  font-weight: 600;
+  font-size: 0.875em;
+  background-color: var(--color-muted);
+  padding: 0.125em 0.375em;
+  border-radius: 0.25rem;
+}
+
+.prose pre {
+  overflow-x: auto;
+  font-size: 0.875em;
+  line-height: 1.714;
+  margin-top: 1.714em;
+  margin-bottom: 1.714em;
+  border-radius: 0.375rem;
+  padding: 0.857em 1.143em;
+  background-color: var(--color-card);
+}
+
+.prose pre code {
+  background-color: transparent;
+  border-width: 0;
+  border-radius: 0;
+  padding: 0;
+  font-weight: 400;
+  color: inherit;
+  font-size: inherit;
+  font-family: inherit;
+  line-height: inherit;
+}
+
+.prose blockquote {
+  font-weight: 500;
+  font-style: italic;
+  margin-top: 1.6em;
+  margin-bottom: 1.6em;
+  padding-left: 1em;
+  border-left: 0.25rem solid var(--color-border);
+}
+
+.prose hr {
+  margin-top: 3em;
+  margin-bottom: 3em;
+  border-color: var(--color-border);
+}
+
+.prose table {
+  width: 100%;
+  table-layout: auto;
+  text-align: left;
+  margin-top: 2em;
+  margin-bottom: 2em;
+  font-size: 0.875em;
+  line-height: 1.714;
+}
+
+.prose thead {
+  border-bottom-width: 1px;
+  border-bottom-color: var(--color-border);
+}
+
+.prose thead th {
+  vertical-align: bottom;
+  padding-right: 0.571em;
+  padding-bottom: 0.571em;
+  padding-left: 0.571em;
+  font-weight: 600;
+}
+
+.prose tbody tr {
+  border-bottom-width: 1px;
+  border-bottom-color: var(--color-border);
+}
+
+.prose tbody tr:last-child {
+  border-bottom-width: 0;
+}
+
+.prose tbody td {
+  vertical-align: baseline;
+  padding: 0.571em;
+}
+
+/* Dark mode adjustments */
+.prose.dark\:prose-invert {
+  color: var(--color-foreground);
+}
+
+.prose.dark\:prose-invert a {
+  color: var(--color-primary);
+}
+
+.prose.dark\:prose-invert strong {
+  color: inherit;
+}
+
+.prose.dark\:prose-invert code {
+  color: var(--color-foreground);
+  background-color: var(--color-muted);
+}
+
+.prose.dark\:prose-invert pre {
+  background-color: rgb(13, 17, 23);
+  border: 1px solid var(--color-border);
+}
+
+.prose.dark\:prose-invert thead {
+  border-bottom-color: var(--color-border);
+}
+
+.prose.dark\:prose-invert tbody tr {
+  border-bottom-color: var(--color-border);
+}
+
+/* Remove maximum width constraint */
+.prose.max-w-none {
+  max-width: none;
+}
+
+/* Light theme prose styles */
+.light .prose {
+  color: var(--color-foreground);
+}
+
+.light .prose code {
+  background-color: var(--color-muted);
+  color: var(--color-foreground);
+}
+
+.light .prose pre {
+  background-color: var(--color-card);
+  border: 1px solid var(--color-border);
+}
+
+.light .prose blockquote {
+  border-left-color: var(--color-border);
+}
+
+.light .prose hr {
+  border-color: var(--color-border);
+}
+
+.light .prose thead {
+  border-bottom-color: var(--color-border);
+}
+
+.light .prose tbody tr {
+  border-bottom-color: var(--color-border);
+}
+
+/* --- DPI and Resolution Scaling Support --- */
+
+/* High DPI (Retina) displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  /* Increase font sizes slightly for better readability on high DPI displays */
+  body {
+    font-size: 14px;
+    line-height: 1.6;
+  }
+}
+
+/* Very high DPI displays (300dpi+) */
+@media (-webkit-min-device-pixel-ratio: 3), (min-resolution: 288dpi) {
+  body {
+    font-size: 15px;
+    line-height: 1.65;
+  }
+  
+  .text-xs { font-size: 0.8rem; }
+  .text-sm { font-size: 0.9rem; }
+  .text-base { font-size: 1rem; }
+  .text-lg { font-size: 1.15rem; }
+}
+
+/* Windows DPI scaling support */
+@media screen and (-ms-high-contrast: active), (-ms-high-contrast: none) {
+  /* Windows specific DPI adjustments */
+  body {
+    zoom: 1; /* Reset zoom to prevent double scaling */
+  }
+}
+
+/* Support for Windows Display Scale Settings */
+@media (min-resolution: 144dpi) {
+  /* 150% scaling */
+  .text-xs { font-size: 0.8rem; }
+  .text-sm { font-size: 0.9rem; }
+}
+
+@media (min-resolution: 192dpi) {
+  /* 200% scaling */
+  .text-xs { font-size: 0.85rem; }
+  .text-sm { font-size: 0.95rem; }
+}
+
+@media (min-resolution: 288dpi) {
+  /* 300% scaling */
+  .text-xs { font-size: 0.9rem; }
+  .text-sm { font-size: 1rem; }
+}
+
+/* Ultra-wide and large displays */
+@media (min-width: 1920px) {
+  /* Larger displays can handle slightly larger base font sizes */
+  body {
+    font-size: 15px;
+  }
+  
+  .text-xs { font-size: 0.8rem; }
+  .text-sm { font-size: 0.9rem; }
+}
+
+@media (min-width: 2560px) {
+  /* 4K and above */
+  body {
+    font-size: 16px;
+  }
+  
+  .text-xs { font-size: 0.85rem; }
+  .text-sm { font-size: 0.95rem; }
+}

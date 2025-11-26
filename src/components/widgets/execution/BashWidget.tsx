@@ -57,17 +57,17 @@ export const BashWidget: React.FC<BashWidgetProps> = ({
       {/* 头部 */}
       <div className="px-4 py-2 bg-zinc-700/30 flex items-center gap-2 border-b">
         <Terminal className="h-3.5 w-3.5 text-green-500" />
-        <span className="text-xs font-mono text-muted-foreground">终端</span>
+        <span className="text-xs font-mono text-zinc-300">终端</span>
         {description && (
           <>
-            <ChevronRight className="h-3 w-3 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">{description}</span>
+            <ChevronRight className="h-3 w-3 text-zinc-400" />
+            <span className="text-xs text-zinc-300">{description}</span>
           </>
         )}
 
         {/* 加载指示器 */}
         {!result && (
-          <div className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
+          <div className="ml-auto flex items-center gap-1 text-xs text-zinc-300">
             <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
             <span>正在运行...</span>
           </div>

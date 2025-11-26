@@ -3,13 +3,15 @@
  * 采用橙色、紫色和紫罗兰色以匹配 Claude 的美学风格
  * Claude-themed syntax highlighting themes
  * Features orange, purple, and violet colors to match Claude's aesthetic
+ *
+ * ✨ 优化对比度以提高黑色背景下的可读性
  */
 
 // 深色主题（默认）
 // Dark theme (default)
 export const claudeSyntaxTheme: any = {
   'code[class*="language-"]': {
-    color: '#e3e8f0',
+    color: '#f3f4f6',
     background: 'transparent',
     textShadow: 'none',
     fontFamily: 'var(--font-mono)',
@@ -29,7 +31,7 @@ export const claudeSyntaxTheme: any = {
     hyphens: 'none',
   },
   'pre[class*="language-"]': {
-    color: '#e3e8f0',
+    color: '#f3f4f6',
     background: 'transparent',
     textShadow: 'none',
     fontFamily: 'var(--font-mono)',
@@ -58,41 +60,41 @@ export const claudeSyntaxTheme: any = {
     whiteSpace: 'normal',
   },
   'comment': {
-    color: '#6b7280',
+    color: '#9ca3af',
     fontStyle: 'italic',
   },
   'prolog': {
-    color: '#6b7280',
+    color: '#9ca3af',
   },
   'doctype': {
-    color: '#6b7280',
+    color: '#9ca3af',
   },
   'cdata': {
-    color: '#6b7280',
+    color: '#9ca3af',
   },
   'punctuation': {
-    color: '#9ca3af',
+    color: '#d1d5db',
   },
   'namespace': {
     opacity: '0.7',
   },
   'property': {
-    color: '#f59e0b', // Amber/Orange
+    color: '#fbbf24', // Brighter Amber/Orange
   },
   'tag': {
-    color: '#8b5cf6', // Violet
+    color: '#a78bfa', // Brighter Violet
   },
   'boolean': {
-    color: '#f59e0b', // Amber/Orange
+    color: '#fbbf24', // Brighter Amber/Orange
   },
   'number': {
-    color: '#f59e0b', // Amber/Orange
+    color: '#fbbf24', // Brighter Amber/Orange
   },
   'constant': {
-    color: '#f59e0b', // Amber/Orange
+    color: '#fbbf24', // Brighter Amber/Orange
   },
   'symbol': {
-    color: '#f59e0b', // Amber/Orange
+    color: '#fbbf24', // Brighter Amber/Orange
   },
   'deleted': {
     color: '#ef4444',
@@ -104,19 +106,19 @@ export const claudeSyntaxTheme: any = {
     color: '#a78bfa', // Light Purple
   },
   'string': {
-    color: '#10b981', // Emerald Green
+    color: '#34d399', // Brighter Emerald Green
   },
   'char': {
-    color: '#10b981', // Emerald Green
+    color: '#34d399', // Brighter Emerald Green
   },
   'builtin': {
-    color: '#8b5cf6', // Violet
+    color: '#a78bfa', // Brighter Violet
   },
   'url': {
-    color: '#10b981', // Emerald Green
+    color: '#34d399', // Brighter Emerald Green
   },
   'inserted': {
-    color: '#10b981', // Emerald Green
+    color: '#34d399', // Brighter Emerald Green
   },
   'entity': {
     color: '#a78bfa', // Light Purple
@@ -126,7 +128,7 @@ export const claudeSyntaxTheme: any = {
     color: '#c084fc', // Light Violet
   },
   'attr-value': {
-    color: '#10b981', // Emerald Green
+    color: '#34d399', // Brighter Emerald Green
   },
   'keyword': {
     color: '#c084fc', // Light Violet
@@ -135,13 +137,13 @@ export const claudeSyntaxTheme: any = {
     color: '#818cf8', // Indigo
   },
   'class-name': {
-    color: '#f59e0b', // Amber/Orange
+    color: '#fbbf24', // Brighter Amber/Orange
   },
   'regex': {
     color: '#06b6d4', // Cyan
   },
   'important': {
-    color: '#f59e0b', // Amber/Orange
+    color: '#fbbf24', // Brighter Amber/Orange
     fontWeight: 'bold',
   },
   'variable': {
@@ -154,10 +156,10 @@ export const claudeSyntaxTheme: any = {
     fontStyle: 'italic',
   },
   'operator': {
-    color: '#9ca3af',
+    color: '#d1d5db',
   },
   'script': {
-    color: '#e3e8f0',
+    color: '#f3f4f6',
   },
   'parameter': {
     color: '#fbbf24', // Yellow
@@ -166,16 +168,35 @@ export const claudeSyntaxTheme: any = {
     color: '#818cf8', // Indigo
   },
   'field': {
-    color: '#f59e0b', // Amber/Orange
+    color: '#fbbf24', // Brighter Amber/Orange
   },
   'annotation': {
-    color: '#6b7280',
+    color: '#9ca3af',
   },
   'type': {
     color: '#a78bfa', // Light Purple
   },
   'module': {
-    color: '#8b5cf6', // Violet
+    color: '#a78bfa', // Brighter Violet
+  },
+  // TOML 和其他配置文件的额外支持
+  'plain': {
+    color: '#f3f4f6', // 确保纯文本为亮白色
+  },
+  'plain-text': {
+    color: '#f3f4f6', // 确保纯文本为亮白色
+  },
+  'table': {
+    color: '#c084fc', // Light Violet - TOML section headers
+  },
+  'key': {
+    color: '#a78bfa', // Light Purple - 配置键名
+  },
+  'title': {
+    color: '#c084fc', // Light Violet
+  },
+  'section': {
+    color: '#c084fc', // Light Violet - INI/TOML sections
   },
 };
 
@@ -328,7 +349,7 @@ export const claudeSyntaxThemeLight: any = {
     fontStyle: 'italic',
   },
   'operator': {
-    color: '#4b5563',
+    color: '#d1d5db',
   },
   'script': {
     color: '#1f2937',
@@ -350,6 +371,25 @@ export const claudeSyntaxThemeLight: any = {
   },
   'module': {
     color: '#7c3aed', // Darker Violet
+  },
+  // TOML 和其他配置文件的额外支持
+  'plain': {
+    color: '#1f2937', // 确保纯文本为深灰色
+  },
+  'plain-text': {
+    color: '#1f2937', // 确保纯文本为深灰色
+  },
+  'table': {
+    color: '#a855f7', // Violet - TOML section headers
+  },
+  'key': {
+    color: '#8b5cf6', // Purple - 配置键名
+  },
+  'title': {
+    color: '#a855f7', // Violet
+  },
+  'section': {
+    color: '#a855f7', // Violet - INI/TOML sections
   },
 };
 

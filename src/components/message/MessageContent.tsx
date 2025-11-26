@@ -53,40 +53,56 @@ const CodeBlockRenderer: React.FC<CodeBlockRendererProps> = ({ language, code, s
     copyState === 'success' ? '已复制!' : copyState === 'error' ? '复制失败' : '复制';
 
   return (
-    <div className="relative group my-4">
-      <div className="flex items-center justify-between px-4 py-2 bg-muted/50 border-b border-border rounded-t-lg">
-        <span className="text-xs font-mono text-muted-foreground">
-          {language}
-        </span>
+    <div className="relative group my-6 rounded-lg border border-border/50 overflow-hidden shadow-sm">
+      <div className="flex items-center justify-between px-4 py-2 bg-muted/30 backdrop-blur-sm border-b border-border/50">
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-full bg-red-500/20 border border-red-500/30" />
+            <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/20 border border-yellow-500/30" />
+            <div className="w-2.5 h-2.5 rounded-full bg-green-500/20 border border-green-500/30" />
+          </div>
+          <span className="text-xs font-mono text-muted-foreground ml-2 opacity-70">
+            {language}
+          </span>
+        </div>
         <button
           onClick={handleCopy}
           className={cn(
-            "text-xs px-2 py-1 rounded bg-background transition-colors opacity-0 group-hover:opacity-100",
-            copyState === 'success' && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-            copyState === 'error' && "bg-destructive/10 text-destructive"
+            "text-xs px-2.5 py-1 rounded-md transition-all duration-200 opacity-0 group-hover:opacity-100",
+            "bg-background/50 hover:bg-background border border-border/50 hover:border-border",
+            copyState === 'success' && "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+            copyState === 'error' && "bg-destructive/10 text-destructive border-destructive/20"
           )}
         >
           {buttonLabel}
         </button>
       </div>
 
-      <div className="rounded-b-lg overflow-hidden">
+      <div className="relative bg-background/50 backdrop-blur-sm">
         <SyntaxHighlighter
           style={syntaxTheme}
           language={language}
           PreTag="div"
           showLineNumbers={true}
+          wrapLines={true}
           customStyle={{
             margin: 0,
+            padding: '1.5rem',
             background: 'transparent',
-            lineHeight: '1.6'
+            lineHeight: '1.6',
+            fontSize: '0.875rem',
+          }}
+          lineNumberStyle={{
+            minWidth: '2.5em',
+            paddingRight: '1em',
+            color: 'var(--color-muted-foreground)',
+            opacity: 0.5,
+            textAlign: 'right',
           }}
           codeTagProps={{
             style: {
-              fontSize: '0.875rem',
-              userSelect: 'text',
-              WebkitUserSelect: 'text',
-              cursor: 'text'
+              fontFamily: 'var(--font-mono)',
+              fontVariantLigatures: 'none',
             }
           }}
         >
@@ -119,7 +135,18 @@ const MessageContentComponent: React.FC<MessageContentProps> = ({
   const syntaxTheme = getClaudeSyntaxTheme(theme === 'dark');
 
   return (
-    <div className={cn("prose prose-sm dark:prose-invert max-w-none", className)}>
+    <div className={cn(
+      "prose prose-sm dark:prose-invert max-w-none",
+      "prose-headings:font-semibold prose-headings:tracking-tight",
+      "prose-p:leading-relaxed prose-p:text-foreground/90",
+      "prose-a:text-primary prose-a:no-underline prose-a:border-b prose-a:border-primary/30 hover:prose-a:border-primary prose-a:transition-colors",
+      "prose-blockquote:border-l-4 prose-blockquote:border-primary/20 prose-blockquote:bg-muted/30 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r-lg prose-blockquote:not-italic",
+      "prose-ul:list-disc prose-ul:pl-6",
+      "prose-ol:list-decimal prose-ol:pl-6",
+      "prose-li:marker:text-muted-foreground",
+      "prose-hr:border-border/50 prose-hr:my-8",
+      className
+    )}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -131,7 +158,13 @@ const MessageContentComponent: React.FC<MessageContentProps> = ({
 
             if (inline || !language) {
               return (
-                <code className={cn("px-1.5 py-0.5 rounded bg-muted text-xs", className)} {...rest}>
+                <code
+                  className={cn(
+                    "px-1.5 py-0.5 rounded-md bg-muted/50 border border-border/50 text-xs font-mono text-foreground/80",
+                    className
+                  )}
+                  {...rest}
+                >
                   {children}
                 </code>
               );
@@ -154,7 +187,7 @@ const MessageContentComponent: React.FC<MessageContentProps> = ({
                 href={href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary hover:underline"
+                className="font-medium text-primary hover:text-primary/80 transition-colors"
                 {...props}
               >
                 {children}
@@ -165,11 +198,35 @@ const MessageContentComponent: React.FC<MessageContentProps> = ({
           // 表格渲染
           table({ node, children, ...props }) {
             return (
-              <div className="overflow-x-auto my-4">
-                <table className="min-w-full divide-y divide-border" {...props}>
+              <div className="overflow-x-auto my-6 rounded-lg border border-border/50 shadow-sm">
+                <table className="min-w-full divide-y divide-border/50 bg-card/30" {...props}>
                   {children}
                 </table>
               </div>
+            );
+          },
+          
+          thead({ node, children, ...props }) {
+            return (
+              <thead className="bg-muted/50" {...props}>
+                {children}
+              </thead>
+            );
+          },
+          
+          th({ node, children, ...props }) {
+            return (
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider" {...props}>
+                {children}
+              </th>
+            );
+          },
+          
+          td({ node, children, ...props }) {
+            return (
+              <td className="px-4 py-3 text-sm text-foreground/80 whitespace-nowrap" {...props}>
+                {children}
+              </td>
             );
           },
         }}
@@ -179,7 +236,7 @@ const MessageContentComponent: React.FC<MessageContentProps> = ({
       
       {/* 流式输出指示器 */}
       {isStreaming && (
-        <span className="inline-block w-2 h-4 ml-1 bg-primary animate-pulse" />
+        <span className="inline-block w-1.5 h-4 ml-1 bg-primary animate-pulse rounded-full" />
       )}
     </div>
   );

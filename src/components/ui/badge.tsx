@@ -4,23 +4,24 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border font-semibold transition-colors duration-200",
+  "inline-flex items-center rounded-md border font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
   {
     variants: {
       variant: {
         default:
-          "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
+          "border-transparent bg-primary text-primary-foreground hover:bg-primary/80 shadow-sm",
         secondary:
           "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
         destructive:
-          "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
+          "border-transparent bg-destructive/15 text-destructive hover:bg-destructive/25",
         success:
-          "border-transparent bg-success text-success-foreground hover:bg-success/80",
+          "border-transparent bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25",
         warning:
-          "border-transparent bg-warning text-warning-foreground hover:bg-warning/80",
+          "border-transparent bg-amber-500/15 text-amber-600 dark:text-amber-400 hover:bg-amber-500/25",
         info:
-          "border-transparent bg-info text-info-foreground hover:bg-info/80",
+          "border-transparent bg-blue-500/15 text-blue-600 dark:text-blue-400 hover:bg-blue-500/25",
         outline: "text-foreground border-border",
+        glass: "border-[var(--glass-border)] bg-[var(--glass-bg)] backdrop-blur-sm text-foreground shadow-sm",
       },
       size: {
         sm: "px-2 py-0.5 text-[10px]",

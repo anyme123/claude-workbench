@@ -5,7 +5,9 @@ import {
   Settings,
   MoreVertical,
   Trash2,
-  Archive
+  Archive,
+  LayoutGrid,
+  List
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
@@ -31,6 +33,7 @@ import { formatAbsoluteDateTime } from "@/lib/date-utils";
 import { Pagination } from "@/components/ui/pagination";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DeletedProjects } from "./DeletedProjects";
+import { ProjectListSkeleton } from "@/components/skeletons/ProjectListSkeleton";
 
 interface ProjectListProps {
   /**
@@ -98,6 +101,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
   onProjectSettings,
   onProjectDelete,
   onProjectsChanged,
+  loading,
   className,
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
@@ -105,6 +109,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState("active");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [codexSessions, setCodexSessions] = useState<CodexSession[]>([]);
   
   // Calculate pagination
@@ -176,10 +181,43 @@ export const ProjectList: React.FC<ProjectListProps> = ({
     return claudeSessionCount + codexSessionCount;
   };
 
-  const ProjectGrid = () => (
+  const ProjectGrid = () => {
+    if (loading) {
+      return <ProjectListSkeleton />;
+    }
+
+    return (
     <div className="space-y-4">
+      <div className="flex justify-end mb-2">
+        <div className="flex items-center bg-muted/50 rounded-lg p-1">
+          <Button
+            variant={viewMode === "grid" ? "secondary" : "ghost"}
+            size="icon-sm"
+            onClick={() => setViewMode("grid")}
+            className="h-7 w-7"
+            title="网格视图"
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={viewMode === "list" ? "secondary" : "ghost"}
+            size="icon-sm"
+            onClick={() => setViewMode("list")}
+            className="h-7 w-7"
+            title="列表视图"
+          >
+            <List className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
       <div
-        className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3"
+        className={cn(
+          "grid gap-3",
+          viewMode === "grid"
+            ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-3"
+            : "grid-cols-1"
+        )}
         role="list"
         aria-label="项目列表"
       >
@@ -199,35 +237,50 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                   onProjectClick(project);
                 }
               }}
-              className="w-full text-left px-5 py-4 rounded-lg bg-card border border-border/40 hover:border-primary/50 hover:bg-muted/40 hover:shadow-md transition-all duration-200 group cursor-pointer relative"
+              className={cn(
+                "w-full text-left rounded-lg bg-card border border-border/40 hover:border-primary/50 hover:bg-muted/40 hover:shadow-md transition-all duration-200 group cursor-pointer relative",
+                viewMode === "grid" ? "px-5 py-4" : "px-4 py-3 flex items-center gap-4"
+              )}
               aria-label={`项目 ${projectName}，包含 ${sessionCount} 个会话，创建于 ${formatAbsoluteDateTime(project.created_at)}`}
             >
               {/* 主要信息区：项目图标 + 项目名称 */}
-              <div className="flex items-start gap-3 mb-2">
+              <div className={cn("flex items-start gap-3", viewMode === "grid" ? "mb-2" : "flex-1 items-center mb-0")}>
                 <div className="p-2 rounded-md bg-primary/10 text-primary shrink-0">
                   <FolderOpen className="h-5 w-5" aria-hidden="true" />
                 </div>
-                <div className="flex-1 min-w-0 pr-20">
+                <div className={cn("min-w-0", viewMode === "grid" ? "flex-1 pr-20" : "flex-1")}>
                   <h3 className="font-semibold text-base truncate text-foreground group-hover:text-primary transition-colors">
                     {projectName}
                   </h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {formatAbsoluteDateTime(project.created_at)}
+                    {viewMode === "grid" ? formatAbsoluteDateTime(project.created_at) : project.path}
                   </p>
                 </div>
               </div>
 
-              {/* 路径信息：左右对齐到卡片边缘，显示最完整路径 */}
-              <p
-                className="text-xs text-muted-foreground truncate font-mono"
-                aria-label={`路径: ${project.path}`}
-                title={project.path}
-              >
-                {project.path}
-              </p>
+              {/* 路径信息 (仅网格视图) */}
+              {viewMode === "grid" && (
+                <p
+                  className="text-xs text-muted-foreground truncate font-mono"
+                  aria-label={`路径: ${project.path}`}
+                  title={project.path}
+                >
+                  {project.path}
+                </p>
+              )}
+
+              {/* 列表视图的额外信息 */}
+              {viewMode === "list" && (
+                <div className="text-xs text-muted-foreground hidden md:block w-32 text-right">
+                  {formatAbsoluteDateTime(project.created_at)}
+                </div>
+              )}
 
               {/* 右上角：会话数徽章 + 操作菜单 */}
-              <div className="absolute top-4 right-4 flex items-center gap-2">
+              <div className={cn(
+                "flex items-center gap-2",
+                viewMode === "grid" ? "absolute top-4 right-4" : ""
+              )}>
                 {/* 会话数徽章 */}
                 {sessionCount > 0 && (
                   <div
@@ -241,7 +294,10 @@ export const ProjectList: React.FC<ProjectListProps> = ({
 
                 {/* 操作菜单 */}
                 {(onProjectSettings || onProjectDelete) && (
-                  <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+                  <div className={cn(
+                    "transition-opacity",
+                    viewMode === "grid" ? "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100" : "opacity-100"
+                  )}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                         <Button
@@ -297,6 +353,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
       />
     </div>
   );
+  };
 
   return (
     <div className={cn("space-y-4", className)}>
