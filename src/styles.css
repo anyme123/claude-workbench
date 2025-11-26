@@ -191,6 +191,8 @@ body {
   background-color: var(--color-background);
   color: var(--color-foreground);
   font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Placeholder text styling */
@@ -1219,42 +1221,11 @@ code:hover::-webkit-scrollbar-thumb,
 
 /* macOS specific fixes for WebKit */
 @supports (-webkit-backdrop-filter: blur(1px)) {
-  /* Fix flexbox centering on macOS Safari/WebKit */
-  .flex {
-    display: -webkit-box;
-    display: -webkit-flex;
-    display: flex;
-  }
-  
-  .items-center {
-    -webkit-box-align: center;
-    -webkit-align-items: center;
-    align-items: center;
-  }
-  
-  .justify-center {
-    -webkit-box-pack: center;
-    -webkit-justify-content: center;
-    justify-content: center;
-  }
-  
-  .justify-between {
-    -webkit-box-pack: justify;
-    -webkit-justify-content: space-between;
-    justify-content: space-between;
-  }
-  
-  /* 确保 mx-auto 在 macOS 上正常工作 */
-  .mx-auto {
-    margin-left: auto !important;
-    margin-right: auto !important;
-  }
-  
-  /* Fix text alignment */
-  .text-center {
-    -webkit-text-align: center;
-    text-align: center;
-  }
+  /*
+   * ⚠️ Removed legacy flexbox hacks that were causing layout issues on modern macOS/WebKit.
+   * Modern browsers (including Safari) support standard flexbox properties perfectly.
+   * Forcing -webkit-box (2009 syntax) was conflicting with modern layouts.
+   */
 }
 
 /* Force minimum contrast ratios for accessibility */
