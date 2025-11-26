@@ -110,7 +110,12 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
       setCodexModeConfig({ ...codexModeConfig, mode });
       // 询问用户是否重启
       if (confirm(message)) {
-        await relaunchApp();
+        try {
+          await relaunchApp();
+        } catch (restartError) {
+          console.error('[ExecutionEngineSelector] Failed to restart:', restartError);
+          alert('配置已保存，但自动重启失败。请手动重启应用以使更改生效。');
+        }
       }
     } catch (error) {
       console.error('[ExecutionEngineSelector] Failed to save Codex mode config:', error);
@@ -130,7 +135,12 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
       setCodexModeConfig({ ...codexModeConfig, wslDistro: newDistro });
       // 询问用户是否重启
       if (confirm(message)) {
-        await relaunchApp();
+        try {
+          await relaunchApp();
+        } catch (restartError) {
+          console.error('[ExecutionEngineSelector] Failed to restart:', restartError);
+          alert('配置已保存，但自动重启失败。请手动重启应用以使更改生效。');
+        }
       }
     } catch (error) {
       console.error('[ExecutionEngineSelector] Failed to save WSL distro:', error);
