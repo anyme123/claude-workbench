@@ -83,6 +83,8 @@ interface ClaudeStatusIndicatorProps {
   onAboutClick?: () => void;
   messages?: ClaudeStreamMessage[];
   sessionId?: string;
+  /** 紧凑模式：仅显示状态图标，不显示版本号和费用 */
+  compact?: boolean;
 }
 
 type ConnectionStatus = 'checking' | 'connected' | 'disconnected' | 'error';
@@ -99,7 +101,8 @@ export const ClaudeStatusIndicator: React.FC<ClaudeStatusIndicatorProps> = ({
   onSettingsClick,
   onAboutClick,
   messages = [],
-  sessionId
+  sessionId,
+  compact = false
 }) => {
   const [statusInfo, setStatusInfo] = useState<StatusInfo>({
     status: 'checking'
@@ -313,12 +316,13 @@ export const ClaudeStatusIndicator: React.FC<ClaudeStatusIndicatorProps> = ({
                 className="flex items-center gap-2"
               >
                 {getStatusIcon()}
-                {statusInfo.version && (
+                {/* 非紧凑模式下显示版本号和费用 */}
+                {!compact && statusInfo.version && (
                   <Badge variant="secondary" className={cn("text-xs", getStatusColor())}>
                     v{statusInfo.version}
                   </Badge>
                 )}
-                {sessionCost > 0 && (
+                {!compact && sessionCost > 0 && (
                   <Badge
                     variant="outline"
                     className={cn(

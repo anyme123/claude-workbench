@@ -163,7 +163,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className={cn(isExpanded ? "px-2" : "flex justify-center")}>
           <ClaudeStatusIndicator
             onSettingsClick={() => onNavigate('settings')}
-            className={isExpanded ? "" : "scale-90"}
+            compact={!isExpanded}
           />
         </div>
 
