@@ -5,6 +5,8 @@ mod claude_binary;
 mod commands;
 mod process;
 
+use claude_binary::init_shell_environment;
+
 use std::sync::{Arc, Mutex};
 
 use commands::acemcp::{
@@ -102,6 +104,10 @@ fn main() {
                 .build(),
         )
         .setup(|app| {
+            // Initialize shell environment for macOS GUI applications
+            // This must be done early to ensure CLI tools (claude, codex, etc.) can be found
+            init_shell_environment();
+
             // Initialize database for storage operations
             let conn = init_database(&app.handle()).expect("Failed to initialize database");
             app.manage(AgentDb(Mutex::new(conn)));

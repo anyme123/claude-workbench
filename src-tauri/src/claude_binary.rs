@@ -124,6 +124,64 @@ fn pick_section(cfg: &BinarySearchConfig, key: &str) -> Option<BinarySearchSecti
     }
 }
 
+/// Initialize shell environment for macOS GUI applications
+/// This function should be called at application startup to ensure
+/// CLI tools installed via homebrew, npm, nvm, etc. can be found
+///
+/// On macOS, GUI applications launched from Finder/Dock don't inherit
+/// the user's shell environment (PATH, etc.). This function runs the
+/// user's default shell to get the actual PATH and sets it in the
+/// process environment.
+#[cfg(target_os = "macos")]
+pub fn init_shell_environment() {
+    info!("Initializing shell environment for macOS GUI application...");
+
+    // Get current PATH for comparison
+    let current_path = std::env::var("PATH").unwrap_or_default();
+    debug!("Current PATH before init: {}", current_path);
+
+    // Get the shell PATH
+    if let Some(shell_path) = get_shell_path() {
+        // Merge with existing PATH to ensure we don't lose any system paths
+        let merged_path = if current_path.is_empty() {
+            shell_path.clone()
+        } else {
+            // Combine shell_path (priority) with current_path, removing duplicates
+            let mut seen = std::collections::HashSet::new();
+            let mut paths: Vec<&str> = Vec::new();
+
+            // Add shell paths first (higher priority)
+            for p in shell_path.split(':') {
+                if !p.is_empty() && seen.insert(p) {
+                    paths.push(p);
+                }
+            }
+
+            // Add current paths that weren't in shell_path
+            for p in current_path.split(':') {
+                if !p.is_empty() && seen.insert(p) {
+                    paths.push(p);
+                }
+            }
+
+            paths.join(":")
+        };
+
+        // Set the merged PATH as process environment variable
+        std::env::set_var("PATH", &merged_path);
+        info!("Shell environment initialized. PATH updated with {} entries", merged_path.split(':').count());
+        debug!("New PATH: {}", merged_path);
+    } else {
+        warn!("Failed to get shell PATH, CLI tools may not be found");
+    }
+}
+
+/// No-op for non-macOS platforms
+#[cfg(not(target_os = "macos"))]
+pub fn init_shell_environment() {
+    debug!("Shell environment initialization not needed on this platform");
+}
+
 /// Get the shell's PATH on macOS
 /// GUI applications on macOS don't inherit the PATH from shell configuration files
 /// This function runs the user's default shell to get the actual PATH
