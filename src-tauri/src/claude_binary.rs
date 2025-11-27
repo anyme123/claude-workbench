@@ -132,47 +132,70 @@ fn pick_section(cfg: &BinarySearchConfig, key: &str) -> Option<BinarySearchSecti
 /// the user's shell environment (PATH, etc.). This function runs the
 /// user's default shell to get the actual PATH and sets it in the
 /// process environment.
+///
+/// Key fix: Always merge NVM paths regardless of shell command success,
+/// because `zsh -l -c` (login + non-interactive) doesn't read .zshrc
+/// where NVM initialization typically lives.
 #[cfg(target_os = "macos")]
 pub fn init_shell_environment() {
     info!("Initializing shell environment for macOS GUI application...");
 
-    // Get current PATH for comparison
     let current_path = std::env::var("PATH").unwrap_or_default();
     debug!("Current PATH before init: {}", current_path);
 
-    // Get the shell PATH
+    let mut seen = std::collections::HashSet::new();
+    let mut final_paths: Vec<String> = Vec::new();
+
+    // 1. NVM paths first (highest priority) - ALWAYS scan regardless of shell success
+    //    This fixes the bug where `zsh -l -c` doesn't read .zshrc
+    if let Ok(home) = get_home_dir() {
+        let nvm_paths = get_nvm_paths(&home);
+        for p in nvm_paths {
+            if seen.insert(p.clone()) {
+                final_paths.push(p);
+            }
+        }
+        if !final_paths.is_empty() {
+            info!("Added {} NVM paths with highest priority", final_paths.len());
+        }
+    }
+
+    // 2. Shell PATH (from interactive shell to read .zshrc)
     if let Some(shell_path) = get_shell_path() {
-        // Merge with existing PATH to ensure we don't lose any system paths
-        let merged_path = if current_path.is_empty() {
-            shell_path.clone()
-        } else {
-            // Combine shell_path (priority) with current_path, removing duplicates
-            let mut seen = std::collections::HashSet::new();
-            let mut paths: Vec<&str> = Vec::new();
-
-            // Add shell paths first (higher priority)
-            for p in shell_path.split(':') {
-                if !p.is_empty() && seen.insert(p) {
-                    paths.push(p);
-                }
+        for p in shell_path.split(':') {
+            if !p.is_empty() && seen.insert(p.to_string()) {
+                final_paths.push(p.to_string());
             }
+        }
+    }
 
-            // Add current paths that weren't in shell_path
-            for p in current_path.split(':') {
-                if !p.is_empty() && seen.insert(p) {
-                    paths.push(p);
-                }
+    // 3. Fallback common paths (homebrew, volta, fnm, etc.)
+    if let Ok(home) = get_home_dir() {
+        let fallback_paths = get_fallback_paths(&home);
+        for p in fallback_paths {
+            if seen.insert(p.clone()) {
+                final_paths.push(p);
             }
+        }
+    }
 
-            paths.join(":")
-        };
+    // 4. Original system PATH
+    for p in current_path.split(':') {
+        if !p.is_empty() && seen.insert(p.to_string()) {
+            final_paths.push(p.to_string());
+        }
+    }
 
-        // Set the merged PATH as process environment variable
+    if !final_paths.is_empty() {
+        let merged_path = final_paths.join(":");
         std::env::set_var("PATH", &merged_path);
-        info!("Shell environment initialized. PATH updated with {} entries", merged_path.split(':').count());
+        info!(
+            "Shell environment initialized. PATH updated with {} entries",
+            final_paths.len()
+        );
         debug!("New PATH: {}", merged_path);
     } else {
-        warn!("Failed to get shell PATH, CLI tools may not be found");
+        warn!("Failed to construct PATH, CLI tools may not be found");
     }
 }
 
@@ -182,26 +205,128 @@ pub fn init_shell_environment() {
     debug!("Shell environment initialization not needed on this platform");
 }
 
+/// Get NVM paths - scans ~/.nvm/versions/node for all installed versions
+/// Returns paths sorted by version (newest first) for highest priority
+#[cfg(target_os = "macos")]
+fn get_nvm_paths(home: &str) -> Vec<String> {
+    let mut nvm_paths = Vec::new();
+    let nvm_versions_dir = format!("{}/.nvm/versions/node", home);
+
+    if let Ok(entries) = std::fs::read_dir(&nvm_versions_dir) {
+        let mut node_versions: Vec<String> = entries
+            .flatten()
+            .filter(|e| e.file_type().map(|t| t.is_dir()).unwrap_or(false))
+            .map(|e| e.file_name().to_string_lossy().to_string())
+            .collect();
+
+        // Sort by version descending (newest first = highest priority)
+        node_versions.sort_by(|a, b| compare_node_versions(b, a));
+
+        for version in node_versions {
+            let bin_path = format!("{}/.nvm/versions/node/{}/bin", home, version);
+            if std::path::Path::new(&bin_path).exists() {
+                debug!("Found NVM node version: {}", bin_path);
+                nvm_paths.push(bin_path);
+            }
+        }
+    }
+
+    // Also check for NVM default alias
+    let default_bin = format!("{}/.nvm/alias/default", home);
+    if std::path::Path::new(&default_bin).exists() {
+        // Read the default alias and resolve it
+        if let Ok(default_version) = std::fs::read_to_string(&default_bin) {
+            let version = default_version.trim();
+            let bin_path = format!("{}/.nvm/versions/node/{}/bin", home, version);
+            if std::path::Path::new(&bin_path).exists() && !nvm_paths.contains(&bin_path) {
+                nvm_paths.insert(0, bin_path); // Default gets highest priority
+            }
+        }
+    }
+
+    nvm_paths
+}
+
+/// Get fallback paths for common CLI tool locations
+#[cfg(target_os = "macos")]
+fn get_fallback_paths(home: &str) -> Vec<String> {
+    let candidates = vec![
+        // Homebrew paths (Apple Silicon first, then Intel)
+        "/opt/homebrew/bin".to_string(),
+        "/usr/local/bin".to_string(),
+        // System paths
+        "/usr/bin".to_string(),
+        "/bin".to_string(),
+        "/usr/sbin".to_string(),
+        "/sbin".to_string(),
+        // User local paths
+        format!("{}/.local/bin", home),
+        // NPM global paths
+        format!("{}/.npm-global/bin", home),
+        format!("{}/npm/bin", home),
+        format!("{}/.npm/bin", home),
+        // Volta
+        format!("{}/.volta/bin", home),
+        // fnm (Fast Node Manager)
+        format!("{}/.fnm", home),
+        format!("{}/.fnm/aliases/default/bin", home),
+        format!("{}/.local/share/fnm/aliases/default/bin", home),
+        // asdf
+        format!("{}/.asdf/shims", home),
+        // n (Node version manager)
+        format!("{}/.n/bin", home),
+        // pnpm
+        format!("{}/Library/pnpm", home),
+        format!("{}/.local/share/pnpm", home),
+        format!("{}/.pnpm-global/bin", home),
+        // yarn
+        format!("{}/.yarn/bin", home),
+        format!("{}/.config/yarn/global/node_modules/.bin", home),
+        // bun
+        format!("{}/.bun/bin", home),
+    ];
+
+    // Add npm prefix from .npmrc if exists
+    let mut paths: Vec<String> = Vec::new();
+    if let Some(npm_prefix) = read_npmrc_prefix(home) {
+        let npm_bin = format!("{}/bin", npm_prefix);
+        if std::path::Path::new(&npm_bin).exists() {
+            paths.push(npm_bin);
+        }
+    }
+
+    // Filter to only existing paths
+    for p in candidates {
+        if std::path::Path::new(&p).exists() {
+            paths.push(p);
+        }
+    }
+
+    paths
+}
+
 /// Get the shell's PATH on macOS
-/// GUI applications on macOS don't inherit the PATH from shell configuration files
-/// This function runs the user's default shell to get the actual PATH
+/// Uses interactive mode (-i) to ensure .zshrc is read
 #[cfg(target_os = "macos")]
 fn get_shell_path() -> Option<String> {
-    // Get the user's default shell
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
     debug!("User's default shell: {}", shell);
 
-    // Run shell in login mode to source all profile scripts and get PATH
-    // Use timeout to prevent hanging
+    // Use -i -c (interactive mode) to ensure .zshrc is read
+    // This is critical because NVM initialization is typically in .zshrc, not .zprofile
+    // Note: -l -c (login + non-interactive) does NOT read .zshrc
     let mut cmd = Command::new(&shell);
-    cmd.args(["-l", "-c", "echo $PATH"]);
+    cmd.args(["-i", "-c", "echo $PATH"]);
 
-    // Set a timeout using spawn and wait_with_output
+    // Prevent interactive shell from waiting for input
+    cmd.stdin(std::process::Stdio::null());
+
     match cmd.output() {
         Ok(output) if output.status.success() => {
             let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
             if !path.is_empty() {
-                info!("Got shell PATH: {}", path);
+                info!("Got shell PATH ({} entries)", path.split(':').count());
+                debug!("Shell PATH: {}", path);
                 return Some(path);
             }
         }
@@ -213,86 +338,6 @@ fn get_shell_path() -> Option<String> {
         }
         Err(e) => {
             debug!("Failed to execute shell: {}", e);
-        }
-    }
-
-    // Fallback: construct comprehensive PATH from common locations
-    if let Ok(home) = get_home_dir() {
-        let mut common_paths: Vec<String> = vec![
-            // Homebrew paths (Apple Silicon first, then Intel)
-            "/opt/homebrew/bin".to_string(),
-            "/usr/local/bin".to_string(),
-            // System paths
-            "/usr/bin".to_string(),
-            "/bin".to_string(),
-            "/usr/sbin".to_string(),
-            "/sbin".to_string(),
-            // User local paths
-            format!("{}/.local/bin", home),
-            // NPM global paths - multiple common configurations
-            format!("{}/.npm-global/bin", home),
-            format!("{}/npm/bin", home),
-            format!("{}/.npm/bin", home),
-            // Volta
-            format!("{}/.volta/bin", home),
-            // fnm (Fast Node Manager)
-            format!("{}/.fnm", home),
-            format!("{}/.fnm/aliases/default/bin", home),
-            format!("{}/.local/share/fnm/aliases/default/bin", home),
-            // asdf
-            format!("{}/.asdf/shims", home),
-            // n (Node version manager)
-            format!("{}/.n/bin", home),
-            // pnpm
-            format!("{}/Library/pnpm", home),
-            format!("{}/.local/share/pnpm", home),
-            format!("{}/.pnpm-global/bin", home),
-            // yarn
-            format!("{}/.yarn/bin", home),
-            format!("{}/.config/yarn/global/node_modules/.bin", home),
-            // bun
-            format!("{}/.bun/bin", home),
-        ];
-
-        // 🔥 动态添加 NVM 的所有 Node 版本路径（按版本号降序排列）
-        let nvm_versions_dir = format!("{}/.nvm/versions/node", home);
-        if let Ok(entries) = std::fs::read_dir(&nvm_versions_dir) {
-            let mut node_versions: Vec<String> = entries
-                .flatten()
-                .filter(|e| e.file_type().map(|t| t.is_dir()).unwrap_or(false))
-                .map(|e| e.file_name().to_string_lossy().to_string())
-                .collect();
-
-            // 按语义版本号降序排列，确保最新版本在前
-            node_versions.sort_by(|a, b| compare_node_versions(b, a));
-
-            for version in node_versions {
-                let bin_path = format!("{}/.nvm/versions/node/{}/bin", home, version);
-                if std::path::Path::new(&bin_path).exists() {
-                    common_paths.push(bin_path);
-                }
-            }
-        }
-
-        // 🔥 动态读取用户的 npm prefix 配置
-        if let Some(npm_prefix) = read_npmrc_prefix(&home) {
-            let npm_bin = format!("{}/bin", npm_prefix);
-            if !common_paths.contains(&npm_bin) {
-                // 将用户配置的 npm prefix 路径放在较前位置
-                common_paths.insert(0, npm_bin);
-            }
-        }
-
-        let existing_paths: Vec<&str> = common_paths
-            .iter()
-            .map(|s| s.as_ref())
-            .filter(|p| std::path::Path::new(p).exists())
-            .collect();
-
-        if !existing_paths.is_empty() {
-            let path = existing_paths.join(":");
-            info!("Constructed fallback PATH with {} entries: {}", existing_paths.len(), path);
-            return Some(path);
         }
     }
 
