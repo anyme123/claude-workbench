@@ -367,21 +367,45 @@ fn truncate_session_to_prompt(
     // - 如果撤回到 prompt #N (N>0)，保持 agent 文件不变（因为它们只在初始化时创建一次）
     
     if prompt_index == 0 {
-        // 撤回到初始状态，删除所有 agent 文件
-        log::info!("Reverting to prompt #0, removing all agent files");
-        
+        // 撤回到初始状态，只删除属于当前会话的 agent 文件
+        log::info!("Reverting to prompt #0, removing agent files for session: {}", session_id);
+
         if let Ok(entries) = fs::read_dir(&project_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
                     // Match pattern: agent-{id}.jsonl
                     if filename.starts_with("agent-") && filename.ends_with(".jsonl") {
-                        log::info!("Removing agent file: {}", filename);
-                        
-                        if let Err(e) = fs::remove_file(&path) {
-                            log::warn!("Failed to remove agent file {}: {}", filename, e);
+                        // 🔧 FIX: 读取文件第一行，检查 sessionId 是否匹配当前会话
+                        let belongs_to_session = if let Ok(file) = fs::File::open(&path) {
+                            use std::io::{BufRead, BufReader};
+                            let reader = BufReader::new(file);
+                            if let Some(Ok(first_line)) = reader.lines().next() {
+                                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&first_line) {
+                                    json.get("sessionId")
+                                        .and_then(|s| s.as_str())
+                                        .map(|s| s == session_id)
+                                        .unwrap_or(false)
+                                } else {
+                                    false
+                                }
+                            } else {
+                                false
+                            }
                         } else {
-                            log::info!("Successfully removed agent file: {}", filename);
+                            false
+                        };
+
+                        if belongs_to_session {
+                            log::info!("Removing agent file for current session: {}", filename);
+
+                            if let Err(e) = fs::remove_file(&path) {
+                                log::warn!("Failed to remove agent file {}: {}", filename, e);
+                            } else {
+                                log::info!("Successfully removed agent file: {}", filename);
+                            }
+                        } else {
+                            log::debug!("Skipping agent file (belongs to different session): {}", filename);
                         }
                     }
                 }
