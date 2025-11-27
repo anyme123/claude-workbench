@@ -70,6 +70,7 @@ use commands::codex::{
     list_codex_sessions, delete_codex_session,
     load_codex_session_history, get_codex_prompt_list, check_codex_rewind_capabilities,
     check_codex_availability,
+    set_custom_codex_path, get_codex_path, clear_custom_codex_path,
     // Codex mode configuration
     get_codex_mode_config, set_codex_mode_config,
     // Codex rewind commands
@@ -311,6 +312,10 @@ fn main() {
             record_codex_prompt_sent,
             record_codex_prompt_completed,
             revert_codex_to_prompt,
+            // Codex custom path
+            set_custom_codex_path,
+            get_codex_path,
+            clear_custom_codex_path,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

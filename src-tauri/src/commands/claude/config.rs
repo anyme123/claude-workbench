@@ -520,27 +520,32 @@ pub async fn save_claude_md_file(file_path: String, content: String) -> Result<S
 #[tauri::command]
 pub async fn set_custom_claude_path(app: AppHandle, custom_path: String) -> Result<(), String> {
     log::info!("Setting custom Claude CLI path: {}", custom_path);
-    
+
+    let expanded_path = expand_user_path(&custom_path)?;
+
     // Validate the path exists and is executable
-    let path_buf = PathBuf::from(&custom_path);
-    if !path_buf.exists() {
+    if !expanded_path.exists() {
         return Err("File does not exist".to_string());
     }
-    
-    if !path_buf.is_file() {
+
+    if !expanded_path.is_file() {
         return Err("Path is not a file".to_string());
     }
-    
+
+    let path_str = expanded_path
+        .to_str()
+        .ok_or_else(|| "Invalid path encoding".to_string())?
+        .to_string();
+
     // Test if it's actually Claude CLI by running --version
-    let mut cmd = std::process::Command::new(&custom_path);
+    let mut cmd = std::process::Command::new(&path_str);
     cmd.arg("--version");
-    
-    // Add CREATE_NO_WINDOW flag on Windows to prevent terminal window popup
+
     #[cfg(target_os = "windows")]
     {
         platform::apply_no_window(&mut cmd);
     }
-    
+
     match cmd.output() {
         Ok(output) => {
             if !output.status.success() {
@@ -551,17 +556,16 @@ pub async fn set_custom_claude_path(app: AppHandle, custom_path: String) -> Resu
             return Err(format!("Failed to test Claude CLI: {}", e));
         }
     }
-    
+
     // Store the custom path in database
     if let Ok(app_data_dir) = app.path().app_data_dir() {
         if let Err(e) = std::fs::create_dir_all(&app_data_dir) {
             return Err(format!("Failed to create app data directory: {}", e));
         }
-        
+
         let db_path = app_data_dir.join("agents.db");
         match rusqlite::Connection::open(&db_path) {
             Ok(conn) => {
-                // Create table if it doesn't exist
                 if let Err(e) = conn.execute(
                     "CREATE TABLE IF NOT EXISTS app_settings (
                         key TEXT PRIMARY KEY,
@@ -571,23 +575,28 @@ pub async fn set_custom_claude_path(app: AppHandle, custom_path: String) -> Resu
                 ) {
                     return Err(format!("Failed to create settings table: {}", e));
                 }
-                
-                // Store the custom path
+
                 if let Err(e) = conn.execute(
                     "INSERT OR REPLACE INTO app_settings (key, value) VALUES (?1, ?2)",
-                    rusqlite::params!["claude_binary_path", custom_path],
+                    rusqlite::params!["claude_binary_path", path_str],
                 ) {
                     return Err(format!("Failed to store custom Claude path: {}", e));
                 }
-                
-                log::info!("Successfully stored custom Claude CLI path: {}", custom_path);
-                Ok(())
+
+                log::info!("Successfully stored custom Claude CLI path: {}", path_str);
             }
-            Err(e) => Err(format!("Failed to open database: {}", e)),
+            Err(e) => return Err(format!("Failed to open database: {}", e)),
         }
     } else {
-        Err("Failed to get app data directory".to_string())
+        return Err("Failed to get app data directory".to_string());
     }
+
+    // 记录到 binaries.json 供跨平台检测复用
+    if let Err(e) = update_binary_override("claude", &path_str) {
+        log::warn!("Failed to update binaries.json: {}", e);
+    }
+
+    Ok(())
 }
 
 /// Get current Claude CLI path (custom or auto-detected)
@@ -649,8 +658,76 @@ pub async fn clear_custom_claude_path(app: AppHandle) -> Result<(), String> {
             Ok(())
         }
     } else {
-        Err("Failed to get app data directory".to_string())
+    Err("Failed to get app data directory".to_string())
+}
+
+fn expand_user_path(input: &str) -> Result<PathBuf, String> {
+    if input.trim().is_empty() {
+        return Err("Path is empty".to_string());
     }
+
+    let path = if input == "~" || input.starts_with("~/") {
+        let home = dirs::home_dir().ok_or("Cannot find home directory".to_string())?;
+        if input == "~" {
+            home
+        } else {
+            home.join(input.trim_start_matches("~/"))
+        }
+    } else {
+        PathBuf::from(input)
+    };
+
+    let path = if path.is_relative() {
+        std::env::current_dir()
+            .map_err(|e| format!("Failed to get current dir: {}", e))?
+            .join(path)
+    } else {
+        path
+    };
+
+    Ok(path)
+}
+
+fn update_binary_override(tool: &str, override_path: &str) -> Result<(), String> {
+    let home = dirs::home_dir().ok_or("Cannot find home directory".to_string())?;
+    let config_path = home.join(".claude").join("binaries.json");
+
+    // Ensure parent dir exists
+    if let Some(parent) = config_path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create config directory: {}", e))?;
+    }
+
+    let mut json: serde_json::Value = if config_path.exists() {
+        let content = std::fs::read_to_string(&config_path)
+            .map_err(|e| format!("Failed to read binaries.json: {}", e))?;
+        serde_json::from_str(&content).unwrap_or_else(|_| serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+
+    let section = json
+        .as_object_mut()
+        .ok_or("Invalid binaries.json format (not an object)".to_string())?;
+
+    let entry = section
+        .entry(tool.to_string())
+        .or_insert_with(|| serde_json::json!({}));
+
+    if let Some(obj) = entry.as_object_mut() {
+        obj.insert(
+            "override_path".to_string(),
+            serde_json::Value::String(override_path.to_string()),
+        );
+    }
+
+    let serialized = serde_json::to_string_pretty(&json)
+        .map_err(|e| format!("Failed to serialize binaries.json: {}", e))?;
+    std::fs::write(&config_path, serialized)
+        .map_err(|e| format!("Failed to write binaries.json: {}", e))?;
+
+    Ok(())
+}
 }
 /// 获取当前Claude执行配置
 #[tauri::command]

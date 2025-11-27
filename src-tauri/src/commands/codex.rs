@@ -11,6 +11,8 @@ use std::process::Stdio;
 use std::sync::Arc;
 use std::path::PathBuf;
 use std::fs;
+use dirs;
+use rusqlite;
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
@@ -96,6 +98,115 @@ pub struct CodexExecutionOptions {
 
 fn default_json_mode() -> bool {
     true
+}
+
+fn expand_user_path(input: &str) -> Result<PathBuf, String> {
+    if input.trim().is_empty() {
+        return Err("Path is empty".to_string());
+    }
+
+    let path = if input == "~" || input.starts_with("~/") {
+        let home = dirs::home_dir().ok_or("Cannot find home directory".to_string())?;
+        if input == "~" {
+            home
+        } else {
+            home.join(input.trim_start_matches("~/"))
+        }
+    } else {
+        PathBuf::from(input)
+    };
+
+    let path = if path.is_relative() {
+        std::env::current_dir()
+            .map_err(|e| format!("Failed to get current dir: {}", e))?
+            .join(path)
+    } else {
+        path
+    };
+
+    Ok(path)
+}
+
+fn update_binary_override(tool: &str, override_path: &str) -> Result<(), String> {
+    let home = dirs::home_dir().ok_or("Cannot find home directory".to_string())?;
+    let config_path = home.join(".claude").join("binaries.json");
+
+    if let Some(parent) = config_path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create config directory: {}", e))?;
+    }
+
+    let mut json: serde_json::Value = if config_path.exists() {
+        let content = std::fs::read_to_string(&config_path)
+            .map_err(|e| format!("Failed to read binaries.json: {}", e))?;
+        serde_json::from_str(&content).unwrap_or_else(|_| serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+
+    let section = json
+        .as_object_mut()
+        .ok_or("Invalid binaries.json format (not an object)".to_string())?;
+
+    let entry = section
+        .entry(tool.to_string())
+        .or_insert_with(|| serde_json::json!({}));
+
+    if let Some(obj) = entry.as_object_mut() {
+        obj.insert(
+            "override_path".to_string(),
+            serde_json::Value::String(override_path.to_string()),
+        );
+    }
+
+    let serialized = serde_json::to_string_pretty(&json)
+        .map_err(|e| format!("Failed to serialize binaries.json: {}", e))?;
+    std::fs::write(&config_path, serialized)
+        .map_err(|e| format!("Failed to write binaries.json: {}", e))?;
+
+    Ok(())
+}
+
+fn clear_binary_override(tool: &str) -> Result<(), String> {
+    let home = dirs::home_dir().ok_or("Cannot find home directory".to_string())?;
+    let config_path = home.join(".claude").join("binaries.json");
+    if !config_path.exists() {
+        return Ok(());
+    }
+
+    let content = std::fs::read_to_string(&config_path)
+        .map_err(|e| format!("Failed to read binaries.json: {}", e))?;
+    let mut json: serde_json::Value =
+        serde_json::from_str(&content).unwrap_or_else(|_| serde_json::json!({}));
+
+    if let Some(section) = json.as_object_mut() {
+        if let Some(entry) = section.get_mut(tool) {
+            if let Some(obj) = entry.as_object_mut() {
+                obj.remove("override_path");
+            }
+        }
+    }
+
+    let serialized = serde_json::to_string_pretty(&json)
+        .map_err(|e| format!("Failed to serialize binaries.json: {}", e))?;
+    std::fs::write(&config_path, serialized)
+        .map_err(|e| format!("Failed to write binaries.json: {}", e))?;
+    Ok(())
+}
+
+fn get_binary_override(tool: &str) -> Option<String> {
+    let home = dirs::home_dir()?;
+    let config_path = home.join(".claude").join("binaries.json");
+    if !config_path.exists() {
+        return None;
+    }
+
+    let content = std::fs::read_to_string(&config_path).ok()?;
+    let json: serde_json::Value = serde_json::from_str(&content).ok()?;
+    json.get(tool)?
+        .get("override_path")?
+        .as_str()
+        .map(|s| s.to_string())
 }
 
 /// Codex session metadata
@@ -677,6 +788,121 @@ pub async fn check_codex_availability() -> Result<CodexAvailability, String> {
         version: None,
         error: Some("Codex CLI not found. 请设置 CODEX_PATH 或安装 codex CLI".to_string()),
     })
+}
+
+/// 设置自定义 Codex CLI 路径，支持 ~ 展开与相对路径
+#[tauri::command]
+pub async fn set_custom_codex_path(app: AppHandle, custom_path: String) -> Result<(), String> {
+    log::info!("[Codex] Setting custom path: {}", custom_path);
+
+    let expanded_path = expand_user_path(&custom_path)?;
+    if !expanded_path.exists() {
+        return Err("File does not exist".to_string());
+    }
+    if !expanded_path.is_file() {
+        return Err("Path is not a file".to_string());
+    }
+
+    let path_str = expanded_path
+        .to_str()
+        .ok_or_else(|| "Invalid path encoding".to_string())?
+        .to_string();
+
+    let mut cmd = Command::new(&path_str);
+    cmd.arg("--version");
+    apply_no_window_async(&mut cmd);
+
+    match cmd.output().await {
+        Ok(output) => {
+            if !output.status.success() {
+                return Err("File is not a valid Codex CLI executable".to_string());
+            }
+        }
+        Err(e) => return Err(format!("Failed to test Codex CLI: {}", e)),
+    }
+
+    // 写入 binaries.json 供统一检测使用
+    if let Err(e) = update_binary_override("codex", &path_str) {
+        log::warn!("[Codex] Failed to update binaries.json: {}", e);
+    }
+
+    // 兼容地存一份到 app_settings
+    if let Ok(app_data_dir) = app.path().app_data_dir() {
+        let db_path = app_data_dir.join("agents.db");
+        if let Ok(conn) = rusqlite::Connection::open(&db_path) {
+            let _ = conn.execute(
+                "CREATE TABLE IF NOT EXISTS app_settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                )",
+                [],
+            );
+            let _ = conn.execute(
+                "INSERT OR REPLACE INTO app_settings (key, value) VALUES (?1, ?2)",
+                rusqlite::params!["codex_binary_path", path_str],
+            );
+        }
+    }
+
+    Ok(())
+}
+
+fn read_custom_codex_path_from_db(app: &AppHandle) -> Option<String> {
+    if let Ok(app_data_dir) = app.path().app_data_dir() {
+        let db_path = app_data_dir.join("agents.db");
+        if db_path.exists() {
+            if let Ok(conn) = rusqlite::Connection::open(&db_path) {
+                if let Ok(val) = conn.query_row(
+                    "SELECT value FROM app_settings WHERE key = 'codex_binary_path'",
+                    [],
+                    |row| row.get::<_, String>(0),
+                ) {
+                    return Some(val);
+                }
+            }
+        }
+    }
+    None
+}
+
+/// 获取当前 Codex 路径（自定义优先，其次运行时检测）
+#[tauri::command]
+pub async fn get_codex_path(app: AppHandle) -> Result<String, String> {
+    if let Some(override_path) = get_binary_override("codex") {
+        return Ok(override_path);
+    }
+    if let Some(db_path) = read_custom_codex_path_from_db(&app) {
+        return Ok(db_path);
+    }
+
+    let (_env, detected) = detect_binary_for_tool("codex", "CODEX_PATH", "codex");
+    if let Some(inst) = detected {
+        return Ok(inst.path);
+    }
+
+    Err("Codex CLI not found. 请设置 CODEX_PATH 或安装 codex CLI".to_string())
+}
+
+/// 清除自定义 Codex 路径，恢复自动检测
+#[tauri::command]
+pub async fn clear_custom_codex_path(app: AppHandle) -> Result<(), String> {
+    if let Ok(app_data_dir) = app.path().app_data_dir() {
+        let db_path = app_data_dir.join("agents.db");
+        if db_path.exists() {
+            if let Ok(conn) = rusqlite::Connection::open(&db_path) {
+                let _ = conn.execute(
+                    "DELETE FROM app_settings WHERE key = 'codex_binary_path'",
+                    [],
+                );
+            }
+        }
+    }
+
+    if let Err(e) = clear_binary_override("codex") {
+        log::warn!("[Codex] Failed to clear binaries.json override: {}", e);
+    }
+
+    Ok(())
 }
 
 /// Get the shell's PATH on macOS
