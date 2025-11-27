@@ -15,6 +15,11 @@ interface ImagePreviewProps {
    */
   onRemove: (index: number) => void;
   /**
+   * Optional callback when an image is clicked for viewing
+   * If provided, overrides the built-in dialog preview
+   */
+  onImageClick?: (src: string, index: number) => void;
+  /**
    * Optional className for styling
    */
   className?: string;
@@ -38,6 +43,7 @@ interface ImagePreviewProps {
 export const ImagePreview: React.FC<ImagePreviewProps> = ({
   images,
   onRemove,
+  onImageClick,
   className,
 }) => {
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
@@ -85,7 +91,13 @@ export const ImagePreview: React.FC<ImagePreviewProps> = ({
             >
               <div
                 className="relative w-16 h-16 rounded-md overflow-hidden border border-border cursor-pointer hover:border-primary transition-colors"
-                onClick={() => setSelectedImageIndex(index)}
+                onClick={() => {
+                  if (onImageClick) {
+                    onImageClick(getImageSrc(imagePath), index);
+                  } else {
+                    setSelectedImageIndex(index);
+                  }
+                }}
               >
                 {imageErrors.has(index) ? (
                   <div className="w-full h-full bg-muted flex items-center justify-center">

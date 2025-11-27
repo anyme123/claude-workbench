@@ -18,6 +18,7 @@ interface ControlBarProps {
   disabled?: boolean;
   isLoading: boolean;
   prompt: string;
+  hasAttachments?: boolean;
   executionEngineConfig: ExecutionEngineConfig;
   setExecutionEngineConfig: (config: ExecutionEngineConfig) => void;
   selectedModel: ModelType;
@@ -50,6 +51,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
   disabled,
   isLoading,
   prompt,
+  hasAttachments = false,
   executionEngineConfig,
   setExecutionEngineConfig,
   selectedModel,
@@ -296,7 +298,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
       ) : (
         <Button
           onClick={onSend}
-          disabled={!prompt.trim() || disabled}
+          disabled={(!prompt.trim() && !hasAttachments) || disabled}
           size="default"
           className="h-8 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-sm transition-all duration-200"
         >

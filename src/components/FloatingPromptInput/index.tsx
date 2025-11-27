@@ -453,6 +453,7 @@ const FloatingPromptInputInner = (
             disabled={disabled}
             isLoading={isLoading}
             prompt={state.prompt}
+            hasAttachments={imageAttachments.length > 0}
             executionEngineConfig={state.executionEngineConfig}
             setExecutionEngineConfig={(config) => dispatch({ type: "SET_EXECUTION_ENGINE_CONFIG", payload: config })}
             selectedModel={state.selectedModel}

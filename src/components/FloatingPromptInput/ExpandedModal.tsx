@@ -1,6 +1,7 @@
-import React, { forwardRef } from "react";
+import React, { forwardRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Minimize2, X, Wand2, ChevronDown, Code2, Zap, Settings } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Minimize2, X, Wand2, ChevronDown, Code2, Zap, Settings, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
@@ -46,6 +47,49 @@ interface ExpandedModalProps {
   onSend: () => void;
 }
 
+/**
+ * 图片放大查看模态框
+ */
+interface ImageLightboxProps {
+  src: string;
+  alt?: string;
+  onClose: () => void;
+}
+
+const ImageLightbox: React.FC<ImageLightboxProps> = ({ src, alt, onClose }) => {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 cursor-zoom-out"
+      style={{ zIndex: 10000 }}
+      onClick={onClose}
+    >
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition-colors"
+      >
+        <X className="h-5 w-5" />
+      </button>
+      <img
+        src={src}
+        alt={alt || "Image preview"}
+        className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>,
+    document.body
+  );
+};
+
 export const ExpandedModal = forwardRef<HTMLTextAreaElement, ExpandedModalProps>(({
   prompt,
   disabled,
@@ -79,7 +123,18 @@ export const ExpandedModal = forwardRef<HTMLTextAreaElement, ExpandedModalProps>
   onDrop,
   onSend
 }, ref) => {
+  const [lightboxImage, setLightboxImage] = useState<{ src: string; alt?: string } | null>(null);
+
   return (
+    <>
+      {/* 图片放大模态框 */}
+      {lightboxImage && (
+        <ImageLightbox
+          src={lightboxImage.src}
+          alt={lightboxImage.alt}
+          onClose={() => setLightboxImage(null)}
+        />
+      )}
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -113,16 +168,33 @@ export const ExpandedModal = forwardRef<HTMLTextAreaElement, ExpandedModalProps>
             <div className="flex gap-2 overflow-x-auto">
               {imageAttachments.map((attachment) => (
                 <div key={attachment.id} className="relative flex-shrink-0 group">
-                  <div className="relative w-16 h-16 rounded-md overflow-hidden border border-border">
+                  <div
+                    className="relative w-16 h-16 rounded-md overflow-hidden border border-border cursor-pointer"
+                    onClick={() => setLightboxImage({ src: attachment.previewUrl, alt: "Screenshot preview" })}
+                  >
                     <img
                       src={attachment.previewUrl}
                       alt="Screenshot preview"
                       className="w-full h-full object-cover"
                     />
-                    <div className="absolute inset-0 bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <div className="absolute inset-0 bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
                       <button
-                        onClick={() => onRemoveAttachment(attachment.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLightboxImage({ src: attachment.previewUrl, alt: "Screenshot preview" });
+                        }}
+                        className="w-5 h-5 bg-primary text-primary-foreground rounded-full flex items-center justify-center hover:bg-primary/90 transition-colors"
+                        title="点击放大"
+                      >
+                        <ZoomIn className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRemoveAttachment(attachment.id);
+                        }}
                         className="w-5 h-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center hover:bg-destructive/90 transition-colors"
+                        title="删除"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -139,6 +211,7 @@ export const ExpandedModal = forwardRef<HTMLTextAreaElement, ExpandedModalProps>
           <ImagePreview
             images={embeddedImages}
             onRemove={onRemoveEmbedded}
+            onImageClick={(src, _index) => setLightboxImage({ src, alt: "Embedded image" })}
             className="border-t border-border pt-2"
           />
         )}
@@ -280,7 +353,7 @@ export const ExpandedModal = forwardRef<HTMLTextAreaElement, ExpandedModalProps>
 
             <Button
               onClick={onSend}
-              disabled={!prompt.trim() || disabled}
+              disabled={(!prompt.trim() && imageAttachments.length === 0) || disabled}
               size="default"
             >
               发送
@@ -289,6 +362,7 @@ export const ExpandedModal = forwardRef<HTMLTextAreaElement, ExpandedModalProps>
         </div>
       </motion.div>
     </motion.div>
+    </>
   );
 });
 
