@@ -758,7 +758,6 @@ fn clear_binary_override(tool: &str) -> Result<(), String> {
 
     Ok(())
 }
-}
 /// 获取当前Claude执行配置
 #[tauri::command]
 pub async fn get_claude_execution_config(_app: AppHandle) -> Result<ClaudeExecutionConfig, String> {
