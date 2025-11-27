@@ -27,6 +27,8 @@ pub async fn get_hooks_config(scope: String, project_path: Option<String>) -> Re
         _ => return Err("Invalid scope".to_string())
     };
 
+    log::info!("Settings file path: {:?}", settings_path);
+
     if !settings_path.exists() {
         log::info!("Settings file does not exist at {:?}, returning empty hooks", settings_path);
         return Ok(serde_json::json!({}));
@@ -34,11 +36,16 @@ pub async fn get_hooks_config(scope: String, project_path: Option<String>) -> Re
 
     let content = fs::read_to_string(&settings_path)
         .map_err(|e| format!("Failed to read settings: {}", e))?;
-    
+
+    log::debug!("Settings file content length: {} bytes", content.len());
+
     let settings: serde_json::Value = serde_json::from_str(&content)
         .map_err(|e| format!("Failed to parse settings: {}", e))?;
-    
-    Ok(settings.get("hooks").cloned().unwrap_or(serde_json::json!({})))
+
+    let hooks = settings.get("hooks").cloned().unwrap_or(serde_json::json!({}));
+    log::info!("Returning hooks config: {}", serde_json::to_string_pretty(&hooks).unwrap_or_default());
+
+    Ok(hooks)
 }
 
 /// Updates hooks configuration in settings at specified scope

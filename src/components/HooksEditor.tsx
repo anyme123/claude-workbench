@@ -211,9 +211,17 @@ export const HooksEditor: React.FC<HooksEditorProps> = ({
 
   // Reset initial mount flag when hooks prop changes
   useEffect(() => {
+    console.log('[HooksEditor] Processing hooks state:', {
+      hooks,
+      hooksKeys: hooks ? Object.keys(hooks) : [],
+      hooksType: typeof hooks,
+      isNull: hooks === null,
+      isUndefined: hooks === undefined
+    });
+
     isInitialMount.current = true;
     setHasUnsavedChanges(false); // Reset unsaved changes when hooks prop changes
-    
+
     // Reinitialize editable hooks when hooks prop changes
     // All events now use the same HookMatcher[] format
     const result: EditableHooksState = {
@@ -227,23 +235,27 @@ export const HooksEditor: React.FC<HooksEditorProps> = ({
       SessionStart: [],
       SessionEnd: []
     };
-    
+
     // Initialize all events using the same logic
-    allEvents.forEach(event => {
-      const matchers = hooks?.[event] as HookMatcher[] | undefined;
-      if (matchers && Array.isArray(matchers)) {
-        result[event] = matchers.map(matcher => ({
-          ...matcher,
-          id: HooksManager.generateId(),
-          expanded: false,
-          hooks: (matcher.hooks || []).map(hook => ({
-            ...hook,
-            id: HooksManager.generateId()
-          }))
-        }));
-      }
-    });
-    
+    if (hooks && typeof hooks === 'object') {
+      allEvents.forEach(event => {
+        const matchers = hooks[event] as HookMatcher[] | undefined;
+        console.log(`[HooksEditor] Processing event ${event}:`, { matchers, isArray: Array.isArray(matchers) });
+        if (matchers && Array.isArray(matchers)) {
+          result[event] = matchers.map(matcher => ({
+            ...matcher,
+            id: HooksManager.generateId(),
+            expanded: true, // 默认展开以便查看
+            hooks: (matcher.hooks || []).map(hook => ({
+              ...hook,
+              id: HooksManager.generateId()
+            }))
+          }));
+        }
+      });
+    }
+
+    console.log('[HooksEditor] Final editableHooks result:', result);
     setEditableHooks(result);
   }, [hooks]);
 
@@ -690,23 +702,25 @@ export const HooksEditor: React.FC<HooksEditorProps> = ({
 
           {/* Event Tabs */}
           <Tabs value={selectedEvent} onValueChange={(v) => setSelectedEvent(v as HookEvent)}>
-            <TabsList className="w-full">
-              {(Object.keys(EVENT_INFO) as HookEvent[]).map(event => {
-                const count = editableHooks[event].length;
-                
-                return (
-                  <TabsTrigger key={event} value={event} className="flex items-center gap-2">
-                    {EVENT_INFO[event].icon}
-                    <span className="hidden sm:inline">{EVENT_INFO[event].label}</span>
-                    {count > 0 && (
-                      <Badge variant="secondary" className="ml-1 h-5 px-1">
-                        {count}
-                      </Badge>
-                    )}
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
+            <div className="overflow-x-auto pb-2">
+              <TabsList className="inline-flex w-auto min-w-full">
+                {(Object.keys(EVENT_INFO) as HookEvent[]).map(event => {
+                  const count = editableHooks[event].length;
+
+                  return (
+                    <TabsTrigger key={event} value={event} className="flex items-center gap-1.5 whitespace-nowrap px-3">
+                      {EVENT_INFO[event].icon}
+                      <span>{EVENT_INFO[event].label}</span>
+                      {count > 0 && (
+                        <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                          {count}
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+            </div>
 
             {(Object.keys(EVENT_INFO) as HookEvent[]).map(event => {
               const matchers = editableHooks[event];
