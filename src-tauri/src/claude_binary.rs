@@ -5,9 +5,36 @@ use std::cmp::Ordering;
 /// Shared module for detecting Claude Code binary installations
 /// Supports NVM installations, aliased paths, version-based selection, and bundled sidecars
 /// Cross-platform support for Windows and macOS
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::process::Command;
 use tauri::Manager;
+
+/// 运行时环境信息（替换单纯的 #[cfg] 检测，支持容器/WSL/架构）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuntimeEnvironment {
+    pub os: String,
+    pub arch: String,
+    pub is_wsl: bool,
+    pub is_container: bool,
+    pub distro: Option<String>,
+}
+
+/// 用户自定义二进制搜索配置 (~/.claude/binaries.json)
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct BinarySearchConfig {
+    pub claude: Option<BinarySearchSection>,
+    pub codex: Option<BinarySearchSection>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct BinarySearchSection {
+    /// 强制覆盖的可执行文件路径
+    pub override_path: Option<String>,
+    /// 额外搜索路径（目录或完整文件路径）
+    #[serde(default)]
+    pub search_paths: Vec<String>,
+}
 
 /// Get user home directory (cross-platform)
 fn get_home_dir() -> Result<String, String> {
@@ -18,6 +45,82 @@ fn get_home_dir() -> Result<String, String> {
     #[cfg(not(target_os = "windows"))]
     {
         std::env::var("HOME").map_err(|_| "Failed to get HOME".to_string())
+    }
+}
+
+/// 运行时检测环境（OS/架构/WSL/容器/发行版）
+pub fn detect_runtime_environment() -> RuntimeEnvironment {
+    let os = std::env::consts::OS.to_string();
+    let arch = std::env::consts::ARCH.to_string();
+
+    let is_wsl = std::env::var("WSL_INTEROP").is_ok()
+        || std::env::var("WSL_DISTRO_NAME").is_ok()
+        || std::fs::read_to_string("/proc/version")
+            .map(|v| v.to_lowercase().contains("microsoft"))
+            .unwrap_or(false);
+
+    let is_container = std::env::var("container").is_ok()
+        || std::fs::metadata("/run/.containerenv").is_ok()
+        || std::fs::read_to_string("/proc/1/cgroup")
+            .map(|c| c.contains("docker") || c.contains("kubepods"))
+            .unwrap_or(false);
+
+    let distro = if os == "linux" {
+        std::fs::read_to_string("/etc/os-release")
+            .ok()
+            .and_then(|content| {
+                content
+                    .lines()
+                    .find(|line| line.starts_with("ID="))
+                    .map(|line| line.trim_start_matches("ID=").trim_matches('"').to_string())
+            })
+    } else {
+        None
+    };
+
+    info!(
+        "Runtime environment: os={}, arch={}, wsl={}, container={}, distro={:?}",
+        os, arch, is_wsl, is_container, distro
+    );
+
+    RuntimeEnvironment {
+        os,
+        arch,
+        is_wsl,
+        is_container,
+        distro,
+    }
+}
+
+/// 读取用户的二进制搜索配置 (~/.claude/binaries.json)
+fn load_binary_search_config() -> BinarySearchConfig {
+    if let Ok(home) = get_home_dir() {
+        let path = PathBuf::from(home).join(".claude").join("binaries.json");
+        if path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&path) {
+                if let Ok(cfg) = serde_json::from_str::<BinarySearchConfig>(&content) {
+                    info!(
+                        "Loaded user binary search config from {}",
+                        path.to_string_lossy()
+                    );
+                    return cfg;
+                } else {
+                    warn!(
+                        "Failed to parse binary search config at {}, using defaults",
+                        path.to_string_lossy()
+                    );
+                }
+            }
+        }
+    }
+    BinarySearchConfig::default()
+}
+
+fn pick_section(cfg: &BinarySearchConfig, key: &str) -> Option<BinarySearchSection> {
+    match key {
+        "claude" => cfg.claude.clone(),
+        "codex" => cfg.codex.clone(),
+        _ => None,
     }
 }
 
@@ -262,8 +365,347 @@ pub struct ClaudeInstallation {
     pub installation_type: InstallationType,
 }
 
+/// 内部使用的优先级包装，确保环境变量/用户配置优先于 PATH/扫描
+struct PrioritizedInstallation {
+    priority: u8,
+    installation: ClaudeInstallation,
+}
+
 /// Current app version - used to detect upgrades and clear stale caches
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// 将路径加入候选列表并去重/校验
+fn push_candidate(
+    list: &mut Vec<PrioritizedInstallation>,
+    seen: &mut std::collections::HashSet<String>,
+    path: String,
+    source: &str,
+    priority: u8,
+) {
+    let normalized = path.to_lowercase();
+    if !seen.insert(normalized.clone()) {
+        return;
+    }
+
+    let path_obj = PathBuf::from(&path);
+    let looks_like_path = path.contains('\\') || path.contains('/');
+    if looks_like_path && !path_obj.exists() {
+        debug!("Skip non-existing candidate: {}", path);
+        return;
+    }
+
+    // 执行一次版本探测，失败也允许继续，只是 version 为 None
+    let version = get_binary_version_generic(&path);
+    if !looks_like_path && version.is_none() {
+        debug!("Skip candidate {} because version probe failed and no concrete path", path);
+        return;
+    }
+
+    list.push(PrioritizedInstallation {
+        priority,
+        installation: ClaudeInstallation {
+            path,
+            version,
+            source: source.to_string(),
+            installation_type: InstallationType::System,
+        },
+    });
+}
+
+/// 组合多来源的候选路径，使用运行时环境信息
+fn collect_runtime_candidates(
+    tool: &str,
+    env_var: &str,
+    env: &RuntimeEnvironment,
+    user_section: Option<BinarySearchSection>,
+) -> Vec<PrioritizedInstallation> {
+    let mut candidates: Vec<PrioritizedInstallation> = Vec::new();
+    let mut seen: HashSet<String> = HashSet::new();
+    let aliases = get_tool_aliases(tool, env);
+
+    // 1. 环境变量覆盖
+    if let Ok(val) = std::env::var(env_var) {
+        if !val.trim().is_empty() {
+            info!("Using {} from env var {}", tool, env_var);
+            push_candidate(&mut candidates, &mut seen, val, &format!("env:{}", env_var), 0);
+        }
+    }
+
+    // 2. PATH 中的命令
+    for alias in &aliases {
+        if let Some(resolved) = resolve_command_in_path(alias, env) {
+            push_candidate(&mut candidates, &mut seen, resolved, "PATH", 1);
+        }
+    }
+
+    // 3. Windows 注册表（仅在 Windows 下有效）
+    for alias in &aliases {
+        for reg_path in query_registry_paths(alias) {
+            push_candidate(&mut candidates, &mut seen, reg_path, "registry", 2);
+        }
+    }
+
+    // 4. 常见安装目录扫描（按平台分支但使用运行时判断）
+    match env.os.as_str() {
+        "windows" => {
+            let mut search_roots: Vec<String> = Vec::new();
+            if let Ok(program_files) = std::env::var("ProgramFiles") {
+                search_roots.push(format!(r"{}\{}", program_files, tool));
+                search_roots.push(format!(r"{}\{}\bin", program_files, tool));
+                search_roots.push(format!(r"{}\nodejs", program_files));
+            }
+            if let Ok(program_files_x86) = std::env::var("ProgramFiles(x86)") {
+                search_roots.push(format!(r"{}\{}", program_files_x86, tool));
+                search_roots.push(format!(r"{}\nodejs", program_files_x86));
+            }
+            if let Ok(appdata) = std::env::var("APPDATA") {
+                search_roots.push(format!(r"{}\npm", appdata));
+                search_roots.push(format!(r"{}\{}", appdata, tool));
+            }
+            if let Ok(local_appdata) = std::env::var("LOCALAPPDATA") {
+                search_roots.push(format!(r"{}\Programs\{}", local_appdata, tool));
+                search_roots.push(format!(r"{}\npm", local_appdata));
+            }
+            if let Ok(userprofile) = std::env::var("USERPROFILE") {
+                search_roots.push(format!(r"{}\scoop\shims", userprofile));
+                search_roots.push(format!(r"{}\scoop\apps\{}\current", userprofile, tool));
+                search_roots.push(format!(r"{}\AppData\Roaming\npm", userprofile));
+                search_roots.push(format!(r"{}\.npm-global\bin", userprofile));
+                search_roots.push(format!(r"{}\.local\bin", userprofile));
+                search_roots.push(format!(r"{}\.cargo\bin", userprofile));
+                search_roots.push(format!(r"{}\Yarn\bin", userprofile));
+            }
+            if let Ok(programdata) = std::env::var("ProgramData") {
+                search_roots.push(format!(r"{}\chocolatey\bin", programdata));
+                search_roots.push(format!(r"{}\scoop\shims", programdata));
+            }
+
+            // 便携/自定义常见目录
+            search_roots.extend(vec![
+                r"C:\tools".to_string(),
+                r"C:\opt".to_string(),
+                r"D:\apps".to_string(),
+                r"D:\tools".to_string(),
+            ]);
+
+            for root in search_roots {
+                for alias in &aliases {
+                    let candidate = format!(r"{}\{}", root, alias);
+                    push_candidate(&mut candidates, &mut seen, candidate, "common-path", 3);
+                }
+            }
+        }
+        "macos" => {
+            let mut search_roots: Vec<String> = vec![
+                "/usr/local/bin".to_string(),
+                "/usr/bin".to_string(),
+                "/opt/homebrew/bin".to_string(),
+                "/usr/local/sbin".to_string(),
+                "/opt/local/bin".to_string(), // MacPorts
+                "/Applications".to_string(),
+            ];
+
+            if let Ok(home) = std::env::var("HOME") {
+                search_roots.extend(vec![
+                    format!("{}/.npm-global/bin", home),
+                    format!("{}/.local/bin", home),
+                    format!("{}/.local/share/pnpm", home),
+                    format!("{}/Library/pnpm", home),
+                    format!("{}/.cargo/bin", home),
+                    format!("{}/.volta/bin", home),
+                    format!("{}/.asdf/shims", home),
+                    format!("{}/.fnm/aliases/default/bin", home),
+                    format!("{}/.local/share/fnm/aliases/default/bin", home),
+                    format!("{}/Library/Application Support/fnm/aliases/default/bin", home),
+                    format!("{}/.nvm/current/bin", home),
+                    format!("{}/.pnpm-global/bin", home),
+                    format!("{}/bin", home),
+                ]);
+            }
+
+            for root in search_roots {
+                for alias in &aliases {
+                    let candidate = if root.contains(".app") {
+                        format!("{}/Contents/MacOS/{}", root, alias)
+                    } else if root.ends_with(".app") {
+                        format!("{}/Contents/MacOS/{}", root, alias)
+                    } else {
+                        format!("{}/{}", root, alias)
+                    };
+                    push_candidate(&mut candidates, &mut seen, candidate, "common-path", 3);
+                }
+            }
+        }
+        _ => {
+            // Linux / 其他类 Unix
+            let mut search_roots: Vec<String> = vec![
+                "/usr/local/bin".to_string(),
+                "/usr/bin".to_string(),
+                "/usr/sbin".to_string(),
+                "/snap/bin".to_string(),
+                "/var/lib/flatpak/exports/bin".to_string(),
+            ];
+
+            if let Ok(home) = std::env::var("HOME") {
+                search_roots.extend(vec![
+                    format!("{}/.local/bin", home),
+                    format!("{}/.npm-global/bin", home),
+                    format!("{}/.pnpm-global/bin", home),
+                    format!("{}/.volta/bin", home),
+                    format!("{}/.asdf/shims", home),
+                    format!("{}/.cargo/bin", home),
+                    format!("{}/.nvm/current/bin", home),
+                    format!("{}/bin", home),
+                    format!("{}/.local/share/pnpm", home),
+                ]);
+            }
+
+            for root in search_roots {
+                for alias in &aliases {
+                    let candidate = format!("{}/{}", root, alias);
+                    push_candidate(&mut candidates, &mut seen, candidate, "common-path", 3);
+                }
+            }
+        }
+    }
+
+    // 5. 用户配置文件中的额外搜索路径（优先级最低但可覆盖奇异环境）
+    if let Some(section) = user_section {
+        if let Some(custom) = section.override_path {
+            push_candidate(&mut candidates, &mut seen, custom, "user-config", 4);
+        }
+        for path in section.search_paths {
+            push_candidate(&mut candidates, &mut seen, path, "user-config", 4);
+        }
+    }
+
+    // WSL 环境：尝试挂载的 Windows 盘符
+    if env.is_wsl {
+        let windows_mounts = ["/mnt/c", "/mnt/d"];
+        for mount in &windows_mounts {
+            for alias in &aliases {
+                let candidate = format!("{}/Program Files/{}/{}", mount, tool, alias);
+                push_candidate(&mut candidates, &mut seen, candidate, "wsl-host", 3);
+            }
+        }
+    }
+
+    candidates
+}
+
+/// 按优先级 -> 版本降序选择最佳安装
+fn select_best_with_priority(
+    mut installations: Vec<PrioritizedInstallation>,
+) -> Option<ClaudeInstallation> {
+    installations.sort_by(|a, b| {
+        a.priority
+            .cmp(&b.priority)
+            .then_with(|| match (&a.installation.version, &b.installation.version) {
+                (Some(v1), Some(v2)) => compare_versions(v2, v1),
+                (Some(_), None) => Ordering::Less,
+                (None, Some(_)) => Ordering::Greater,
+                _ => Ordering::Equal,
+            })
+    });
+
+    installations.into_iter().map(|p| p.installation).next()
+}
+
+/// 通用检测入口，可供 Codex/其他二进制共享
+pub fn detect_binary_for_tool(
+    tool: &str,
+    env_var: &str,
+    config_key: &str,
+) -> (RuntimeEnvironment, Option<ClaudeInstallation>) {
+    let runtime_env = detect_runtime_environment();
+    let user_cfg = load_binary_search_config();
+    let user_section = pick_section(&user_cfg, config_key);
+
+    let prioritized = collect_runtime_candidates(tool, env_var, &runtime_env, user_section);
+    let best = select_best_with_priority(prioritized);
+    (runtime_env, best)
+}
+
+/// 获取当前平台下可执行名称的别名集合（含 .exe/.cmd）
+fn get_tool_aliases(tool: &str, env: &RuntimeEnvironment) -> Vec<String> {
+    if env.os == "windows" {
+        vec![
+            format!("{}.exe", tool),
+            format!("{}.cmd", tool),
+            tool.to_string(),
+        ]
+    } else {
+        vec![tool.to_string()]
+    }
+}
+
+/// 在 PATH 中解析命令实际路径
+fn resolve_command_in_path(command: &str, env: &RuntimeEnvironment) -> Option<String> {
+    let lookup_cmd = if env.os == "windows" { "where" } else { "which" };
+    let mut cmd = Command::new(lookup_cmd);
+    cmd.arg(command);
+
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
+
+    cmd.output()
+        .ok()
+        .filter(|o| o.status.success())
+        .and_then(|o| {
+            let output = String::from_utf8_lossy(&o.stdout);
+            output.lines().next().map(|l| l.trim().to_string())
+        })
+        .and_then(|path| {
+            let path_buf = PathBuf::from(&path);
+            if path_buf.exists() {
+                Some(path)
+            } else {
+                None
+            }
+        })
+}
+
+/// Windows 注册表查询 App Paths，获取安装路径
+#[cfg(target_os = "windows")]
+fn query_registry_paths(tool: &str) -> Vec<String> {
+    let mut results = Vec::new();
+    let keys = [
+        format!(r"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\App Paths\\{}", tool),
+        format!(r"HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\App Paths\\{}", tool),
+    ];
+
+    for key in keys {
+        let mut cmd = Command::new("reg");
+        cmd.args(["query", &key, "/ve"]);
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+
+        if let Ok(output) = cmd.output() {
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                for line in stdout.lines() {
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    if parts.len() >= 3 {
+                        let candidate = parts[parts.len() - 1];
+                        if PathBuf::from(candidate).exists() {
+                            results.push(candidate.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    results
+}
+
+#[cfg(not(target_os = "windows"))]
+fn query_registry_paths(_tool: &str) -> Vec<String> {
+    Vec::new()
+}
 
 /// Main function to find the Claude binary - Cross-platform version
 /// Supports Windows and macOS, only uses system-installed Claude CLI
@@ -354,39 +796,34 @@ pub fn find_claude_binary(app_handle: &tauri::AppHandle) -> Result<String, Strin
 
     info!("No valid cached path found, starting fresh discovery...");
 
-    // Discover all available system installations
-    let installations = discover_system_installations();
+    // 运行时环境 & 用户配置
+    let runtime_env = detect_runtime_environment();
+    let user_cfg = load_binary_search_config();
+    let user_section = pick_section(&user_cfg, "claude");
 
-    if installations.is_empty() {
-        error!("❌ Could not find Claude CLI in any location");
-        error!("Searched locations include:");
-        error!("  - System PATH");
-        error!("  - Homebrew (/opt/homebrew/bin, /usr/local/bin)");
-        error!("  - NVM directories (~/.nvm/versions/node/*/bin)");
-        error!("  - NPM global (~/.npm-global/bin)");
-        error!("  - User local (~/.local/bin)");
+    // 新的运行时候选收集（支持 env/注册表/常见路径/用户路径）
+    let mut prioritized = collect_runtime_candidates("claude", "CLAUDE_PATH", &runtime_env, user_section);
 
-        #[cfg(target_os = "macos")]
-        {
-            // 在 macOS 上提供更详细的安装指南
-            error!("");
-            error!("To install Claude CLI on macOS:");
-            error!("  1. npm install -g @anthropic-ai/claude-code");
-            error!("  2. Or if using a custom npm prefix:");
-            error!("     npm config set prefix ~/.npm-global");
-            error!("     npm install -g @anthropic-ai/claude-code");
-        }
+    // 兼容旧逻辑：补充 discover_system_installations 结果，优先级稍低
+    let legacy = discover_system_installations()
+        .into_iter()
+        .map(|inst| PrioritizedInstallation {
+            priority: 5,
+            installation: inst,
+        });
+    prioritized.extend(legacy);
 
-        return Err("Claude CLI not found. Please install Claude CLI using 'npm install -g @anthropic-ai/claude-code' or ensure it's in your PATH".to_string());
+    if prioritized.is_empty() {
+        error!("❌ Could not find Claude CLI in any location (runtime detection empty)");
+        return Err("Claude CLI not found. 请安装 'npm install -g @anthropic-ai/claude-code' 或检查 CLAUDE_PATH 设置".to_string());
     }
 
     info!(
-        "Found {} Claude installation(s), selecting best version...",
-        installations.len()
+        "Found {} Claude installation candidate(s), selecting best version with priority...",
+        prioritized.len()
     );
 
-    // Select the best installation (test each one for actual functionality)
-    if let Some(best) = select_best_installation(installations) {
+    if let Some(best) = select_best_with_priority(prioritized) {
         info!("========================================");
         info!(
             "✅ Selected Claude CLI: {}",
@@ -1191,6 +1628,23 @@ fn find_macos_installations() -> Vec<ClaudeInstallation> {
 #[cfg(not(target_os = "macos"))]
 fn find_macos_installations() -> Vec<ClaudeInstallation> {
     vec![]
+}
+
+/// 通用的版本获取（用于 Claude/Codex 等 CLI）
+fn get_binary_version_generic(path: &str) -> Option<String> {
+    let mut cmd = Command::new(path);
+    cmd.arg("--version");
+
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
+
+    match cmd.output() {
+        Ok(output) if output.status.success() => extract_version_from_output(&output.stdout),
+        _ => None,
+    }
 }
 
 /// Get Claude version by running --version command (cross-platform)

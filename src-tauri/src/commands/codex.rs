@@ -19,6 +19,7 @@ use chrono::Utc;
 
 // Import platform-specific utilities for window hiding
 use crate::commands::claude::apply_no_window_async;
+use crate::claude_binary::detect_binary_for_tool;
 // Import simple_git for rewind operations
 use super::simple_git;
 // Import rewind helpers/types shared with Claude
@@ -556,18 +557,21 @@ pub async fn delete_codex_session(session_id: String) -> Result<String, String> 
 pub async fn check_codex_availability() -> Result<CodexAvailability, String> {
     log::info!("[Codex] Checking availability...");
 
-    // 🆕 First check WSL mode on Windows
+    // 1) Windows 下优先检查 WSL 模式
     #[cfg(target_os = "windows")]
     {
         let wsl_config = wsl_utils::get_wsl_config();
         if wsl_config.enabled {
             if let Some(ref codex_path) = wsl_config.codex_path_in_wsl {
-                // Get version from WSL
                 let version = wsl_utils::get_wsl_codex_version(wsl_config.distro.as_deref())
                     .unwrap_or_else(|| "Unknown version".to_string());
 
-                log::info!("[Codex] ✅ Available in WSL ({:?}) - path: {}, version: {}",
-                    wsl_config.distro, codex_path, version);
+                log::info!(
+                    "[Codex] ✅ Available in WSL ({:?}) - path: {}, version: {}",
+                    wsl_config.distro,
+                    codex_path,
+                    version
+                );
 
                 return Ok(CodexAvailability {
                     available: true,
@@ -579,82 +583,99 @@ pub async fn check_codex_availability() -> Result<CodexAvailability, String> {
         log::info!("[Codex] WSL mode not available, trying native paths...");
     }
 
-    // Try multiple possible Codex command locations
-    let codex_commands = get_codex_command_candidates();
-
-    for cmd_path in codex_commands {
-        log::info!("[Codex] Trying: {}", cmd_path);
-
-        let mut cmd = Command::new(&cmd_path);
+    // 2) 运行时检测（环境变量 / PATH / 注册表 / 常见目录 / 用户配置）
+    let (_env_info, detected) = detect_binary_for_tool("codex", "CODEX_PATH", "codex");
+    if let Some(inst) = detected {
+        let mut cmd = Command::new(&inst.path);
         cmd.arg("--version");
-
-        // Add npm path to environment for Windows
-        #[cfg(target_os = "windows")]
-        {
-            if let Ok(appdata) = std::env::var("APPDATA") {
-                let npm_path = format!(r"{}\npm", appdata);
-                if let Ok(current_path) = std::env::var("PATH") {
-                    let new_path = format!("{};{}", npm_path, current_path);
-                    cmd.env("PATH", new_path);
-                }
-            }
-        }
-
-        // 🔥 macOS: Set shell PATH so command can find dependencies
-        #[cfg(target_os = "macos")]
-        {
-            if let Some(shell_path) = get_shell_path_codex() {
-                log::debug!("[Codex] Setting PATH for command: {}", shell_path);
-                cmd.env("PATH", &shell_path);
-            }
-        }
-
-        // 🔥 CRITICAL FIX: Apply no-window configuration for availability check
-        // This prevents terminal flash when checking Codex availability
         apply_no_window_async(&mut cmd);
 
         match cmd.output().await {
-        Ok(output) => {
-            let stdout_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            let stderr_str = String::from_utf8_lossy(&output.stderr).trim().to_string();
-
-            log::info!("[Codex] Command executed - status: {}, stdout: '{}', stderr: '{}'",
-                output.status, stdout_str, stderr_str);
-
-            if output.status.success() {
-                // Codex version might be in stdout or stderr
+            Ok(output) => {
+                let stdout_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                let stderr_str = String::from_utf8_lossy(&output.stderr).trim().to_string();
                 let version = if !stdout_str.is_empty() {
-                    stdout_str
+                    stdout_str.clone()
                 } else if !stderr_str.is_empty() {
-                    stderr_str
+                    stderr_str.clone()
                 } else {
-                    "Unknown version".to_string()
+                    inst.version.clone().unwrap_or_else(|| "Unknown version".to_string())
                 };
 
-                log::info!("[Codex] ✅ Available - version: {}", version);
-                return Ok(CodexAvailability {
-                    available: true,
-                    version: Some(version),
-                    error: None,
-                });
-            } else {
-                log::warn!("[Codex] Command '{}' returned non-zero status, trying next...", cmd_path);
-                continue;
+                if output.status.success() {
+                    log::info!(
+                        "[Codex] ✅ Available - path: {}, source: {}, version: {}",
+                        inst.path,
+                        inst.source,
+                        version
+                    );
+                    return Ok(CodexAvailability {
+                        available: true,
+                        version: Some(version),
+                        error: None,
+                    });
+                } else {
+                    log::warn!(
+                        "[Codex] Version probe failed for {} (status {:?}), stderr: {}",
+                        inst.path,
+                        output.status.code(),
+                        stderr_str
+                    );
+                }
             }
-        }
-        Err(e) => {
-            log::warn!("[Codex] Command '{}' failed: {}", cmd_path, e);
-            continue; // Try next candidate
-        }
+            Err(e) => {
+                log::warn!(
+                    "[Codex] Failed to run version check for {}: {}",
+                    inst.path,
+                    e
+                );
+            }
         }
     }
 
-    // All attempts failed
-    log::error!("[Codex] ❌ All command candidates failed");
+    // 3) 兜底：使用旧的候选列表避免极端路径遗漏
+    let codex_commands = get_codex_command_candidates();
+    for cmd_path in codex_commands {
+        log::info!("[Codex] Fallback trying: {}", cmd_path);
+
+        let mut cmd = Command::new(&cmd_path);
+        cmd.arg("--version");
+        apply_no_window_async(&mut cmd);
+
+        match cmd.output().await {
+            Ok(output) => {
+                let stdout_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                let stderr_str = String::from_utf8_lossy(&output.stderr).trim().to_string();
+
+                if output.status.success() {
+                    let version = if !stdout_str.is_empty() {
+                        stdout_str
+                    } else if !stderr_str.is_empty() {
+                        stderr_str
+                    } else {
+                        "Unknown version".to_string()
+                    };
+
+                    log::info!("[Codex] ✅ Available via fallback - version: {}", version);
+                    return Ok(CodexAvailability {
+                        available: true,
+                        version: Some(version),
+                        error: None,
+                    });
+                }
+            }
+            Err(e) => {
+                log::warn!("[Codex] Fallback command '{}' failed: {}", cmd_path, e);
+            }
+        }
+    }
+
+    // 4) 完全失败
+    log::error!("[Codex] ❌ Codex CLI not found via runtime detection or fallback list");
     Ok(CodexAvailability {
         available: false,
         version: None,
-        error: Some("Codex CLI not found. Tried: codex, npm global paths, WSL".to_string()),
+        error: Some("Codex CLI not found. 请设置 CODEX_PATH 或安装 codex CLI".to_string()),
     })
 }
 
@@ -1039,90 +1060,18 @@ fn build_codex_command(
     }
 
     // Native mode: Use system-installed Codex
-
-    // Use full path on Windows
-    #[cfg(target_os = "windows")]
-    let codex_cmd = {
-        if let Ok(appdata) = std::env::var("APPDATA") {
-            let full_path = format!(r"{}\npm\codex.cmd", appdata);
-            if std::path::Path::new(&full_path).exists() {
-                log::info!("[Codex] Using full path: {}", full_path);
-                full_path
-            } else {
-                log::warn!("[Codex] Full path not found, using 'codex'");
-                "codex".to_string()
-            }
-        } else {
-            "codex".to_string()
-        }
-    };
-
-    // macOS: Try Homebrew and standard paths (aligned with claude_binary.rs)
-    #[cfg(target_os = "macos")]
-    let codex_cmd = {
-        let paths_to_try = [
-            "/opt/homebrew/bin/codex",  // Apple Silicon (M1/M2/M3)
-            "/usr/local/bin/codex",     // Intel Mac / Homebrew legacy
-        ];
-
-        let mut found_path: Option<String> = None;
-        for path in paths_to_try {
-            if std::path::Path::new(path).exists() {
-                log::info!("[Codex] Using macOS path: {}", path);
-                found_path = Some(path.to_string());
-                break;
-            }
-        }
-
-        // Also check npm global path
-        if found_path.is_none() {
-            if let Ok(home) = std::env::var("HOME") {
-                let npm_path = format!("{}/.npm-global/bin/codex", home);
-                if std::path::Path::new(&npm_path).exists() {
-                    log::info!("[Codex] Using npm global path: {}", npm_path);
-                    found_path = Some(npm_path);
-                }
-            }
-        }
-
-        found_path.unwrap_or_else(|| {
-            log::warn!("[Codex] No explicit path found, using 'codex' from PATH");
-            "codex".to_string()
-        })
-    };
-
-    // Linux: Try standard paths
-    #[cfg(target_os = "linux")]
-    let codex_cmd = {
-        let paths_to_try = [
-            "/usr/local/bin/codex",
-            "/usr/bin/codex",
-        ];
-
-        let mut found_path: Option<String> = None;
-        for path in paths_to_try {
-            if std::path::Path::new(path).exists() {
-                log::info!("[Codex] Using Linux path: {}", path);
-                found_path = Some(path.to_string());
-                break;
-            }
-        }
-
-        // Also check npm global path
-        if found_path.is_none() {
-            if let Ok(home) = std::env::var("HOME") {
-                let npm_path = format!("{}/.npm-global/bin/codex", home);
-                if std::path::Path::new(&npm_path).exists() {
-                    log::info!("[Codex] Using npm global path: {}", npm_path);
-                    found_path = Some(npm_path);
-                }
-            }
-        }
-
-        found_path.unwrap_or_else(|| {
-            log::warn!("[Codex] No explicit path found, using 'codex' from PATH");
-            "codex".to_string()
-        })
+    let (_env_info, detected) = detect_binary_for_tool("codex", "CODEX_PATH", "codex");
+    let codex_cmd = if let Some(inst) = detected {
+        log::info!(
+            "[Codex] Using detected binary: {} (source: {}, version: {:?})",
+            inst.path,
+            inst.source,
+            inst.version
+        );
+        inst.path
+    } else {
+        log::warn!("[Codex] No detected binary, fallback to 'codex' in PATH");
+        "codex".to_string()
     };
 
     let mut cmd = Command::new(&codex_cmd);
@@ -2006,3 +1955,4 @@ trait Pipe: Sized {
 }
 #[allow(dead_code)]
 impl<T> Pipe for T {}
+
