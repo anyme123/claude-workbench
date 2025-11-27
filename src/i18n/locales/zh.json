@@ -44,7 +44,22 @@
     "lastModified": "最后修改",
     "noProjects": "未找到项目",
     "openProject": "打开项目",
-    "newSession": "新建会话"
+    "newSession": "新建会话",
+    "activeTab": "活跃项目",
+    "deletedTab": "已删除项目",
+    "hooksConfig": "Hooks 配置",
+    "deleteProject": "删除项目",
+    "removeProject": "移除项目",
+    "confirmDeleteTitle": "删除项目",
+    "confirmDeleteDescription": "确定要删除“{{project}}”吗？这将移除所有 Claude 会话以及相关 TODO 文件，此操作无法撤销。",
+    "confirmRemoveTitle": "移除项目",
+    "confirmRemoveDescription": "确定要从项目列表中移除“{{project}}”吗？此操作仅会在本地隐藏 Codex 项目，不会删除任何文件。",
+    "gridView": "网格视图",
+    "listView": "列表视图",
+    "noDeleted": "没有已删除的项目",
+    "deletedHint": "当你删除项目时，它们会显示在这里以便恢复。",
+    "deletedAlertTitle": "已删除的项目",
+    "deletedAlertDescription": "这些项目已被隐藏但文件仍然保留。你可以恢复它们或永久删除。"
   },
   "settings": {
     "title": "设置",

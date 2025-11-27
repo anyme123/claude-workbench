@@ -44,7 +44,22 @@
     "lastModified": "Last Modified",
     "noProjects": "No projects found",
     "openProject": "Open Project",
-    "newSession": "New Session"
+    "newSession": "New Session",
+    "activeTab": "Active Projects",
+    "deletedTab": "Deleted Projects",
+    "hooksConfig": "Hooks Settings",
+    "deleteProject": "Delete Project",
+    "removeProject": "Delete Project",
+    "confirmDeleteTitle": "Delete Project",
+    "confirmDeleteDescription": "Are you sure you want to delete \"{{project}}\"? This removes all Claude sessions and TODO files. This action cannot be undone.",
+    "confirmRemoveTitle": "Delete Project",
+    "confirmRemoveDescription": "Remove \"{{project}}\" from the project list? This only hides Codex-only projects locally and keeps all files intact.",
+    "gridView": "Grid view",
+    "listView": "List view",
+    "noDeleted": "No deleted projects",
+    "deletedHint": "Deleted projects will appear here so you can restore them later.",
+    "deletedAlertTitle": "Deleted Projects",
+    "deletedAlertDescription": "These projects are hidden but their files remain. Restore them or permanently delete if you no longer need them."
   },
   "settings": {
     "title": "Settings",

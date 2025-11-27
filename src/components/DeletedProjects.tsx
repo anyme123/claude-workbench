@@ -27,6 +27,7 @@ import {
 import * as api from "@/lib/api";
 import type { Project } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 interface DeletedProjectsProps {
   /**
@@ -47,6 +48,7 @@ export const DeletedProjects: React.FC<DeletedProjectsProps> = ({
   onProjectRestored,
   className
 }) => {
+  const { t } = useTranslation();
   const [deletedProjects, setDeletedProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [restoring, setRestoring] = useState<string | null>(null);
@@ -180,9 +182,9 @@ export const DeletedProjects: React.FC<DeletedProjectsProps> = ({
     return (
       <div className="text-center py-12">
         <Archive className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-        <h3 className="text-lg font-medium mb-2">没有已删除的项目</h3>
+        <h3 className="text-lg font-medium mb-2">{t("projects.noDeleted")}</h3>
         <p className="text-sm text-muted-foreground">
-          当你删除项目时，它们会显示在这里以便恢复
+          {t("projects.deletedHint")}
         </p>
       </div>
     );
@@ -212,9 +214,9 @@ export const DeletedProjects: React.FC<DeletedProjectsProps> = ({
       {/* Info alert */}
       <Alert>
         <AlertTriangle className="h-4 w-4" />
-        <AlertTitle>已删除的项目</AlertTitle>
+        <AlertTitle>{t("projects.deletedAlertTitle")}</AlertTitle>
         <AlertDescription>
-          这些项目已被隐藏但文件仍然保留。你可以恢复它们或永久删除。
+          {t("projects.deletedAlertDescription")}
         </AlertDescription>
       </Alert>
 
