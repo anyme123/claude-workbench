@@ -107,6 +107,7 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
     approvePlan,
     rejectPlan,
     closeApprovalDialog,
+    setSendPromptCallback,
   } = usePlanMode();
 
   // 🆕 Execution Engine Config (Codex integration)
@@ -318,6 +319,19 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
     processMessageWithTranslation
   });
 
+  // 🆕 方案 B-1: 设置发送提示词回调，用于计划批准后自动执行
+  useEffect(() => {
+    // 创建一个简化的发送函数，只需要 prompt 参数
+    const simpleSendPrompt = (prompt: string) => {
+      handleSendPrompt(prompt, 'sonnet'); // 使用默认模型
+    };
+    setSendPromptCallback(simpleSendPrompt);
+
+    // 清理时移除回调
+    return () => {
+      setSendPromptCallback(null);
+    };
+  }, [handleSendPrompt, setSendPromptCallback]);
 
   // Debug logging
   useEffect(() => {
