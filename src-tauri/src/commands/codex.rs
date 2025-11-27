@@ -2327,6 +2327,7 @@ pub async fn get_current_codex_config() -> Result<CurrentCodexConfig, String> {
 }
 
 /// Switch to a Codex provider configuration
+/// Preserves user's custom settings that are not provider-specific
 #[tauri::command]
 pub async fn switch_codex_provider(config: CodexProviderConfig) -> Result<String, String> {
     log::info!("[Codex Provider] Switching to provider: {}", config.name);
@@ -2341,11 +2342,13 @@ pub async fn switch_codex_provider(config: CodexProviderConfig) -> Result<String
             .map_err(|e| format!("Failed to create .codex directory: {}", e))?;
     }
 
-    // Validate TOML if not empty
-    if !config.config.trim().is_empty() {
-        toml::from_str::<toml::Table>(&config.config)
-            .map_err(|e| format!("Invalid TOML configuration: {}", e))?;
-    }
+    // Validate new TOML if not empty
+    let new_config_table: Option<toml::Table> = if !config.config.trim().is_empty() {
+        Some(toml::from_str(&config.config)
+            .map_err(|e| format!("Invalid TOML configuration: {}", e))?)
+    } else {
+        None
+    };
 
     // Write auth.json
     let auth_content = serde_json::to_string_pretty(&config.auth)
@@ -2353,8 +2356,52 @@ pub async fn switch_codex_provider(config: CodexProviderConfig) -> Result<String
     fs::write(&auth_path, auth_content)
         .map_err(|e| format!("Failed to write auth.json: {}", e))?;
 
-    // Write config.toml
-    fs::write(&config_path, &config.config)
+    // Merge config.toml - preserve user's custom settings
+    let final_config = if config_path.exists() {
+        let existing_content = fs::read_to_string(&config_path)
+            .map_err(|e| format!("Failed to read existing config.toml: {}", e))?;
+
+        if let Ok(mut existing_table) = toml::from_str::<toml::Table>(&existing_content) {
+            // Provider-specific keys that will be overwritten
+            let provider_keys = [
+                "model_provider",
+                "model",
+                "model_providers",
+            ];
+
+            if let Some(new_table) = new_config_table {
+                // Remove provider-specific keys from existing config
+                for key in &provider_keys {
+                    existing_table.remove(*key);
+                }
+
+                // Merge: new provider settings take precedence
+                for (key, value) in new_table {
+                    existing_table.insert(key, value);
+                }
+
+                // Serialize back to TOML string
+                toml::to_string_pretty(&existing_table)
+                    .map_err(|e| format!("Failed to serialize merged config: {}", e))?
+            } else {
+                // New config is empty (official OpenAI), just remove provider keys
+                for key in &provider_keys {
+                    existing_table.remove(*key);
+                }
+                toml::to_string_pretty(&existing_table)
+                    .map_err(|e| format!("Failed to serialize config: {}", e))?
+            }
+        } else {
+            // Existing config is invalid, use new config directly
+            config.config.clone()
+        }
+    } else {
+        // No existing config, use new config directly
+        config.config.clone()
+    };
+
+    // Write merged config.toml
+    fs::write(&config_path, &final_config)
         .map_err(|e| format!("Failed to write config.toml: {}", e))?;
 
     log::info!("[Codex Provider] Successfully switched to: {}", config.name);
