@@ -238,11 +238,6 @@ fn main() {
             storage_reset_database,
             storage_get_performance_stats,
             storage_analyze_query,
-            // Slash Commands
-            commands::slash_commands::slash_commands_list,
-            commands::slash_commands::slash_command_get,
-            commands::slash_commands::slash_command_save,
-            commands::slash_commands::slash_command_delete,
             // Clipboard
             save_clipboard_image,
             write_to_clipboard,

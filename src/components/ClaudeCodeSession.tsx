@@ -12,10 +12,8 @@ import { cn } from "@/lib/utils";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { FloatingPromptInput, type FloatingPromptInputRef, type ModelType } from "./FloatingPromptInput";
 import { ErrorBoundary } from "./ErrorBoundary";
-import { SlashCommandsManager } from "./SlashCommandsManager";
 import { RevertPromptPicker } from "./RevertPromptPicker";
 import { PromptNavigator } from "./PromptNavigator";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { SplitPane } from "@/components/ui/split-pane";
 import { WebviewPreview } from "./WebviewPreview";
 import { type TranslationResult } from '@/lib/translationMiddleware';
@@ -96,7 +94,6 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
   const [isFirstPrompt, setIsFirstPrompt] = useState(!session); // Key state for session continuation
   const [extractedSessionInfo, setExtractedSessionInfo] = useState<{ sessionId: string; projectId: string } | null>(null);
   const [claudeSessionId, setClaudeSessionId] = useState<string | null>(null);
-  const [showSlashCommandsSettings, setShowSlashCommandsSettings] = useState(false);
 
   // Plan Mode state - 使用 Context（方案 B-1）
   const {
@@ -185,7 +182,7 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
     isActive,
     onTogglePlanMode: handleTogglePlanMode,
     onShowRevertDialog: handleShowRevertDialog,
-    hasDialogOpen: showRevertPicker || showSlashCommandsSettings
+    hasDialogOpen: showRevertPicker
   });
 
   // ✅ Refactored: Use custom Hook for smart auto-scroll
@@ -1059,23 +1056,6 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
           </div>
 
         </ErrorBoundary>
-
-        {/* Slash Commands Settings Dialog */}
-        {showSlashCommandsSettings && (
-          <Dialog open={showSlashCommandsSettings} onOpenChange={setShowSlashCommandsSettings}>
-            <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
-              <DialogHeader>
-                <DialogTitle>Slash Commands</DialogTitle>
-                <DialogDescription>
-                  Manage project-specific slash commands for {projectPath}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="flex-1 overflow-y-auto">
-                <SlashCommandsManager projectPath={projectPath} />
-              </div>
-            </DialogContent>
-          </Dialog>
-        )}
 
         {/* Revert Prompt Picker - Shows when double ESC is pressed */}
         {showRevertPicker && effectiveSession && (

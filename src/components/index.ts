@@ -36,8 +36,6 @@ export * from "./ui/split-pane";
 export * from "./ui/scroll-area";
 
 // Session components
-export * from "./SlashCommandPicker";
-export * from "./SlashCommandsManager";
 export * from "./RunningClaudeSessions";
 export * from "./TabManager";
 export * from "./TabSessionWrapper";

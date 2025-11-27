@@ -33,7 +33,6 @@ import { GeneralSettings } from "./settings/GeneralSettings";
 import { PermissionsSettings } from "./settings/PermissionsSettings";
 import { EnvironmentSettings } from "./settings/EnvironmentSettings";
 import { HooksSettings } from "./settings/HooksSettings";
-import { CommandsSettings } from "./settings/CommandsSettings";
 
 interface SettingsProps {
   /**
@@ -428,12 +427,11 @@ export const Settings: React.FC<SettingsProps> = ({
       ) : (
         <div className="flex-1 overflow-y-auto p-4">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid grid-cols-9 w-full">
+            <TabsList className="grid grid-cols-8 w-full">
               <TabsTrigger value="general">{t('settings.general')}</TabsTrigger>
               <TabsTrigger value="permissions">权限</TabsTrigger>
               <TabsTrigger value="environment">环境</TabsTrigger>
               <TabsTrigger value="hooks">钩子</TabsTrigger>
-              <TabsTrigger value="commands">命令</TabsTrigger>
               <TabsTrigger value="translation">翻译</TabsTrigger>
               <TabsTrigger value="prompt-api">提示词API</TabsTrigger>
               <TabsTrigger value="provider">代理商</TabsTrigger>
@@ -480,12 +478,7 @@ export const Settings: React.FC<SettingsProps> = ({
                 getUserHooks={getUserHooks}
               />
             </TabsContent>
-            
-            {/* Commands Tab */}
-            <TabsContent value="commands">
-              <CommandsSettings />
-            </TabsContent>
-            
+
             {/* Translation Tab */}
             <TabsContent value="translation">
               <TranslationSettings />

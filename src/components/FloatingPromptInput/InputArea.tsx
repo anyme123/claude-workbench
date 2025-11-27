@@ -5,18 +5,14 @@ import { Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AnimatePresence } from "framer-motion";
 import { FilePicker } from "../FilePicker";
-import { SlashCommandPicker } from "../SlashCommandPicker";
 
 interface InputAreaProps {
   prompt: string;
   disabled?: boolean;
   dragActive: boolean;
   showFilePicker: boolean;
-  showSlashCommandPicker: boolean;
   projectPath?: string;
   filePickerQuery: string;
-  slashCommandQuery: string;
-  disableSlashCommands?: boolean; // 禁用斜杠命令（用于 Codex 模式）
   onTextChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   onKeyDown: (e: React.KeyboardEvent) => void;
   onPaste: (e: React.ClipboardEvent) => void;
@@ -27,8 +23,6 @@ interface InputAreaProps {
   onExpand: () => void;
   onFileSelect: (file: any) => void;
   onFilePickerClose: () => void;
-  onSlashCommandSelect: (cmd: any) => void;
-  onSlashCommandPickerClose: () => void;
 }
 
 export const InputArea = forwardRef<HTMLTextAreaElement, InputAreaProps>(({
@@ -36,11 +30,8 @@ export const InputArea = forwardRef<HTMLTextAreaElement, InputAreaProps>(({
   disabled,
   dragActive,
   showFilePicker,
-  showSlashCommandPicker,
   projectPath,
   filePickerQuery,
-  slashCommandQuery,
-  disableSlashCommands,
   onTextChange,
   onKeyDown,
   onPaste,
@@ -51,8 +42,6 @@ export const InputArea = forwardRef<HTMLTextAreaElement, InputAreaProps>(({
   onExpand,
   onFileSelect,
   onFilePickerClose,
-  onSlashCommandSelect,
-  onSlashCommandPickerClose
 }, ref) => {
   return (
     <div className="relative">
@@ -96,18 +85,6 @@ export const InputArea = forwardRef<HTMLTextAreaElement, InputAreaProps>(({
             onSelect={onFileSelect}
             onClose={onFilePickerClose}
             initialQuery={filePickerQuery}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Slash Command Picker - 在 Codex 模式下禁用 */}
-      <AnimatePresence>
-        {showSlashCommandPicker && !disableSlashCommands && (
-          <SlashCommandPicker
-            projectPath={projectPath}
-            onSelect={onSlashCommandSelect}
-            onClose={onSlashCommandPickerClose}
-            initialQuery={slashCommandQuery}
           />
         )}
       </AnimatePresence>

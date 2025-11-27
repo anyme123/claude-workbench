@@ -13,7 +13,6 @@ pub mod permission_config;
 pub mod prompt_tracker;
 pub mod provider;
 pub mod simple_git;
-pub mod slash_commands;
 pub mod storage;
 pub mod translator;
 pub mod url_utils;  // API URL 规范化工具

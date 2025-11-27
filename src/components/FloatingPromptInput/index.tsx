@@ -6,7 +6,6 @@ import { FloatingPromptInputProps, FloatingPromptInputRef, ThinkingMode, ModelTy
 import { THINKING_MODES, MODELS } from "./constants";
 import { useImageHandling } from "./hooks/useImageHandling";
 import { useFileSelection } from "./hooks/useFileSelection";
-import { useSlashCommands } from "./hooks/useSlashCommands";
 import { usePromptEnhancement } from "./hooks/usePromptEnhancement";
 import { api } from "@/lib/api";
 import { getEnabledProviders } from "@/lib/promptEnhancementService";
@@ -146,25 +145,6 @@ const FloatingPromptInputInner = (
     expandedTextareaRef,
   });
 
-  const {
-    showSlashCommandPicker,
-    slashCommandQuery,
-    detectSlashSymbol,
-    updateSlashCommandQuery,
-    handleSlashCommandSelect,
-    handleSlashCommandPickerClose,
-    setShowSlashCommandPicker,
-    setSlashCommandQuery,
-  } = useSlashCommands({
-    prompt: state.prompt,
-    cursorPosition: state.cursorPosition,
-    isExpanded: state.isExpanded,
-    onPromptChange: (p) => dispatch({ type: "SET_PROMPT", payload: p }),
-    onCursorPositionChange: (p) => dispatch({ type: "SET_CURSOR_POSITION", payload: p }),
-    textareaRef,
-    expandedTextareaRef,
-    disabled: state.executionEngineConfig.engine === 'codex', // Codex 模式下禁用斜杠命令
-  });
 
   const {
     isEnhancing,
@@ -343,9 +323,7 @@ const FloatingPromptInputInner = (
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
     const newCursorPosition = e.target.selectionStart || 0;
-    detectSlashSymbol(newValue, newCursorPosition);
     detectAtSymbol(newValue, newCursorPosition);
-    updateSlashCommandQuery(newValue, newCursorPosition);
     updateFilePickerQuery(newValue, newCursorPosition);
     dispatch({ type: "SET_PROMPT", payload: newValue });
     dispatch({ type: "SET_CURSOR_POSITION", payload: newCursorPosition });
@@ -358,13 +336,7 @@ const FloatingPromptInputInner = (
       setFilePickerQuery("");
       return;
     }
-    if (showSlashCommandPicker && e.key === 'Escape') {
-      e.preventDefault();
-      setShowSlashCommandPicker(false);
-      setSlashCommandQuery("");
-      return;
-    }
-    if (e.key === "Enter" && !e.shiftKey && !state.isExpanded && !showFilePicker && !showSlashCommandPicker) {
+    if (e.key === "Enter" && !e.shiftKey && !state.isExpanded && !showFilePicker) {
       e.preventDefault();
       handleSend();
     }
@@ -432,11 +404,8 @@ const FloatingPromptInputInner = (
             disabled={disabled}
             dragActive={dragActive}
             showFilePicker={showFilePicker}
-            showSlashCommandPicker={showSlashCommandPicker}
             projectPath={projectPath}
             filePickerQuery={filePickerQuery}
-            slashCommandQuery={slashCommandQuery}
-            disableSlashCommands={state.executionEngineConfig.engine === 'codex'}
             onTextChange={handleTextChange}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
@@ -447,8 +416,6 @@ const FloatingPromptInputInner = (
             onExpand={() => dispatch({ type: "SET_EXPANDED", payload: true })}
             onFileSelect={handleFileSelect}
             onFilePickerClose={handleFilePickerClose}
-            onSlashCommandSelect={handleSlashCommandSelect}
-            onSlashCommandPickerClose={handleSlashCommandPickerClose}
           />
 
           <ControlBar

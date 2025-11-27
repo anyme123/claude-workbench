@@ -370,35 +370,6 @@ export interface MCPServerConfig {
   env: Record<string, string>;
 }
 
-/**
- * Represents a custom slash command
- */
-export interface SlashCommand {
-  /** Unique identifier for the command */
-  id: string;
-  /** Command name (without prefix) */
-  name: string;
-  /** Full command with prefix (e.g., "/project:optimize") */
-  full_command: string;
-  /** Command scope: "project" or "user" */
-  scope: string;
-  /** Optional namespace (e.g., "frontend" in "/project:frontend:component") */
-  namespace?: string;
-  /** Path to the markdown file */
-  file_path: string;
-  /** Command content (markdown body) */
-  content: string;
-  /** Optional description from frontmatter */
-  description?: string;
-  /** Allowed tools from frontmatter */
-  allowed_tools: string[];
-  /** Whether the command has bash commands (!) */
-  has_bash_commands: boolean;
-  /** Whether the command has file references (@) */
-  has_file_references: boolean;
-  /** Whether the command uses $ARGUMENTS placeholder */
-  accepts_arguments: boolean;
-}
 
 
 /**
@@ -1459,86 +1430,6 @@ export const api = {
     }
   },
 
-  // Slash Commands API methods
-
-  /**
-   * Lists all available slash commands
-   * @param projectPath - Optional project path to include project-specific commands
-   * @returns Promise resolving to array of slash commands
-   */
-  async slashCommandsList(projectPath?: string): Promise<SlashCommand[]> {
-    try {
-      return await invoke<SlashCommand[]>("slash_commands_list", { projectPath });
-    } catch (error) {
-      console.error("Failed to list slash commands:", error);
-      throw error;
-    }
-  },
-
-  /**
-   * Gets a single slash command by ID
-   * @param commandId - Unique identifier of the command
-   * @returns Promise resolving to the slash command
-   */
-  async slashCommandGet(commandId: string): Promise<SlashCommand> {
-    try {
-      return await invoke<SlashCommand>("slash_command_get", { commandId });
-    } catch (error) {
-      console.error("Failed to get slash command:", error);
-      throw error;
-    }
-  },
-
-  /**
-   * Creates or updates a slash command
-   * @param scope - Command scope: "project" or "user"
-   * @param name - Command name (without prefix)
-   * @param namespace - Optional namespace for organization
-   * @param content - Markdown content of the command
-   * @param description - Optional description
-   * @param allowedTools - List of allowed tools for this command
-   * @param projectPath - Required for project scope commands
-   * @returns Promise resolving to the saved command
-   */
-  async slashCommandSave(
-    scope: string,
-    name: string,
-    namespace: string | undefined,
-    content: string,
-    description: string | undefined,
-    allowedTools: string[],
-    projectPath?: string
-  ): Promise<SlashCommand> {
-    try {
-      return await invoke<SlashCommand>("slash_command_save", {
-        scope,
-        name,
-        namespace,
-        content,
-        description,
-        allowedTools,
-        projectPath
-      });
-    } catch (error) {
-      console.error("Failed to save slash command:", error);
-      throw error;
-    }
-  },
-
-  /**
-   * Deletes a slash command
-   * @param commandId - Unique identifier of the command to delete
-   * @param projectPath - Optional project path for deleting project commands
-   * @returns Promise resolving to deletion message
-   */
-  async slashCommandDelete(commandId: string, projectPath?: string): Promise<string> {
-    try {
-      return await invoke<string>("slash_command_delete", { commandId, projectPath });
-    } catch (error) {
-      console.error("Failed to delete slash command:", error);
-      throw error;
-    }
-  },
 
   /**
    * Set custom Claude CLI path
