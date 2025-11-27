@@ -88,7 +88,7 @@ use commands::codex::{
     CodexProcessState,
 };
 use process::ProcessRegistryState;
-use tauri::Manager;
+use tauri::{Manager, WindowEvent};
 use tauri_plugin_window_state::Builder as WindowStatePlugin;
 
 fn main() {
@@ -155,6 +155,34 @@ fn main() {
             });
 
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            // Handle main window close - close all session windows
+            if let WindowEvent::CloseRequested { .. } = event {
+                let window_label = window.label();
+
+                // If main window is closing, close all session windows
+                if window_label == "main" {
+                    log::info!("[Window] Main window closing, closing all session windows");
+
+                    let app = window.app_handle();
+                    let windows_to_close: Vec<String> = app
+                        .webview_windows()
+                        .keys()
+                        .filter(|label| label.starts_with("session-window-"))
+                        .cloned()
+                        .collect();
+
+                    for label in windows_to_close {
+                        if let Some(win) = app.get_webview_window(&label) {
+                            log::info!("[Window] Closing session window: {}", label);
+                            if let Err(e) = win.close() {
+                                log::error!("[Window] Failed to close session window {}: {}", label, e);
+                            }
+                        }
+                    }
+                }
+            }
         })
         .invoke_handler(tauri::generate_handler![
             // Claude & Project Management

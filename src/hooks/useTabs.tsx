@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useContext, createContext, ReactNode, useEffect } from 'react';
 import type { Session } from '@/lib/api';
-import { createSessionWindow, emitWindowSyncEvent } from '@/lib/windowManager';
+import { createSessionWindow, emitWindowSyncEvent, onWindowSyncEvent, isSessionWindow } from '@/lib/windowManager';
 
 /**
  * ✨ REFACTORED: Simplified Tab interface (Phase 1 optimization)
@@ -61,6 +61,7 @@ interface TabContextValue {
   detachTab: (tabId: string) => Promise<string | null>;
   isTabDetached: (tabId: string) => boolean;
   getDetachedTabs: () => string[];
+  createNewTabAsWindow: (session?: Session, projectPath?: string) => Promise<string | null>;
 
   // Backward compatibility aliases
   /** @deprecated Use updateTabState instead */
@@ -375,6 +376,84 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
   // Track detached tabs (tabs that have been opened in separate windows)
   const detachedTabsRef = useRef<Set<string>>(new Set());
 
+  // Listen for window sync events (for tab_attached from detached windows)
+  useEffect(() => {
+    // Skip if this is a session window (not main window)
+    if (isSessionWindow()) return;
+
+    let unlisten: (() => void) | null = null;
+
+    const setupListener = async () => {
+      unlisten = await onWindowSyncEvent((event) => {
+        console.log('[useTabs] Received sync event:', event.type);
+
+        if (event.type === 'tab_attached') {
+          // A detached window wants to merge back to main window
+          console.log('[useTabs] Handling tab_attached:', event);
+
+          // Remove from detached set
+          detachedTabsRef.current.delete(event.tabId);
+
+          // Create new tab with the session data
+          const session = event.data?.session as Session | undefined;
+          const projectPath = event.projectPath;
+
+          if (session) {
+            // Create tab with existing session
+            setTabs(prev => {
+              // Check if tab already exists
+              if (prev.some(t => t.session?.id === session.id)) {
+                console.log('[useTabs] Session already exists in tabs, skipping');
+                return prev;
+              }
+
+              const newTab: Tab = {
+                id: `tab-${Date.now()}-attached`,
+                title: projectPath?.split(/[/\\]/).pop() || session.id.slice(0, 8),
+                type: 'session',
+                projectPath: projectPath || session.project_path,
+                session,
+                state: 'idle',
+                hasUnsavedChanges: false,
+                createdAt: Date.now(),
+                lastActiveAt: Date.now(),
+              };
+
+              return [...prev, newTab];
+            });
+
+            // Activate the new tab
+            setActiveTabId(`tab-${Date.now()}-attached`);
+          } else if (projectPath) {
+            // Create new tab with project path only
+            setTabs(prev => {
+              const newTab: Tab = {
+                id: `tab-${Date.now()}-attached`,
+                title: projectPath.split(/[/\\]/).pop() || '新会话',
+                type: 'new',
+                projectPath,
+                state: 'idle',
+                hasUnsavedChanges: false,
+                createdAt: Date.now(),
+                lastActiveAt: Date.now(),
+              };
+
+              return [...prev, newTab];
+            });
+
+            setActiveTabId(`tab-${Date.now()}-attached`);
+          }
+        }
+      });
+    };
+
+    setupListener();
+
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, []);
+
   // Detach tab into a new window
   const detachTab = useCallback(async (tabId: string): Promise<string | null> => {
     const tab = tabs.find(t => t.id === tabId);
@@ -430,6 +509,41 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
     return Array.from(detachedTabsRef.current);
   }, []);
 
+  // Create a new session directly as an independent window
+  const createNewTabAsWindow = useCallback(async (session?: Session, projectPath?: string): Promise<string | null> => {
+    try {
+      const newTabId = generateTabId();
+      const title = session
+        ? (projectPath?.split(/[/\\]/).pop() || session.project_path?.split(/[/\\]/).pop() || '新会话')
+        : (projectPath?.split(/[/\\]/).pop() || '新会话');
+
+      // Create the window directly without creating a tab first
+      const windowLabel = await createSessionWindow({
+        tabId: newTabId,
+        sessionId: session?.id,
+        projectPath: projectPath || session?.project_path,
+        title: `${title} - Any Code`,
+      });
+
+      // Mark as detached
+      detachedTabsRef.current.add(newTabId);
+
+      // Emit sync event
+      await emitWindowSyncEvent({
+        type: 'tab_detached',
+        tabId: newTabId,
+        sessionId: session?.id,
+        projectPath: projectPath || session?.project_path,
+      });
+
+      console.log('[useTabs] Created new session as window:', windowLabel);
+      return windowLabel;
+    } catch (error) {
+      console.error('[useTabs] Failed to create new session as window:', error);
+      return null;
+    }
+  }, [generateTabId]);
+
   // ✨ REFACTORED: Backward compatibility aliases
   const updateTabStreamingStatus = useCallback((tabId: string, isStreaming: boolean, _sessionId: string | null) => {
     updateTabState(tabId, isStreaming ? 'streaming' : 'idle');
@@ -460,6 +574,7 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
     detachTab,
     isTabDetached,
     getDetachedTabs,
+    createNewTabAsWindow,
     // Backward compatibility
     updateTabStreamingStatus,
     clearTabError,

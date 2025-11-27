@@ -13,7 +13,8 @@ import { PlanModeProvider } from '@/contexts/PlanModeContext';
 import type { Session } from '@/lib/api';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Button } from '@/components/ui/button';
-import { X, Minimize2, Square, Copy } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { X, Minimize2, Square, Copy, Merge } from 'lucide-react';
 
 interface SessionWindowState {
   isLoading: boolean;
@@ -170,6 +171,34 @@ export const SessionWindow: React.FC = () => {
     }
   };
 
+  // Merge session back to main window
+  const handleMergeToMainWindow = async () => {
+    try {
+      // Emit attach event to notify main window to create a tab
+      if (state.tabId) {
+        await emitWindowSyncEvent({
+          type: 'tab_attached',
+          tabId: state.tabId,
+          sessionId: state.session?.id,
+          projectPath: state.projectPath || undefined,
+          data: {
+            session: state.session,
+          },
+        });
+
+        console.log('[SessionWindow] Emitted tab_attached event, closing window');
+
+        // Close this window after a short delay to ensure event is processed
+        setTimeout(async () => {
+          const window = getCurrentWindow();
+          await window.close();
+        }, 100);
+      }
+    } catch (error) {
+      console.error('[SessionWindow] Failed to merge to main window:', error);
+    }
+  };
+
   // Loading state
   if (state.isLoading) {
     return (
@@ -212,7 +241,7 @@ export const SessionWindow: React.FC = () => {
   }
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-background">
+    <div className="h-screen w-screen flex flex-col bg-background" style={{ '--sidebar-width': '0px' } as React.CSSProperties}>
       {/* Custom title bar for detached windows */}
       <div
         className="flex-shrink-0 h-10 flex items-center justify-between px-3 border-b border-border bg-muted/30"
@@ -232,32 +261,53 @@ export const SessionWindow: React.FC = () => {
         </div>
 
         {/* Right: Window controls */}
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={handleMinimizeWindow}
-          >
-            <Minimize2 className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={handleMaximizeWindow}
-          >
-            <Square className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 hover:bg-destructive hover:text-destructive-foreground"
-            onClick={handleCloseWindow}
-          >
-            <X className="h-3.5 w-3.5" />
-          </Button>
-        </div>
+        <TooltipProvider>
+          <div className="flex items-center gap-1">
+            {/* Merge to main window button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={handleMergeToMainWindow}
+                >
+                  <Merge className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <span className="text-xs">合并回主窗口</span>
+              </TooltipContent>
+            </Tooltip>
+
+            <div className="h-4 w-px bg-border mx-1" />
+
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={handleMinimizeWindow}
+            >
+              <Minimize2 className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={handleMaximizeWindow}
+            >
+              <Square className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 hover:bg-destructive hover:text-destructive-foreground"
+              onClick={handleCloseWindow}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </TooltipProvider>
       </div>
 
       {/* Session content */}

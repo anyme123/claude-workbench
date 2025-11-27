@@ -60,6 +60,7 @@ export const TabManager: React.FC<TabManagerProps> = ({
     updateTabStreamingStatus,
     reorderTabs, // 🔧 NEW: 拖拽排序
     detachTab,   // 🆕 多窗口支持
+    createNewTabAsWindow, // 🆕 直接创建为独立窗口
   } = useTabs();
 
   // 🔧 NEW: 启用会话状态同步
@@ -334,6 +335,10 @@ export const TabManager: React.FC<TabManagerProps> = ({
                 <DropdownMenuItem onClick={() => createNewTab()}>
                   <Plus className="h-4 w-4 mr-2" />
                   新建会话
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => createNewTabAsWindow()}>
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  新建会话（独立窗口）
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
