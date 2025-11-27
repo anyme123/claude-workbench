@@ -5,6 +5,8 @@ use std::time::SystemTime;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_shell::ShellExt;
 use regex::Regex;
+use dirs;
+use rusqlite;
 
 
 
@@ -639,25 +641,25 @@ pub async fn clear_custom_claude_path(app: AppHandle) -> Result<(), String> {
     if let Ok(app_data_dir) = app.path().app_data_dir() {
         let db_path = app_data_dir.join("agents.db");
         if db_path.exists() {
-            match rusqlite::Connection::open(&db_path) {
-                Ok(conn) => {
-                    if let Err(e) = conn.execute(
-                        "DELETE FROM app_settings WHERE key = 'claude_binary_path'",
-                        [],
-                    ) {
-                        return Err(format!("Failed to clear custom Claude path: {}", e));
-                    }
-                    
-                    log::info!("Successfully cleared custom Claude CLI path");
-                    Ok(())
+            if let Ok(conn) = rusqlite::Connection::open(&db_path) {
+                if let Err(e) = conn.execute(
+                    "DELETE FROM app_settings WHERE key = 'claude_binary_path'",
+                    [],
+                ) {
+                    return Err(format!("Failed to clear custom Claude path: {}", e));
                 }
-                Err(e) => Err(format!("Failed to open database: {}", e)),
             }
-        } else {
-            // Database doesn't exist, nothing to clear
-            Ok(())
         }
-    } else {
+
+        // 清理 binaries.json 覆盖记录（忽略错误）
+        if let Err(e) = clear_binary_override("claude") {
+            log::warn!("Failed to clear binaries.json override: {}", e);
+        }
+
+        log::info!("Successfully cleared custom Claude CLI path");
+        return Ok(());
+    }
+
     Err("Failed to get app data directory".to_string())
 }
 
@@ -719,6 +721,34 @@ fn update_binary_override(tool: &str, override_path: &str) -> Result<(), String>
             "override_path".to_string(),
             serde_json::Value::String(override_path.to_string()),
         );
+    }
+
+    let serialized = serde_json::to_string_pretty(&json)
+        .map_err(|e| format!("Failed to serialize binaries.json: {}", e))?;
+    std::fs::write(&config_path, serialized)
+        .map_err(|e| format!("Failed to write binaries.json: {}", e))?;
+
+    Ok(())
+}
+
+fn clear_binary_override(tool: &str) -> Result<(), String> {
+    let home = dirs::home_dir().ok_or("Cannot find home directory".to_string())?;
+    let config_path = home.join(".claude").join("binaries.json");
+    if !config_path.exists() {
+        return Ok(());
+    }
+
+    let content = std::fs::read_to_string(&config_path)
+        .map_err(|e| format!("Failed to read binaries.json: {}", e))?;
+    let mut json: serde_json::Value =
+        serde_json::from_str(&content).unwrap_or_else(|_| serde_json::json!({}));
+
+    if let Some(section) = json.as_object_mut() {
+        if let Some(entry) = section.get_mut(tool) {
+            if let Some(obj) = entry.as_object_mut() {
+                obj.remove("override_path");
+            }
+        }
     }
 
     let serialized = serde_json::to_string_pretty(&json)
