@@ -51,7 +51,7 @@ export function UpdateDialog({ open, onClose }: UpdateDialogProps) {
 
   const handleOpenDownloadPage = async () => {
     try {
-      const releaseUrl = `https://github.com/anyme123/claude-workbench/releases/tag/v${updateInfo.availableVersion}`;
+      const releaseUrl = `https://github.com/anyme123/Any-code/releases/tag/v${updateInfo.availableVersion}`;
       await openUrl(releaseUrl);
       handleDismissAndClose();
     } catch (err) {

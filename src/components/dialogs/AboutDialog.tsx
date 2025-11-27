@@ -20,7 +20,7 @@ interface AboutDialogProps {
 
 export function AboutDialog({ open, onClose, onCheckUpdate }: AboutDialogProps) {
   const [appVersion, setAppVersion] = useState<string>("加载中...");
-  const PROJECT_URL = "https://github.com/anyme123/claude-workbench";
+  const PROJECT_URL = "https://github.com/anyme123/Any-code";
 
   // 动态获取应用版本号
   useEffect(() => {
@@ -54,7 +54,7 @@ export function AboutDialog({ open, onClose, onCheckUpdate }: AboutDialogProps) 
           <div className="mx-auto mb-4 inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10">
             <Info className="w-8 h-8 text-primary" />
           </div>
-          <DialogTitle className="text-xl">Claude Workbench</DialogTitle>
+          <DialogTitle className="text-xl">Any Code</DialogTitle>
           <DialogDescription className="flex items-center justify-center gap-2">
             <span>版本:</span>
             <span className="font-mono font-semibold text-primary">
@@ -66,7 +66,7 @@ export function AboutDialog({ open, onClose, onCheckUpdate }: AboutDialogProps) 
         {/* Description */}
         <div className="p-4 bg-muted/50 rounded-lg">
           <p className="text-sm text-muted-foreground text-center">
-            Claude Workbench 是一个强大的 Claude AI 会话管理工具，
+            Any Code 是一个强大的 Claude Code 会话管理工具，
             帮助您更好地组织和管理 Claude 对话。
           </p>
         </div>
@@ -95,7 +95,7 @@ export function AboutDialog({ open, onClose, onCheckUpdate }: AboutDialogProps) 
         {/* Footer */}
         <div className="pt-4 border-t border-border text-center">
           <p className="text-xs text-muted-foreground">
-            © 2025 Claude Workbench. All rights reserved.
+            © 2025 Any Code. All rights reserved.
           </p>
         </div>
       </DialogContent>
