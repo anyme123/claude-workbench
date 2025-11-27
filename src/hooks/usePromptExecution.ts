@@ -341,6 +341,10 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
             hasActiveSessionRef.current = false;
             isListeningRef.current = false;
 
+            // 🆕 Clean up listeners to prevent memory leak
+            unlistenRefs.current.forEach(u => u && typeof u === 'function' && u());
+            unlistenRefs.current = [];
+
             // 🆕 Record prompt completion for rewind support
             if (window.__codexPendingPrompt) {
               const pendingPrompt = window.__codexPendingPrompt;
@@ -601,6 +605,10 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
           setIsLoading(false);
           hasActiveSessionRef.current = false;
           isListeningRef.current = false;
+
+          // 🆕 Clean up listeners to prevent memory leak
+          unlistenRefs.current.forEach(u => u && typeof u === 'function' && u());
+          unlistenRefs.current = [];
 
           // Reset currentSessionId to allow detection of new session_id
           currentSessionId = null;
