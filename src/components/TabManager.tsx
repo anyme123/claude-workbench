@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Plus, MoreHorizontal, MessageSquare, ArrowLeft } from 'lucide-react';
+import { X, Plus, MoreHorizontal, MessageSquare, ArrowLeft, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -59,6 +59,7 @@ export const TabManager: React.FC<TabManagerProps> = ({
     closeTab,
     updateTabStreamingStatus,
     reorderTabs, // 🔧 NEW: 拖拽排序
+    detachTab,   // 🆕 多窗口支持
   } = useTabs();
 
   // 🔧 NEW: 启用会话状态同步
@@ -125,6 +126,18 @@ export const TabManager: React.FC<TabManagerProps> = ({
       setTabToClose(null);
     }
   }, [tabToClose, closeTab]);
+
+  // 🆕 NEW: 将标签页弹出为独立窗口
+  const handleDetachTab = useCallback(async (tabId: string) => {
+    try {
+      const windowLabel = await detachTab(tabId);
+      if (windowLabel) {
+        console.log('[TabManager] Tab detached to window:', windowLabel);
+      }
+    } catch (error) {
+      console.error('[TabManager] Failed to detach tab:', error);
+    }
+  }, [detachTab]);
 
   // ✨ Phase 3: Simplified initialization (single responsibility, no race conditions)
   useEffect(() => {
@@ -227,6 +240,28 @@ export const TabManager: React.FC<TabManagerProps> = ({
                         <span className="flex-1 truncate text-sm">
                           {tab.title}
                         </span>
+
+                        {/* 弹出窗口按钮 - 仅在 hover 时显示 */}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              className={cn(
+                                "flex-shrink-0 h-5 w-5 rounded flex items-center justify-center",
+                                "opacity-0 group-hover:opacity-100 transition-opacity",
+                                "hover:bg-muted-foreground/20"
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDetachTab(tab.id);
+                              }}
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">
+                            <span className="text-xs">在新窗口中打开</span>
+                          </TooltipContent>
+                        </Tooltip>
 
                         {/* 关闭按钮 - 仅在 hover 时显示 */}
                         <button

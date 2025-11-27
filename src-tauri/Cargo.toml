@@ -51,6 +51,7 @@ uuid = { version = "1.6", features = ["v4", "serde"] }
 walkdir = "2"
 serde_yaml = "0.9"
 once_cell = "1.19"
+urlencoding = "2.1"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.58", features = [

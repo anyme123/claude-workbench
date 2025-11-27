@@ -57,6 +57,10 @@ use commands::translator::{
     update_translation_config,
 };
 use commands::usage::{get_session_stats, get_usage_by_date_range, get_usage_stats};
+use commands::window::{
+    create_session_window, close_session_window, list_session_windows,
+    focus_session_window, emit_to_window, broadcast_to_session_windows,
+};
 
 use commands::enhanced_hooks::{
     execute_pre_commit_review, test_hook_condition, trigger_hook_event,
@@ -330,6 +334,13 @@ fn main() {
             delete_codex_provider_config,
             clear_codex_provider_config,
             test_codex_provider_connection,
+            // Window Management (Multi-window support)
+            create_session_window,
+            close_session_window,
+            list_session_windows,
+            focus_session_window,
+            emit_to_window,
+            broadcast_to_session_windows,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

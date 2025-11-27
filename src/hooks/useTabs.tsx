@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useContext, createContext, ReactNode, useEffect } from 'react';
 import type { Session } from '@/lib/api';
+import { createSessionWindow, emitWindowSyncEvent } from '@/lib/windowManager';
 
 /**
  * ✨ REFACTORED: Simplified Tab interface (Phase 1 optimization)
@@ -55,7 +56,12 @@ interface TabContextValue {
   canCloseTab: (tabId: string) => { canClose: boolean; hasUnsavedChanges: boolean };
   forceCloseTab: (tabId: string) => Promise<void>;
   reorderTabs: (fromIndex: number, toIndex: number) => void;
-  
+
+  // Multi-window support
+  detachTab: (tabId: string) => Promise<string | null>;
+  isTabDetached: (tabId: string) => boolean;
+  getDetachedTabs: () => string[];
+
   // Backward compatibility aliases
   /** @deprecated Use updateTabState instead */
   updateTabStreamingStatus: (tabId: string, isStreaming: boolean, sessionId: string | null) => void;
@@ -366,6 +372,64 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
     });
   }, []);
 
+  // Track detached tabs (tabs that have been opened in separate windows)
+  const detachedTabsRef = useRef<Set<string>>(new Set());
+
+  // Detach tab into a new window
+  const detachTab = useCallback(async (tabId: string): Promise<string | null> => {
+    const tab = tabs.find(t => t.id === tabId);
+    if (!tab) {
+      console.error('[useTabs] Cannot detach: tab not found:', tabId);
+      return null;
+    }
+
+    // Check if already detached
+    if (detachedTabsRef.current.has(tabId)) {
+      console.warn('[useTabs] Tab already detached:', tabId);
+      return null;
+    }
+
+    try {
+      // Create new window
+      const windowLabel = await createSessionWindow({
+        tabId: tab.id,
+        sessionId: tab.session?.id,
+        projectPath: tab.projectPath,
+        title: `${tab.title} - Any Code`,
+      });
+
+      // Mark as detached
+      detachedTabsRef.current.add(tabId);
+
+      // Emit sync event
+      await emitWindowSyncEvent({
+        type: 'tab_detached',
+        tabId,
+        sessionId: tab.session?.id,
+        projectPath: tab.projectPath,
+      });
+
+      // Close the tab in main window (force close since it's now in a separate window)
+      await forceCloseTab(tabId);
+
+      console.log('[useTabs] Tab detached to window:', windowLabel);
+      return windowLabel;
+    } catch (error) {
+      console.error('[useTabs] Failed to detach tab:', error);
+      return null;
+    }
+  }, [tabs, forceCloseTab]);
+
+  // Check if a tab is detached
+  const isTabDetached = useCallback((tabId: string): boolean => {
+    return detachedTabsRef.current.has(tabId);
+  }, []);
+
+  // Get all detached tab IDs
+  const getDetachedTabs = useCallback((): string[] => {
+    return Array.from(detachedTabsRef.current);
+  }, []);
+
   // ✨ REFACTORED: Backward compatibility aliases
   const updateTabStreamingStatus = useCallback((tabId: string, isStreaming: boolean, _sessionId: string | null) => {
     updateTabState(tabId, isStreaming ? 'streaming' : 'idle');
@@ -392,6 +456,10 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
     canCloseTab,
     forceCloseTab,
     reorderTabs,
+    // Multi-window support
+    detachTab,
+    isTabDetached,
+    getDetachedTabs,
     // Backward compatibility
     updateTabStreamingStatus,
     clearTabError,
