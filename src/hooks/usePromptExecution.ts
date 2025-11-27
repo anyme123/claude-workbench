@@ -389,6 +389,8 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
 
           // 🔧 FIX: Listen for session init event to get session ID for channel isolation
           const codexSessionInitUnlisten = await listen<{ type: string; session_id: string }>('codex-session-init', async (evt) => {
+            // 🔧 FIX: Only process if this tab has an active session
+            if (!hasActiveSessionRef.current) return;
             console.log('[usePromptExecution] Received codex-session-init:', evt.payload);
             if (evt.payload.session_id && !currentCodexSessionId) {
               currentCodexSessionId = evt.payload.session_id;
@@ -402,6 +404,9 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
 
           // Listen for Codex JSONL output (global fallback)
           const codexOutputUnlisten = await listen<string>('codex-output', (evt) => {
+            // 🔧 FIX: Only process if this tab has an active session
+            // This prevents other tabs from processing this tab's messages
+            if (!hasActiveSessionRef.current) return;
             // Only process if we haven't switched to session-specific listener yet
             // or if session_id not yet known (backward compatibility)
             processCodexOutput(evt.payload);
@@ -409,11 +414,15 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
 
           // Listen for Codex errors
           const codexErrorUnlisten = await listen<string>('codex-error', (evt) => {
+            // 🔧 FIX: Only process if this tab has an active session
+            if (!hasActiveSessionRef.current) return;
             setError(evt.payload);
           });
 
           // Listen for Codex completion (global fallback)
           const codexCompleteUnlisten = await listen<boolean>('codex-complete', async () => {
+            // 🔧 FIX: Only process if this tab has an active session
+            if (!hasActiveSessionRef.current) return;
             console.log('[usePromptExecution] Received codex-complete (global)');
             await processCodexComplete();
           });
@@ -616,6 +625,9 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
         // Generic Listeners (Catch-all)
         // ====================================================================
         const genericOutputUnlisten = await listen<string>('claude-output', async (event) => {
+          // 🔧 FIX: Only process if this tab has an active session
+          // This prevents other tabs from processing this tab's messages
+          if (!hasActiveSessionRef.current) return;
           // Always handle generic events as fallback to ensure output visibility
           handleStreamMessage(event.payload, userInputTranslation || undefined);
 
@@ -704,11 +716,15 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
         });
 
         const genericErrorUnlisten = await listen<string>('claude-error', (evt) => {
+          // 🔧 FIX: Only process if this tab has an active session
+          if (!hasActiveSessionRef.current) return;
           console.error('Claude error:', evt.payload);
           setError(evt.payload);
         });
 
         const genericCompleteUnlisten = await listen<boolean>('claude-complete', (evt) => {
+          // 🔧 FIX: Only process if this tab has an active session
+          if (!hasActiveSessionRef.current) return;
           console.log('[usePromptExecution] Received claude-complete (generic):', evt.payload);
           processComplete();
         });

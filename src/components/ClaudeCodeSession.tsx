@@ -233,7 +233,7 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
   const {
     loadSessionHistory,
     checkForActiveSession,
-    reconnectToSession,  // 🔧 FIX: Export for tab activation reconnection
+    // reconnectToSession removed - listeners now persist across tab switches
   } = useSessionLifecycle({
     session,
     isMountedRef,
@@ -419,52 +419,29 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
     onStreamingChange?.(isLoading, claudeSessionId);
   }, [isLoading, claudeSessionId, onStreamingChange]);
 
-  // 🔧 FIX: Handle active/inactive state changes for event listener management
-  // This ensures that when a tab becomes active again, it reconnects to the session stream
+  // 🔧 FIX: DO NOT clean up listeners on tab switch
+  // Listeners should persist until session completes or component unmounts
+  // This fixes the issue where:
+  // 1. User sends prompt in tab A
+  // 2. User switches to tab B before receiving session_id
+  // 3. Listeners in tab A were cleaned up, causing output loss
+  //
+  // The listeners will be automatically cleaned up when:
+  // - Session completes (in processComplete/processCodexComplete)
+  // - Component unmounts (in the cleanup effect below)
+  //
+  // Multi-tab conflict is prevented by:
+  // - Message deduplication (processedClaudeMessages/processedCodexMessages Set)
+  // - isMountedRef check in message handlers
+  // - Session-specific event channels (claude-output:{session_id})
   useEffect(() => {
-    if (!isActive && isListeningRef.current) {
-      // Tab became inactive, clean up event listeners to prevent conflicts
-      console.log('[ClaudeCodeSession] Tab became inactive, cleaning up event listeners');
-      unlistenRefs.current.forEach(unlisten => unlisten && typeof unlisten === 'function' && unlisten());
-      unlistenRefs.current = [];
-      isListeningRef.current = false;
-    } else if (isActive && claudeSessionId && !isListeningRef.current && hasActiveSessionRef.current) {
-      // 🔧 FIX: Tab became active with an ongoing session, reconnect listeners
-      // This handles the case where user switches back to a tab with a running session
-      console.log('[ClaudeCodeSession] Tab became active with ongoing session, reconnecting listeners:', claudeSessionId);
-
-      // Check if this is a Codex or Claude session
-      const isCodexSession = executionEngineConfig.engine === 'codex' || claudeSessionId.startsWith('codex-');
-
-      if (isCodexSession) {
-        // 🆕 For Codex sessions, set up Codex-specific listeners
-        // The session ID for Codex is different from thread_id, so we use the backend-generated ID
-        import('@tauri-apps/api/event').then(async ({ listen }) => {
-          const codexOutputUnlisten = await listen<string>(`codex-output:${claudeSessionId}`, (evt) => {
-            if (!isMountedRef.current) return;
-            const message = codexConverter.convertEvent(evt.payload);
-            if (message) {
-              setMessages(prev => [...prev, message]);
-              setRawJsonlOutput((prev) => [...prev, evt.payload]);
-            }
-          });
-
-          const codexCompleteUnlisten = await listen<boolean>(`codex-complete:${claudeSessionId}`, () => {
-            console.log('[ClaudeCodeSession] Codex session completed on reconnect');
-            setIsLoading(false);
-            hasActiveSessionRef.current = false;
-            isListeningRef.current = false;
-          });
-
-          unlistenRefs.current = [codexOutputUnlisten, codexCompleteUnlisten];
-          isListeningRef.current = true;
-        });
-      } else {
-        // For Claude sessions, use the reconnectToSession function
-        reconnectToSession(claudeSessionId);
-      }
+    // Only log tab state changes for debugging
+    if (!isActive) {
+      console.log('[ClaudeCodeSession] Tab became inactive, keeping listeners active for ongoing session');
+    } else {
+      console.log('[ClaudeCodeSession] Tab became active');
     }
-  }, [isActive, claudeSessionId, reconnectToSession, executionEngineConfig.engine, setMessages, setRawJsonlOutput, setIsLoading]);
+  }, [isActive]);
 
   // ✅ Keyboard shortcuts (ESC, Shift+Tab) extracted to useKeyboardShortcuts Hook
 
