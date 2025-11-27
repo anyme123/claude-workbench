@@ -98,6 +98,31 @@ const StreamMessageV2Component: React.FC<StreamMessageV2Props> = ({
     return null;
   }
 
+  // 对仅包含空 tool_result 的消息进行过滤，避免出现空白气泡
+  const contentItems = (message as any)?.message?.content;
+  if ((message as any)._toolResultOnly) {
+    const isToolResults =
+      Array.isArray(contentItems) &&
+      contentItems.every((c: any) => c?.type === 'tool_result');
+
+    if (isToolResults) {
+      const hasNonEmpty = contentItems.some((c: any) => {
+        const val = c?.content;
+        if (val == null) return false;
+        if (typeof val === 'string') return val.trim().length > 0;
+        try {
+          return JSON.stringify(val).trim().length > 2; // "{}" / "[]" 视作空
+        } catch {
+          return true;
+        }
+      });
+
+      if (!hasNonEmpty) {
+        return null;
+      }
+    }
+  }
+
   const messageType = (message as ClaudeStreamMessage & { type?: string }).type ?? (message as any).type;
 
   // Handle special cases
