@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 import { TabSessionWrapper } from './TabSessionWrapper';
 import { useTabs } from '@/hooks/useTabs';
 import { useSessionSync } from '@/hooks/useSessionSync'; // 🔧 NEW: 会话状态同步
+import { selectProjectPath } from '@/lib/sessionHelpers';
 import type { Session } from '@/lib/api';
 
 interface TabManagerProps {
@@ -139,6 +140,26 @@ export const TabManager: React.FC<TabManagerProps> = ({
       console.error('[TabManager] Failed to detach tab:', error);
     }
   }, [detachTab]);
+
+  // 🆕 NEW: 创建新会话并直接打开为独立窗口
+  const handleCreateNewTabAsWindow = useCallback(async () => {
+    try {
+      // 先让用户选择项目路径
+      const selectedPath = await selectProjectPath();
+      if (!selectedPath) {
+        console.log('[TabManager] User cancelled project selection');
+        return;
+      }
+
+      // 使用选择的路径创建独立窗口
+      const windowLabel = await createNewTabAsWindow(undefined, selectedPath);
+      if (windowLabel) {
+        console.log('[TabManager] Created new session window:', windowLabel);
+      }
+    } catch (error) {
+      console.error('[TabManager] Failed to create new session window:', error);
+    }
+  }, [createNewTabAsWindow]);
 
   // ✨ Phase 3: Simplified initialization (single responsibility, no race conditions)
   useEffect(() => {
@@ -336,7 +357,7 @@ export const TabManager: React.FC<TabManagerProps> = ({
                   <Plus className="h-4 w-4 mr-2" />
                   新建会话
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => createNewTabAsWindow()}>
+                <DropdownMenuItem onClick={handleCreateNewTabAsWindow}>
                   <ExternalLink className="h-4 w-4 mr-2" />
                   新建会话（独立窗口）
                 </DropdownMenuItem>
