@@ -30,7 +30,7 @@ interface PopoverProps {
   /**
    * Side of the trigger to display the popover
    */
-  side?: "top" | "bottom";
+  side?: "top" | "bottom" | "left" | "right";
 }
 
 /**
@@ -92,14 +92,41 @@ export const Popover: React.FC<PopoverProps> = ({
     return () => document.removeEventListener("keydown", handleEscape);
   }, [open, setOpen]);
   
-  const alignClass = {
-    start: "left-0",
-    center: "left-1/2 -translate-x-1/2",
-    end: "right-0",
-  }[align];
-  
-  const sideClass = side === "top" ? "bottom-full mb-2" : "top-full mt-2";
-  const animationY = side === "top" ? { initial: 10, exit: 10 } : { initial: -10, exit: -10 };
+  // 水平方向（left/right）时使用垂直对齐
+  const isHorizontal = side === "left" || side === "right";
+
+  const alignClass = isHorizontal
+    ? {
+        start: "top-0",
+        center: "top-1/2 -translate-y-1/2",
+        end: "bottom-0",
+      }[align]
+    : {
+        start: "left-0",
+        center: "left-1/2 -translate-x-1/2",
+        end: "right-0",
+      }[align];
+
+  const sideClass = {
+    top: "bottom-full mb-2",
+    bottom: "top-full mt-2",
+    left: "right-full mr-2",
+    right: "left-full ml-2",
+  }[side];
+
+  const getAnimation = () => {
+    switch (side) {
+      case "top":
+        return { initial: { y: 10 }, exit: { y: 10 } };
+      case "bottom":
+        return { initial: { y: -10 }, exit: { y: -10 } };
+      case "left":
+        return { initial: { x: 10 }, exit: { x: 10 } };
+      case "right":
+        return { initial: { x: -10 }, exit: { x: -10 } };
+    }
+  };
+  const animation = getAnimation();
   
   return (
     <div className="relative inline-block">
@@ -114,9 +141,9 @@ export const Popover: React.FC<PopoverProps> = ({
         {open && (
           <motion.div
             ref={contentRef}
-            initial={{ opacity: 0, scale: 0.95, y: animationY.initial }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: animationY.exit }}
+            initial={{ opacity: 0, scale: 0.95, ...animation?.initial }}
+            animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, ...animation?.exit }}
             transition={{ duration: 0.15 }}
             className={cn(
               "absolute z-50 min-w-[200px] rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg)] backdrop-blur-xl p-4 text-popover-foreground shadow-[var(--glass-shadow)]",
