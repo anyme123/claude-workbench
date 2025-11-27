@@ -237,7 +237,7 @@ export function PlanModeProvider({
     }
   }, [pendingApproval, onPlanModeChange]);
 
-  // 拒绝计划 - 保持 Plan 模式并自动发送提示词继续规划
+  // 拒绝计划 - 保持 Plan 模式，让用户自行输入修改意见
   const rejectPlan = useCallback(() => {
     if (!pendingApproval) return;
 
@@ -252,17 +252,10 @@ export function PlanModeProvider({
       return newSet;
     });
 
-    // 关闭对话框
+    // 关闭对话框，保持 Plan 模式不变
+    // 用户可以自行输入修改意见
     setPendingApproval(null);
     setShowApprovalDialog(false);
-
-    // 保持 Plan 模式不变，自动发送提示词让 Claude 继续规划
-    if (sendPromptCallbackRef.current) {
-      console.log("[PlanMode] Auto-sending continue planning prompt");
-      setTimeout(() => {
-        sendPromptCallbackRef.current?.("我对这个计划不太满意，请重新考虑并修改计划。");
-      }, 100);
-    }
   }, [pendingApproval]);
 
   // 关闭审批对话框
