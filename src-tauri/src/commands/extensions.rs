@@ -463,3 +463,148 @@ pub async fn open_plugins_directory(project_path: Option<String>) -> Result<Stri
 
     Ok(plugins_dir.to_string_lossy().to_string())
 }
+
+/// Create a new subagent file
+/// According to Claude Code docs, subagents are .md files in .claude/agents/
+#[tauri::command]
+pub async fn create_subagent(
+    name: String,
+    description: String,
+    content: String,
+    scope: String,
+    project_path: Option<String>,
+) -> Result<SubagentFile, String> {
+    info!("Creating subagent: {} (scope: {})", name, scope);
+
+    // Validate name (no special characters except hyphens and underscores)
+    if !name
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err("Agent name can only contain letters, numbers, hyphens, and underscores".into());
+    }
+
+    // Determine target directory based on scope
+    let agents_dir = if scope == "project" {
+        let proj_path = project_path.ok_or("Project path is required for project scope")?;
+        Path::new(&proj_path).join(".claude").join("agents")
+    } else {
+        get_claude_dir()
+            .map_err(|e| e.to_string())?
+            .join("agents")
+    };
+
+    // Create directory if it doesn't exist
+    fs::create_dir_all(&agents_dir)
+        .map_err(|e| format!("Failed to create agents directory: {}", e))?;
+
+    // Build the file path
+    let file_path = agents_dir.join(format!("{}.md", name));
+
+    // Check if file already exists
+    if file_path.exists() {
+        return Err(format!("Subagent '{}' already exists", name));
+    }
+
+    // Build file content with frontmatter
+    let full_content = format!(
+        r#"---
+description: {}
+---
+
+{}"#,
+        description, content
+    );
+
+    // Write file
+    fs::write(&file_path, &full_content)
+        .map_err(|e| format!("Failed to write subagent file: {}", e))?;
+
+    info!("Created subagent at: {:?}", file_path);
+
+    Ok(SubagentFile {
+        name,
+        path: file_path.to_string_lossy().to_string(),
+        scope,
+        description: Some(description),
+        content: full_content,
+    })
+}
+
+/// Create a new Agent Skill
+/// According to Claude Code docs, skills are SKILL.md files in .claude/skills/<skill-name>/
+#[tauri::command]
+pub async fn create_skill(
+    name: String,
+    description: String,
+    content: String,
+    scope: String,
+    project_path: Option<String>,
+) -> Result<AgentSkillFile, String> {
+    info!("Creating skill: {} (scope: {})", name, scope);
+
+    // Validate name (no special characters except hyphens and underscores)
+    if !name
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err("Skill name can only contain letters, numbers, hyphens, and underscores".into());
+    }
+
+    // Determine target directory based on scope
+    let skills_dir = if scope == "project" {
+        let proj_path = project_path.ok_or("Project path is required for project scope")?;
+        Path::new(&proj_path).join(".claude").join("skills")
+    } else {
+        get_claude_dir()
+            .map_err(|e| e.to_string())?
+            .join("skills")
+    };
+
+    // Create skill subdirectory: .claude/skills/<skill-name>/
+    let skill_dir = skills_dir.join(&name);
+    fs::create_dir_all(&skill_dir)
+        .map_err(|e| format!("Failed to create skill directory: {}", e))?;
+
+    // Build the file path: .claude/skills/<skill-name>/SKILL.md
+    let file_path = skill_dir.join("SKILL.md");
+
+    // Check if file already exists
+    if file_path.exists() {
+        return Err(format!("Skill '{}' already exists", name));
+    }
+
+    // Build file content with YAML frontmatter (per Claude Code docs)
+    let full_content = format!(
+        r#"---
+name: {}
+description: {}
+---
+
+# {}
+
+## Instructions
+
+{}
+
+## Examples
+
+<!-- Add examples of using this skill here -->
+"#,
+        name, description, name, content
+    );
+
+    // Write file
+    fs::write(&file_path, &full_content)
+        .map_err(|e| format!("Failed to write skill file: {}", e))?;
+
+    info!("Created skill at: {:?}", file_path);
+
+    Ok(AgentSkillFile {
+        name,
+        path: file_path.to_string_lossy().to_string(),
+        scope,
+        description: Some(description),
+        content: full_content,
+    })
+}

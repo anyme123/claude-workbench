@@ -2475,6 +2475,52 @@ export const api = {
   },
 
   /**
+   * Create a new subagent
+   * @param name - Agent name (alphanumeric, hyphens, underscores only)
+   * @param description - Short description of the agent
+   * @param content - Agent system prompt content
+   * @param scope - "project" or "user"
+   * @param projectPath - Required for project scope
+   */
+  async createSubagent(
+    name: string,
+    description: string,
+    content: string,
+    scope: 'project' | 'user',
+    projectPath?: string
+  ): Promise<{ name: string; path: string; scope: string; description: string; content: string }> {
+    try {
+      return await invoke("create_subagent", { name, description, content, scope, projectPath });
+    } catch (error) {
+      console.error("Failed to create subagent:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Create a new Agent Skill
+   * @param name - Skill name (alphanumeric, hyphens, underscores only)
+   * @param description - Short description of what this skill does
+   * @param content - Skill instructions content
+   * @param scope - "project" or "user"
+   * @param projectPath - Required for project scope
+   */
+  async createSkill(
+    name: string,
+    description: string,
+    content: string,
+    scope: 'project' | 'user',
+    projectPath?: string
+  ): Promise<{ name: string; path: string; scope: string; description: string; content: string }> {
+    try {
+      return await invoke("create_skill", { name, description, content, scope, projectPath });
+    } catch (error) {
+      console.error("Failed to create skill:", error);
+      throw error;
+    }
+  },
+
+  /**
    * Open a directory in system file explorer (cross-platform)
    */
   async openDirectoryInExplorer(directoryPath: string): Promise<void> {

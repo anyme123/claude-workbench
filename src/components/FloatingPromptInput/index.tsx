@@ -309,7 +309,8 @@ const FloatingPromptInputInner = (
 
   // Event handlers
   const handleSend = () => {
-    if (state.prompt.trim() && !disabled) {
+    // Allow sending if there's text content OR image attachments
+    if ((state.prompt.trim() || imageAttachments.length > 0) && !disabled) {
       let finalPrompt = state.prompt.trim();
       if (imageAttachments.length > 0) {
         // Codex CLI doesn't recognize @ prefix syntax, use direct paths instead

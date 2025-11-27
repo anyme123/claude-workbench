@@ -60,8 +60,8 @@ use commands::enhanced_hooks::{
     execute_pre_commit_review, test_hook_condition, trigger_hook_event,
 };
 use commands::extensions::{
-    list_agent_skills, list_plugins, list_subagents, open_agents_directory, open_plugins_directory,
-    open_skills_directory, read_skill, read_subagent,
+    create_skill, create_subagent, list_agent_skills, list_plugins, list_subagents,
+    open_agents_directory, open_plugins_directory, open_skills_directory, read_skill, read_subagent,
 };
 use commands::file_operations::{open_directory_in_explorer, open_file_with_default_app};
 use commands::git_stats::{get_git_diff_stats, get_session_code_changes};
@@ -282,6 +282,8 @@ fn main() {
             list_agent_skills,
             read_subagent,
             read_skill,
+            create_subagent,
+            create_skill,
             open_plugins_directory,
             open_agents_directory,
             open_skills_directory,

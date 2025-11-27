@@ -12,6 +12,24 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 
@@ -70,6 +88,17 @@ export const ClaudeExtensionsManager: React.FC<ClaudeExtensionsManagerProps> = (
   const [skills, setSkills] = useState<SkillFile[]>([]);
   const [activeTab, setActiveTab] = useState("plugins");
   const [loading, setLoading] = useState(false);
+
+  // Dialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogType, setDialogType] = useState<'agent' | 'skill'>('agent');
+  const [creating, setCreating] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    content: '',
+    scope: 'project' as 'project' | 'user',
+  });
 
   // 加载插件
   const loadPlugins = async () => {
@@ -138,6 +167,61 @@ export const ClaudeExtensionsManager: React.FC<ClaudeExtensionsManagerProps> = (
       await api.openDirectoryInExplorer(dirPath);
     } catch (error) {
       console.error('Failed to open skills directory:', error);
+    }
+  };
+
+  // Open create dialog
+  const openCreateDialog = (type: 'agent' | 'skill') => {
+    setDialogType(type);
+    setFormData({
+      name: '',
+      description: '',
+      content: type === 'agent'
+        ? '你是一个专业的 AI 助手。\n\n在执行任务时：\n- 仔细分析需求\n- 提供清晰的解决方案\n- 遵循最佳实践'
+        : '按照以下步骤执行任务：\n\n1. 分析输入\n2. 执行操作\n3. 返回结果',
+      scope: projectPath ? 'project' : 'user',
+    });
+    setDialogOpen(true);
+  };
+
+  // Handle create
+  const handleCreate = async () => {
+    if (!formData.name.trim()) {
+      alert('请输入名称');
+      return;
+    }
+    if (!formData.description.trim()) {
+      alert('请输入描述');
+      return;
+    }
+
+    setCreating(true);
+    try {
+      if (dialogType === 'agent') {
+        await api.createSubagent(
+          formData.name.trim(),
+          formData.description.trim(),
+          formData.content,
+          formData.scope,
+          projectPath
+        );
+        await loadAgents();
+      } else {
+        await api.createSkill(
+          formData.name.trim(),
+          formData.description.trim(),
+          formData.content,
+          formData.scope,
+          projectPath
+        );
+        await loadSkills();
+      }
+      setDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to create:', error);
+      alert(`创建失败: ${error}`);
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -274,7 +358,7 @@ export const ClaudeExtensionsManager: React.FC<ClaudeExtensionsManagerProps> = (
                 存储在 <code className="text-xs bg-muted px-1 py-0.5 rounded">.claude/agents/</code> 的专用代理
               </p>
             </div>
-            <Button size="sm">
+            <Button size="sm" onClick={() => openCreateDialog('agent')}>
               <Plus className="h-4 w-4 mr-2" />
               新建子代理
             </Button>
@@ -352,7 +436,7 @@ export const ClaudeExtensionsManager: React.FC<ClaudeExtensionsManagerProps> = (
                 存储在 <code className="text-xs bg-muted px-1 py-0.5 rounded">.claude/skills/</code> 的专用技能
               </p>
             </div>
-            <Button size="sm">
+            <Button size="sm" onClick={() => openCreateDialog('skill')}>
               <Plus className="h-4 w-4 mr-2" />
               新建 Skill
             </Button>
@@ -432,7 +516,7 @@ export const ClaudeExtensionsManager: React.FC<ClaudeExtensionsManagerProps> = (
             <li>• <a href="https://docs.claude.com/en/docs/claude-code/agent-skills" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Agent Skills 文档</a></li>
           </ul>
         </div>
-        
+
         <div>
           <p className="mb-2 font-medium">🎯 官方资源：</p>
           <ul className="space-y-1 ml-4">
@@ -446,6 +530,100 @@ export const ClaudeExtensionsManager: React.FC<ClaudeExtensionsManagerProps> = (
           </p>
         </div>
       </div>
+
+      {/* Create Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>
+              {dialogType === 'agent' ? '新建子代理' : '新建 Skill'}
+            </DialogTitle>
+            <DialogDescription>
+              {dialogType === 'agent'
+                ? '创建一个新的子代理。子代理是具有特定系统提示的专用 AI 助手。'
+                : '创建一个新的 Agent Skill。Skill 为 Claude 提供特定领域的知识和指导。'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name">名称</Label>
+              <Input
+                id="name"
+                placeholder={dialogType === 'agent' ? 'code-reviewer' : 'python-helper'}
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                只允许字母、数字、连字符和下划线
+              </p>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="description">描述</Label>
+              <Input
+                id="description"
+                placeholder={dialogType === 'agent'
+                  ? 'Expert code reviewer for quality and security'
+                  : 'Python development best practices and patterns'}
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="scope">作用域</Label>
+              <Select
+                value={formData.scope}
+                onValueChange={(value: 'project' | 'user') =>
+                  setFormData({ ...formData, scope: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {projectPath && (
+                    <SelectItem value="project">项目级 (.claude/)</SelectItem>
+                  )}
+                  <SelectItem value="user">用户级 (~/.claude/)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="content">
+                {dialogType === 'agent' ? '系统提示' : '指导内容'}
+              </Label>
+              <Textarea
+                id="content"
+                className="min-h-[150px] font-mono text-sm"
+                placeholder={dialogType === 'agent'
+                  ? '你是一个专业的代码审查专家...'
+                  : '按照以下步骤执行任务...'}
+                value={formData.content}
+                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              取消
+            </Button>
+            <Button onClick={handleCreate} disabled={creating}>
+              {creating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  创建中...
+                </>
+              ) : (
+                '创建'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
