@@ -108,6 +108,10 @@ export type { MCPWidgetProps } from './mcp/MCPWidget';
 export { SystemInitializedWidget } from './system/SystemInitializedWidget';
 export type { SystemInitializedWidgetProps } from './system/SystemInitializedWidget';
 
+// ==================== Plan 模式切换 ====================
+export { PlanModeWidget } from './system/PlanModeWidget';
+export type { PlanModeWidgetProps } from './system/PlanModeWidget';
+
 // ==================== 全部组件已迁移完成！====================
 // ✅ 原 ToolWidgets.tsx 的所有活跃组件已完成迁移
 // ✅ 3537 行巨型文件已成功拆分为 30+ 个模块化组件

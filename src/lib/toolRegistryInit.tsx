@@ -47,6 +47,9 @@ import {
   // 系统初始化
   SystemInitializedWidget,
 
+  // Plan 模式切换
+  PlanModeWidget,
+
   // 文件操作（已补充）
   WriteWidget,
 
@@ -555,6 +558,28 @@ export function initializeToolRegistry(): void {
         usage: props.input?.usage ?? (props.result as any)?.usage,
       })),
       description: 'AI 思考过程展示',
+    },
+
+    // ExitPlanMode - 退出 Plan 模式
+    {
+      name: 'exitplanmode',
+      pattern: /^exit[-_]?plan[-_]?mode$/i,
+      render: createToolAdapter(PlanModeWidget, (props) => ({
+        action: 'exit' as const,
+        result: props.result,
+      })),
+      description: '退出 Plan 模式',
+    },
+
+    // EnterPlanMode - 进入 Plan 模式
+    {
+      name: 'enterplanmode',
+      pattern: /^enter[-_]?plan[-_]?mode$/i,
+      render: createToolAdapter(PlanModeWidget, (props) => ({
+        action: 'enter' as const,
+        result: props.result,
+      })),
+      description: '进入 Plan 模式',
     },
   ];
 
