@@ -468,6 +468,7 @@ export function initializeToolRegistry(): void {
         description: props.input?.description ?? props.result?.content?.description,
         prompt: props.input?.prompt ?? props.result?.content?.prompt,
         result: props.result,
+        subagentType: props.input?.subagent_type ?? props.result?.content?.subagent_type,
       })),
       description: 'Claude Code 子代理工具',
     },

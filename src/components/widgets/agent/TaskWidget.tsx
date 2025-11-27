@@ -16,6 +16,8 @@ export interface TaskWidgetProps {
   prompt?: string;
   /** 工具结果 */
   result?: any;
+  /** 子代理类型 */
+  subagentType?: string;
 }
 
 /**
@@ -23,10 +25,32 @@ export interface TaskWidgetProps {
  *
  * 展示 Task 工具的任务描述和详细指令
  */
+/**
+ * 子代理类型显示名称映射
+ */
+const SUBAGENT_TYPE_LABELS: Record<string, string> = {
+  'general-purpose': '通用代理',
+  'Explore': '探索代理',
+  'Plan': '规划代理',
+  'statusline-setup': '状态栏配置代理',
+  'code-reviewer': '代码审查代理',
+  'analyst': '分析代理',
+  'executor': '执行代理',
+};
+
+/**
+ * 获取子代理类型的显示名称
+ */
+function getSubagentTypeLabel(type?: string): string {
+  if (!type) return '子代理';
+  return SUBAGENT_TYPE_LABELS[type] || type;
+}
+
 export const TaskWidget: React.FC<TaskWidgetProps> = ({
   description,
   prompt,
   result: _result,
+  subagentType,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -38,7 +62,13 @@ export const TaskWidget: React.FC<TaskWidgetProps> = ({
           <Bot className="h-4 w-4 text-purple-500" />
           <Sparkles className="h-2.5 w-2.5 text-purple-400 absolute -top-1 -right-1" />
         </div>
-        <span className="text-sm font-medium">生成子代理任务</span>
+        <span className="text-sm font-medium">
+          激活{subagentType && (
+            <span className="text-purple-600 dark:text-purple-400 mx-1 font-semibold">
+              [{getSubagentTypeLabel(subagentType)}]
+            </span>
+          )}任务
+        </span>
       </div>
 
       <div className="ml-6 space-y-3">

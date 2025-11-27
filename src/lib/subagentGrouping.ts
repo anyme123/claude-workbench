@@ -25,6 +25,8 @@ export interface SubagentGroup {
   startIndex: number;
   /** 组在原始消息列表中的结束索引 */
   endIndex: number;
+  /** 子代理类型 */
+  subagentType?: string;
 }
 
 /**
@@ -54,12 +56,34 @@ export function hasTaskToolCall(message: ClaudeStreamMessage): boolean {
  */
 export function extractTaskToolUseIds(message: ClaudeStreamMessage): string[] {
   if (!hasTaskToolCall(message)) return [];
-  
+
   const content = message.message?.content as any[];
   return content
     .filter((item: any) => item.type === 'tool_use' && item.name?.toLowerCase() === 'task')
     .map((item: any) => item.id)
     .filter(Boolean);
+}
+
+/**
+ * 从消息中提取 Task 工具的详细信息（包括 subagent_type）
+ */
+export function extractTaskToolDetails(message: ClaudeStreamMessage): Map<string, { subagentType?: string }> {
+  const details = new Map<string, { subagentType?: string }>();
+
+  if (!hasTaskToolCall(message)) return details;
+
+  const content = message.message?.content as any[];
+  content
+    .filter((item: any) => item.type === 'tool_use' && item.name?.toLowerCase() === 'task')
+    .forEach((item: any) => {
+      if (item.id) {
+        details.set(item.id, {
+          subagentType: item.input?.subagent_type,
+        });
+      }
+    });
+
+  return details;
 }
 
 /**
@@ -100,13 +124,21 @@ export function groupMessages(messages: ClaudeStreamMessage[]): MessageGroup[] {
   const taskToolUseMap = new Map<string, { message: ClaudeStreamMessage; index: number }>();
   // 记录每个消息索引对应的所有 Task ID（支持并行 Task）
   const indexToTaskIds = new Map<number, string[]>();
+  // 记录每个 Task ID 对应的子代理类型
+  const taskSubagentTypes = new Map<string, string | undefined>();
 
   messages.forEach((message, index) => {
     const taskIds = extractTaskToolUseIds(message);
     if (taskIds.length > 0) {
       indexToTaskIds.set(index, taskIds);
+      // 提取详细信息（包括 subagent_type）
+      const details = extractTaskToolDetails(message);
       taskIds.forEach(taskId => {
         taskToolUseMap.set(taskId, { message, index });
+        const detail = details.get(taskId);
+        if (detail?.subagentType) {
+          taskSubagentTypes.set(taskId, detail.subagentType);
+        }
       });
     }
   });
@@ -139,6 +171,7 @@ export function groupMessages(messages: ClaudeStreamMessage[]): MessageGroup[] {
         subagentMessages,
         startIndex: taskInfo.index,
         endIndex: maxIndex,
+        subagentType: taskSubagentTypes.get(taskId),
       });
     }
   });

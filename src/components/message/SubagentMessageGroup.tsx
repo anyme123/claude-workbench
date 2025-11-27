@@ -14,6 +14,27 @@ import { UserMessage } from "./UserMessage";
 import type { SubagentGroup } from "@/lib/subagentGrouping";
 import { getSubagentMessageRole } from "@/lib/subagentGrouping";
 
+/**
+ * 子代理类型显示名称映射
+ */
+const SUBAGENT_TYPE_LABELS: Record<string, string> = {
+  'general-purpose': '通用代理',
+  'Explore': '探索代理',
+  'Plan': '规划代理',
+  'statusline-setup': '状态栏配置代理',
+  'code-reviewer': '代码审查代理',
+  'analyst': '分析代理',
+  'executor': '执行代理',
+};
+
+/**
+ * 获取子代理类型的显示名称
+ */
+function getSubagentTypeLabel(type?: string): string {
+  if (!type) return '子代理';
+  return SUBAGENT_TYPE_LABELS[type] || type;
+}
+
 interface SubagentMessageGroupProps {
   /** 子代理消息组 */
   group: SubagentGroup;
@@ -78,7 +99,18 @@ export const SubagentMessageGroup: React.FC<SubagentMessageGroupProps> = ({
               <Bot className="h-4 w-4" />
               <Sparkles className="h-3 w-3" />
             </div>
-            <span>子代理执行过程</span>
+            <span>
+              {group.subagentType ? (
+                <>
+                  <span className="text-purple-600 dark:text-purple-400 font-semibold">
+                    [{getSubagentTypeLabel(group.subagentType)}]
+                  </span>
+                  {' '}执行过程
+                </>
+              ) : (
+                '子代理执行过程'
+              )}
+            </span>
             <span className="text-xs text-purple-600/70 dark:text-purple-400/70">
               ({messageCount} 条消息)
             </span>
