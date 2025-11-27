@@ -233,6 +233,7 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
   const {
     loadSessionHistory,
     checkForActiveSession,
+    reconnectToSession,  // 🔧 FIX: Export for tab activation reconnection
   } = useSessionLifecycle({
     session,
     isMountedRef,
@@ -418,7 +419,8 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
     onStreamingChange?.(isLoading, claudeSessionId);
   }, [isLoading, claudeSessionId, onStreamingChange]);
 
-  // 🔧 NEW: Handle active/inactive state changes for event listener management
+  // 🔧 FIX: Handle active/inactive state changes for event listener management
+  // This ensures that when a tab becomes active again, it reconnects to the session stream
   useEffect(() => {
     if (!isActive && isListeningRef.current) {
       // Tab became inactive, clean up event listeners to prevent conflicts
@@ -426,9 +428,43 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
       unlistenRefs.current.forEach(unlisten => unlisten && typeof unlisten === 'function' && unlisten());
       unlistenRefs.current = [];
       isListeningRef.current = false;
+    } else if (isActive && claudeSessionId && !isListeningRef.current && hasActiveSessionRef.current) {
+      // 🔧 FIX: Tab became active with an ongoing session, reconnect listeners
+      // This handles the case where user switches back to a tab with a running session
+      console.log('[ClaudeCodeSession] Tab became active with ongoing session, reconnecting listeners:', claudeSessionId);
+
+      // Check if this is a Codex or Claude session
+      const isCodexSession = executionEngineConfig.engine === 'codex' || claudeSessionId.startsWith('codex-');
+
+      if (isCodexSession) {
+        // 🆕 For Codex sessions, set up Codex-specific listeners
+        // The session ID for Codex is different from thread_id, so we use the backend-generated ID
+        import('@tauri-apps/api/event').then(async ({ listen }) => {
+          const codexOutputUnlisten = await listen<string>(`codex-output:${claudeSessionId}`, (evt) => {
+            if (!isMountedRef.current) return;
+            const message = codexConverter.convertEvent(evt.payload);
+            if (message) {
+              setMessages(prev => [...prev, message]);
+              setRawJsonlOutput((prev) => [...prev, evt.payload]);
+            }
+          });
+
+          const codexCompleteUnlisten = await listen<boolean>(`codex-complete:${claudeSessionId}`, () => {
+            console.log('[ClaudeCodeSession] Codex session completed on reconnect');
+            setIsLoading(false);
+            hasActiveSessionRef.current = false;
+            isListeningRef.current = false;
+          });
+
+          unlistenRefs.current = [codexOutputUnlisten, codexCompleteUnlisten];
+          isListeningRef.current = true;
+        });
+      } else {
+        // For Claude sessions, use the reconnectToSession function
+        reconnectToSession(claudeSessionId);
+      }
     }
-    // Note: When tab becomes active, listeners will be set up by handleSendPrompt
-  }, [isActive]);
+  }, [isActive, claudeSessionId, reconnectToSession, executionEngineConfig.engine, setMessages, setRawJsonlOutput, setIsLoading]);
 
   // ✅ Keyboard shortcuts (ESC, Shift+Tab) extracted to useKeyboardShortcuts Hook
 

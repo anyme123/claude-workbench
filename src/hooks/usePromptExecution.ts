@@ -251,21 +251,46 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
         isListeningRef.current = true;
 
         // ====================================================================
-        // 🆕 Codex Event Listeners
+        // 🆕 Codex Event Listeners (with session isolation support)
         // ====================================================================
         if (executionEngine === 'codex') {
           // Reset Codex converter state for new session
           codexConverter.reset();
 
-          // Listen for Codex JSONL output
-          const codexOutputUnlisten = await listen<string>('codex-output', (evt) => {
+          // 🔧 FIX: Track current Codex session ID for channel isolation
+          let currentCodexSessionId: string | null = null;
+          // 🔧 FIX: Track processed message IDs to prevent duplicates
+          const processedCodexMessages = new Set<string>();
+
+          // Helper function to generate message ID for deduplication
+          const getCodexMessageId = (payload: string): string => {
+            // Use payload hash as ID since Codex doesn't provide unique message IDs
+            let hash = 0;
+            for (let i = 0; i < payload.length; i++) {
+              const char = payload.charCodeAt(i);
+              hash = ((hash << 5) - hash) + char;
+              hash = hash & hash;
+            }
+            return `codex-${hash}`;
+          };
+
+          // Helper function to process Codex output
+          const processCodexOutput = (payload: string) => {
             if (!isMountedRef.current) return;
 
+            // 🔧 FIX: Deduplicate messages
+            const messageId = getCodexMessageId(payload);
+            if (processedCodexMessages.has(messageId)) {
+              console.log('[usePromptExecution] Skipping duplicate Codex message:', messageId);
+              return;
+            }
+            processedCodexMessages.add(messageId);
+
             // Convert Codex JSONL event to ClaudeStreamMessage
-            const message = codexConverter.convertEvent(evt.payload);
+            const message = codexConverter.convertEvent(payload);
             if (message) {
               setMessages(prev => [...prev, message]);
-              setRawJsonlOutput((prev) => [...prev, evt.payload]);
+              setRawJsonlOutput((prev) => [...prev, payload]);
 
               // Extract and save Codex session ID from thread.started
               if (message.type === 'system' && message.subtype === 'init' && (message as any).session_id) {
@@ -305,15 +330,10 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
                 }
               }
             }
-          });
+          };
 
-          // Listen for Codex errors
-          const codexErrorUnlisten = await listen<string>('codex-error', (evt) => {
-            setError(evt.payload);
-          });
-
-          // Listen for Codex completion
-          const codexCompleteUnlisten = await listen<boolean>('codex-complete', async (_evt) => {
+          // Helper function to process Codex completion
+          const processCodexComplete = async () => {
             setIsLoading(false);
             hasActiveSessionRef.current = false;
             isListeningRef.current = false;
@@ -344,9 +364,55 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
                 handleSendPrompt(nextPrompt.prompt, nextPrompt.model);
               }, 100);
             }
+          };
+
+          // Helper function to attach session-specific listeners
+          const attachCodexSessionListeners = async (sessionId: string) => {
+            console.log('[usePromptExecution] Attaching Codex session-specific listeners for:', sessionId);
+
+            const specificOutputUnlisten = await listen<string>(`codex-output:${sessionId}`, (evt) => {
+              processCodexOutput(evt.payload);
+            });
+
+            const specificCompleteUnlisten = await listen<boolean>(`codex-complete:${sessionId}`, async () => {
+              console.log('[usePromptExecution] Received codex-complete (session-specific):', sessionId);
+              await processCodexComplete();
+            });
+
+            // Replace existing listeners with session-specific ones
+            unlistenRefs.current.forEach((u) => u && typeof u === 'function' && u());
+            unlistenRefs.current = [specificOutputUnlisten, specificCompleteUnlisten];
+          };
+
+          // 🔧 FIX: Listen for session init event to get session ID for channel isolation
+          const codexSessionInitUnlisten = await listen<{ type: string; session_id: string }>('codex-session-init', async (evt) => {
+            console.log('[usePromptExecution] Received codex-session-init:', evt.payload);
+            if (evt.payload.session_id && !currentCodexSessionId) {
+              currentCodexSessionId = evt.payload.session_id;
+              // Switch to session-specific listeners
+              await attachCodexSessionListeners(currentCodexSessionId);
+            }
           });
 
-          unlistenRefs.current = [codexOutputUnlisten, codexErrorUnlisten, codexCompleteUnlisten];
+          // Listen for Codex JSONL output (global fallback)
+          const codexOutputUnlisten = await listen<string>('codex-output', (evt) => {
+            // Only process if we haven't switched to session-specific listener yet
+            // or if session_id not yet known (backward compatibility)
+            processCodexOutput(evt.payload);
+          });
+
+          // Listen for Codex errors
+          const codexErrorUnlisten = await listen<string>('codex-error', (evt) => {
+            setError(evt.payload);
+          });
+
+          // Listen for Codex completion (global fallback)
+          const codexCompleteUnlisten = await listen<boolean>('codex-complete', async () => {
+            console.log('[usePromptExecution] Received codex-complete (global)');
+            await processCodexComplete();
+          });
+
+          unlistenRefs.current = [codexSessionInitUnlisten, codexOutputUnlisten, codexErrorUnlisten, codexCompleteUnlisten];
         } else {
           // --------------------------------------------------------------------
           // Claude Code Event Listener Setup Strategy
@@ -362,6 +428,29 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
           // --------------------------------------------------------------------
 
         let currentSessionId: string | null = claudeSessionId || effectiveSession?.id || null;
+
+        // 🔧 FIX: Track processed message IDs to prevent duplicates from global and session-specific channels
+        const processedClaudeMessages = new Set<string>();
+
+        // Helper function to generate message ID for deduplication
+        const getClaudeMessageId = (payload: string): string => {
+          try {
+            const msg = JSON.parse(payload) as ClaudeStreamMessage;
+            // Use message ID if available, otherwise use payload hash
+            if (msg.id) return `claude-${msg.id}`;
+            if (msg.timestamp) return `claude-${msg.timestamp}-${msg.type}`;
+          } catch {
+            // Fall through to hash-based ID
+          }
+          // Fallback: use payload hash
+          let hash = 0;
+          for (let i = 0; i < payload.length; i++) {
+            const char = payload.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash;
+          }
+          return `claude-${hash}`;
+        };
 
         // ====================================================================
         // Helper: Attach Session-Specific Listeners
@@ -441,6 +530,15 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
           try {
             // Don't process if component unmounted
             if (!isMountedRef.current) return;
+
+            // 🔧 FIX: Deduplicate messages to prevent duplicate processing
+            // This can happen when both global and session-specific listeners receive the same message
+            const messageId = getClaudeMessageId(payload);
+            if (processedClaudeMessages.has(messageId)) {
+              console.log('[usePromptExecution] Skipping duplicate Claude message:', messageId);
+              return;
+            }
+            processedClaudeMessages.add(messageId);
 
             // Store raw JSONL
             setRawJsonlOutput((prev) => [...prev, payload]);

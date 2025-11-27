@@ -1537,16 +1537,34 @@ async fn execute_codex_process(
     let app_handle_stdout = app_handle.clone();
     let _app_handle_stderr = app_handle.clone(); // Reserved for future stderr event emission
     let app_handle_complete = app_handle.clone();
+    let session_id_stdout = session_id.clone();  // 🔧 Clone for stdout task
     let session_id_complete = session_id.clone();
 
+    // 🔧 FIX: Emit session init event immediately so frontend can subscribe to the correct channel
+    // This event is sent on the global channel, frontend will use this to switch to session-specific listeners
+    let init_payload = serde_json::json!({
+        "type": "session_init",
+        "session_id": session_id
+    });
+    if let Err(e) = app_handle.emit("codex-session-init", init_payload) {
+        log::error!("Failed to emit codex-session-init: {}", e);
+    }
+    log::info!("Codex session initialized with ID: {}", session_id);
+
     // Spawn task to read stdout (JSONL events)
+    // 🔧 FIX: Emit to both session-specific and global channels for proper multi-tab isolation
     tokio::spawn(async move {
         let mut reader = BufReader::new(stdout).lines();
         while let Ok(Some(line)) = reader.next_line().await {
             if !line.trim().is_empty() {
                 log::debug!("Codex output: {}", line);
-                if let Err(e) = app_handle_stdout.emit("codex-output", line) {
-                    log::error!("Failed to emit codex-output: {}", e);
+                // 🔧 Emit to session-specific channel first (for multi-tab isolation)
+                if let Err(e) = app_handle_stdout.emit(&format!("codex-output:{}", session_id_stdout), &line) {
+                    log::error!("Failed to emit codex-output (session-specific): {}", e);
+                }
+                // Also emit to global channel for backward compatibility
+                if let Err(e) = app_handle_stdout.emit("codex-output", &line) {
+                    log::error!("Failed to emit codex-output (global): {}", e);
                 }
             }
         }
@@ -1583,8 +1601,13 @@ async fn execute_codex_process(
         }
 
         // Emit completion event
+        // 🔧 FIX: Emit to both session-specific and global channels for proper multi-tab isolation
+        if let Err(e) = app_handle_complete.emit(&format!("codex-complete:{}", session_id_complete), true) {
+            log::error!("Failed to emit codex-complete (session-specific): {}", e);
+        }
+        // Also emit to global channel for backward compatibility
         if let Err(e) = app_handle_complete.emit("codex-complete", true) {
-            log::error!("Failed to emit codex-complete: {}", e);
+            log::error!("Failed to emit codex-complete (global): {}", e);
         }
     });
 
