@@ -1,31 +1,32 @@
-/**
+/*!
  * OpenAI Codex Integration - Backend Commands
  *
  * This module provides Tauri commands for executing Codex tasks,
  * managing sessions, and handling configuration.
  */
-
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::process::Stdio;
-use std::sync::Arc;
-use std::path::PathBuf;
-use std::fs;
+use chrono::Utc;
 use dirs;
 use rusqlite;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
+use std::process::Stdio;
+use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
-use chrono::Utc;
 
 // Import platform-specific utilities for window hiding
-use crate::commands::claude::apply_no_window_async;
 use crate::claude_binary::detect_binary_for_tool;
+use crate::commands::claude::apply_no_window_async;
 // Import simple_git for rewind operations
 use super::simple_git;
 // Import rewind helpers/types shared with Claude
-use super::prompt_tracker::{RewindMode, RewindCapabilities, PromptRecord as ClaudePromptRecord, load_execution_config};
+use super::prompt_tracker::{
+    load_execution_config, PromptRecord as ClaudePromptRecord, RewindCapabilities, RewindMode,
+};
 // Import WSL utilities for Windows + WSL Codex support
 use super::wsl_utils;
 
@@ -350,10 +351,7 @@ pub async fn resume_last_codex(
 
 /// Cancels a running Codex execution
 #[tauri::command]
-pub async fn cancel_codex(
-    session_id: Option<String>,
-    app_handle: AppHandle,
-) -> Result<(), String> {
+pub async fn cancel_codex(session_id: Option<String>, app_handle: AppHandle) -> Result<(), String> {
     log::info!("cancel_codex called for session: {:?}", session_id);
 
     let state: tauri::State<'_, CodexProcessState> = app_handle.state();
@@ -362,7 +360,10 @@ pub async fn cancel_codex(
     if let Some(sid) = session_id {
         // Cancel specific session
         if let Some(mut child) = processes.remove(&sid) {
-            child.kill().await.map_err(|e| format!("Failed to kill process: {}", e))?;
+            child
+                .kill()
+                .await
+                .map_err(|e| format!("Failed to kill process: {}", e))?;
             log::info!("Killed Codex process for session: {}", sid);
         } else {
             log::warn!("No running process found for session: {}", sid);
@@ -396,7 +397,10 @@ pub async fn list_codex_sessions() -> Result<Vec<CodexSession>, String> {
     log::info!("Looking for Codex sessions in: {:?}", sessions_dir);
 
     if !sessions_dir.exists() {
-        log::warn!("Codex sessions directory does not exist: {:?}", sessions_dir);
+        log::warn!(
+            "Codex sessions directory does not exist: {:?}",
+            sessions_dir
+        );
         return Ok(Vec::new());
     }
 
@@ -414,11 +418,16 @@ pub async fn list_codex_sessions() -> Result<Vec<CodexSession>, String> {
                                 if let Ok(file_entries) = std::fs::read_dir(day_entry.path()) {
                                     for file_entry in file_entries.flatten() {
                                         let path = file_entry.path();
-                                        if path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
+                                        if path.extension().and_then(|s| s.to_str())
+                                            == Some("jsonl")
+                                        {
                                             match parse_codex_session_file(&path) {
                                                 Some(session) => {
-                                                    log::info!("✅ Found session: {} ({})",
-                                                        session.id, session.project_path);
+                                                    log::info!(
+                                                        "✅ Found session: {} ({})",
+                                                        session.id,
+                                                        session.project_path
+                                                    );
                                                     sessions.push(session);
                                                 }
                                                 None => {
@@ -487,39 +496,39 @@ fn parse_codex_session_file(path: &std::path::Path) -> Option<CodexSession> {
     let mut model: Option<String> = None;
 
     // Parse remaining lines to find first user message
-    for line_result in lines {
-        if let Ok(line) = line_result {
-            if let Ok(event) = serde_json::from_str::<serde_json::Value>(&line) {
-                // Update last timestamp
-                if let Some(ts) = event["timestamp"].as_str() {
-                    last_timestamp = Some(ts.to_string());
-                }
+    for line in lines.map_while(Result::ok) {
+        if let Ok(event) = serde_json::from_str::<serde_json::Value>(&line) {
+            // Update last timestamp
+            if let Some(ts) = event["timestamp"].as_str() {
+                last_timestamp = Some(ts.to_string());
+            }
 
-                // Extract model from session_meta or other events
-                if event["type"].as_str() == Some("session_meta") {
-                    if let Some(m) = event["payload"]["model"].as_str() {
-                        model = Some(m.to_string());
-                    }
+            // Extract model from session_meta or other events
+            if event["type"].as_str() == Some("session_meta") {
+                if let Some(m) = event["payload"]["model"].as_str() {
+                    model = Some(m.to_string());
                 }
+            }
 
-                // Find first user message
-                if first_message.is_none() && event["type"].as_str() == Some("response_item") {
-                    if let Some(payload_obj) = event["payload"].as_object() {
-                        if payload_obj.get("role").and_then(|r| r.as_str()) == Some("user") {
-                            if let Some(content) = payload_obj.get("content").and_then(|c| c.as_array()) {
-                                // Extract text from content array
-                                for item in content {
-                                    // Check if this is a text content block (input_text type)
-                                    if item["type"].as_str() == Some("input_text") {
-                                        if let Some(text) = item["text"].as_str() {
-                                            // Skip system messages (environment_context and AGENTS.md)
-                                            if !text.contains("<environment_context>")
-                                                && !text.contains("# AGENTS.md instructions")
-                                                && !text.is_empty()
-                                                && text.trim().len() > 0 {
-                                                first_message = Some(text.to_string());
-                                                break;
-                                            }
+            // Find first user message
+            if first_message.is_none() && event["type"].as_str() == Some("response_item") {
+                if let Some(payload_obj) = event["payload"].as_object() {
+                    if payload_obj.get("role").and_then(|r| r.as_str()) == Some("user") {
+                        if let Some(content) = payload_obj.get("content").and_then(|c| c.as_array())
+                        {
+                            // Extract text from content array
+                            for item in content {
+                                // Check if this is a text content block (input_text type)
+                                if item["type"].as_str() == Some("input_text") {
+                                    if let Some(text) = item["text"].as_str() {
+                                        // Skip system messages (environment_context and AGENTS.md)
+                                        if !text.contains("<environment_context>")
+                                            && !text.contains("# AGENTS.md instructions")
+                                            && !text.is_empty()
+                                            && !text.trim().is_empty()
+                                        {
+                                            first_message = Some(text.to_string());
+                                            break;
                                         }
                                     }
                                 }
@@ -527,11 +536,11 @@ fn parse_codex_session_file(path: &std::path::Path) -> Option<CodexSession> {
                         }
                     }
                 }
+            }
 
-                // Early exit if we have all info
-                if first_message.is_some() && model.is_some() {
-                    break;
-                }
+            // Early exit if we have all info
+            if first_message.is_some() && model.is_some() {
+                break;
             }
         }
     }
@@ -558,7 +567,9 @@ fn parse_codex_session_file(path: &std::path::Path) -> Option<CodexSession> {
 /// Loads Codex session history from JSONL file
 /// On Windows with WSL mode, reads from WSL filesystem via UNC path
 #[tauri::command]
-pub async fn load_codex_session_history(session_id: String) -> Result<Vec<serde_json::Value>, String> {
+pub async fn load_codex_session_history(
+    session_id: String,
+) -> Result<Vec<serde_json::Value>, String> {
     log::info!("load_codex_session_history called for: {}", session_id);
 
     // Use unified sessions directory function (supports WSL)
@@ -591,26 +602,44 @@ pub async fn load_codex_session_history(session_id: String) -> Result<Vec<serde_
                     }
                     Err(e) => {
                         parse_errors += 1;
-                        log::warn!("Failed to parse line {} in session {}: {}", line_count, session_id, e);
+                        log::warn!(
+                            "Failed to parse line {} in session {}: {}",
+                            line_count,
+                            session_id,
+                            e
+                        );
                         log::debug!("Problematic line content: {}", line);
                     }
                 }
             }
             Err(e) => {
-                log::error!("Failed to read line {} in session {}: {}", line_count, session_id, e);
+                log::error!(
+                    "Failed to read line {} in session {}: {}",
+                    line_count,
+                    session_id,
+                    e
+                );
             }
         }
     }
 
-    log::info!("Loaded {} events from Codex session {} (total lines: {}, parse errors: {})",
-        events.len(), session_id, line_count, parse_errors);
+    log::info!(
+        "Loaded {} events from Codex session {} (total lines: {}, parse errors: {})",
+        events.len(),
+        session_id,
+        line_count,
+        parse_errors
+    );
     Ok(events)
 }
 
 /// Finds the JSONL file for a given session ID
-fn find_session_file(sessions_dir: &std::path::Path, session_id: &str) -> Option<std::path::PathBuf> {
-    use walkdir::WalkDir;
+fn find_session_file(
+    sessions_dir: &std::path::Path,
+    session_id: &str,
+) -> Option<std::path::PathBuf> {
     use std::io::{BufRead, BufReader};
+    use walkdir::WalkDir;
 
     for entry in WalkDir::new(sessions_dir).into_iter().flatten() {
         if entry.path().extension().and_then(|s| s.to_str()) == Some("jsonl") {
@@ -623,7 +652,11 @@ fn find_session_file(sessions_dir: &std::path::Path, session_id: &str) -> Option
                         if meta["type"].as_str() == Some("session_meta") {
                             if let Some(id) = meta["payload"]["id"].as_str() {
                                 if id == session_id {
-                                    log::info!("Found session file: {:?} for session_id: {}", entry.path(), session_id);
+                                    log::info!(
+                                        "Found session file: {:?} for session_id: {}",
+                                        entry.path(),
+                                        session_id
+                                    );
                                     return Some(entry.path().to_path_buf());
                                 }
                             }
@@ -655,7 +688,10 @@ pub async fn delete_codex_session(session_id: String) -> Result<String, String> 
     std::fs::remove_file(&session_file)
         .map_err(|e| format!("Failed to delete session file: {}", e))?;
 
-    log::info!("Successfully deleted Codex session file: {:?}", session_file);
+    log::info!(
+        "Successfully deleted Codex session file: {:?}",
+        session_file
+    );
     Ok(format!("Session {} deleted", session_id))
 }
 
@@ -710,7 +746,9 @@ pub async fn check_codex_availability() -> Result<CodexAvailability, String> {
                 } else if !stderr_str.is_empty() {
                     stderr_str.clone()
                 } else {
-                    inst.version.clone().unwrap_or_else(|| "Unknown version".to_string())
+                    inst.version
+                        .clone()
+                        .unwrap_or_else(|| "Unknown version".to_string())
                 };
 
                 if output.status.success() {
@@ -1061,7 +1099,10 @@ fn get_codex_command_candidates() -> Vec<String> {
             candidates.push(format!(r"{}\.fnm\aliases\default\codex.cmd", userprofile));
             // Scoop 安装路径
             candidates.push(format!(r"{}\scoop\shims\codex.cmd", userprofile));
-            candidates.push(format!(r"{}\scoop\apps\nodejs\current\codex.cmd", userprofile));
+            candidates.push(format!(
+                r"{}\scoop\apps\nodejs\current\codex.cmd",
+                userprofile
+            ));
             // 本地 bin 目录
             candidates.push(format!(r"{}\.local\bin\codex.cmd", userprofile));
             candidates.push(format!(r"{}\.local\bin\codex", userprofile));
@@ -1102,8 +1143,14 @@ fn get_codex_command_candidates() -> Vec<String> {
 
             // fnm (Fast Node Manager) paths
             candidates.push(format!("{}/.fnm/aliases/default/bin/codex", home));
-            candidates.push(format!("{}/.local/share/fnm/aliases/default/bin/codex", home));
-            candidates.push(format!("{}/Library/Application Support/fnm/aliases/default/bin/codex", home));
+            candidates.push(format!(
+                "{}/.local/share/fnm/aliases/default/bin/codex",
+                home
+            ));
+            candidates.push(format!(
+                "{}/Library/Application Support/fnm/aliases/default/bin/codex",
+                home
+            ));
 
             // nvm current symlink
             candidates.push(format!("{}/.nvm/current/bin/codex", home));
@@ -1139,7 +1186,8 @@ fn get_codex_command_candidates() -> Vec<String> {
                 if let Ok(entries) = std::fs::read_dir(fnm_base) {
                     for entry in entries.flatten() {
                         if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
-                            let codex_path = entry.path().join("installation").join("bin").join("codex");
+                            let codex_path =
+                                entry.path().join("installation").join("bin").join("codex");
                             if codex_path.exists() {
                                 candidates.push(codex_path.to_string_lossy().to_string());
                             }
@@ -1151,7 +1199,7 @@ fn get_codex_command_candidates() -> Vec<String> {
 
         // Homebrew paths (Apple Silicon and Intel)
         candidates.push("/opt/homebrew/bin/codex".to_string()); // Apple Silicon (M1/M2/M3)
-        candidates.push("/usr/local/bin/codex".to_string());    // Intel Mac / Homebrew legacy
+        candidates.push("/usr/local/bin/codex".to_string()); // Intel Mac / Homebrew legacy
 
         // NPM global lib paths
         candidates.push("/opt/homebrew/lib/node_modules/@openai/codex/bin/codex".to_string());
@@ -1244,13 +1292,22 @@ pub async fn set_codex_mode_config(
     mode: String,
     wsl_distro: Option<String>,
 ) -> Result<String, String> {
-    log::info!("[Codex] Setting mode configuration: mode={}, wsl_distro={:?}", mode, wsl_distro);
+    log::info!(
+        "[Codex] Setting mode configuration: mode={}, wsl_distro={:?}",
+        mode,
+        wsl_distro
+    );
 
     let codex_mode = match mode.to_lowercase().as_str() {
         "auto" => wsl_utils::CodexMode::Auto,
         "native" => wsl_utils::CodexMode::Native,
         "wsl" => wsl_utils::CodexMode::Wsl,
-        _ => return Err(format!("Invalid mode: {}. Use 'auto', 'native', or 'wsl'", mode)),
+        _ => {
+            return Err(format!(
+                "Invalid mode: {}. Use 'auto', 'native', or 'wsl'",
+                mode
+            ))
+        }
     };
 
     let config = wsl_utils::CodexConfig {
@@ -1479,7 +1536,7 @@ async fn execute_codex_process(
     app_handle: AppHandle,
 ) -> Result<(), String> {
     // Setup stdio
-    cmd.stdin(Stdio::piped());   // 🔧 Enable stdin to pass prompt
+    cmd.stdin(Stdio::piped()); // 🔧 Enable stdin to pass prompt
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
 
@@ -1515,10 +1572,8 @@ async fn execute_codex_process(
     }
 
     // Extract stdout and stderr
-    let stdout = child.stdout.take()
-        .ok_or("Failed to capture stdout")?;
-    let stderr = child.stderr.take()
-        .ok_or("Failed to capture stderr")?;
+    let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
+    let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
 
     // Generate session ID for tracking
     let session_id = format!("codex-{}", uuid::Uuid::new_v4());
@@ -1597,8 +1652,7 @@ async fn execute_codex_process(
 
 /// Get the Codex git records directory
 fn get_codex_git_records_dir() -> Result<PathBuf, String> {
-    let home_dir = dirs::home_dir()
-        .ok_or_else(|| "Failed to get home directory".to_string())?;
+    let home_dir = dirs::home_dir().ok_or_else(|| "Failed to get home directory".to_string())?;
 
     let records_dir = home_dir.join(".codex").join("git-records");
 
@@ -1627,8 +1681,7 @@ fn get_codex_sessions_dir() -> Result<PathBuf, String> {
     }
 
     // Native mode: use local home directory
-    let home_dir = dirs::home_dir()
-        .ok_or_else(|| "Failed to get home directory".to_string())?;
+    let home_dir = dirs::home_dir().ok_or_else(|| "Failed to get home directory".to_string())?;
 
     Ok(home_dir.join(".codex").join("sessions"))
 }
@@ -1649,8 +1702,7 @@ fn load_codex_git_records(session_id: &str) -> Result<CodexGitRecords, String> {
     let content = fs::read_to_string(&records_file)
         .map_err(|e| format!("Failed to read git records: {}", e))?;
 
-    serde_json::from_str(&content)
-        .map_err(|e| format!("Failed to parse git records: {}", e))
+    serde_json::from_str(&content).map_err(|e| format!("Failed to parse git records: {}", e))
 }
 
 /// Save Git records for a Codex session
@@ -1661,8 +1713,7 @@ fn save_codex_git_records(session_id: &str, records: &CodexGitRecords) -> Result
     let content = serde_json::to_string_pretty(records)
         .map_err(|e| format!("Failed to serialize git records: {}", e))?;
 
-    fs::write(&records_file, content)
-        .map_err(|e| format!("Failed to write git records: {}", e))?;
+    fs::write(&records_file, content).map_err(|e| format!("Failed to write git records: {}", e))?;
 
     log::debug!("Saved Codex git records for session: {}", session_id);
     Ok(())
@@ -1673,10 +1724,15 @@ fn truncate_codex_git_records(session_id: &str, prompt_index: usize) -> Result<(
     let mut git_records = load_codex_git_records(session_id)?;
 
     // Keep only records up to and including prompt_index
-    git_records.records.retain(|r| r.prompt_index <= prompt_index);
+    git_records
+        .records
+        .retain(|r| r.prompt_index <= prompt_index);
 
     save_codex_git_records(session_id, &git_records)?;
-    log::info!("[Codex Rewind] Truncated git records after prompt #{}", prompt_index);
+    log::info!(
+        "[Codex Rewind] Truncated git records after prompt #{}",
+        prompt_index
+    );
 
     Ok(())
 }
@@ -1784,8 +1840,8 @@ pub async fn check_codex_rewind_capabilities(
     );
 
     // Respect global execution config for git operations
-    let execution_config = load_execution_config()
-        .map_err(|e| format!("Failed to load execution config: {}", e))?;
+    let execution_config =
+        load_execution_config().map_err(|e| format!("Failed to load execution config: {}", e))?;
     let git_operations_disabled = execution_config.disable_rewind_git_operations;
 
     // Extract prompts to validate index and source
@@ -1799,7 +1855,9 @@ pub async fn check_codex_rewind_capabilities(
             conversation: true,
             code: false,
             both: false,
-            warning: Some("Git 操作已在配置中禁用。只能撤回对话历史，无法回滚代码变更。".to_string()),
+            warning: Some(
+                "Git 操作已在配置中禁用。只能撤回对话历史，无法回滚代码变更。".to_string(),
+            ),
             source: prompt.source.clone(),
         });
     }
@@ -1845,8 +1903,8 @@ fn get_codex_prompt_text(session_id: &str, prompt_index: usize) -> Result<String
         .ok_or_else(|| format!("Session file not found for: {}", session_id))?;
 
     use std::io::{BufRead, BufReader};
-    let file = fs::File::open(&session_file)
-        .map_err(|e| format!("Failed to open session file: {}", e))?;
+    let file =
+        fs::File::open(&session_file).map_err(|e| format!("Failed to open session file: {}", e))?;
 
     let reader = BufReader::new(file);
     let mut user_message_count = 0;
@@ -1858,27 +1916,28 @@ fn get_codex_prompt_text(session_id: &str, prompt_index: usize) -> Result<String
         }
 
         if let Ok(event) = serde_json::from_str::<serde_json::Value>(&line) {
-            if event["type"].as_str() == Some("response_item") {
-                if event["payload"]["role"].as_str() == Some("user") {
-                    if user_message_count == prompt_index {
-                        // Extract text from content array
-                        if let Some(content) = event["payload"]["content"].as_array() {
-                            for item in content {
-                                if item["type"].as_str() == Some("input_text") {
-                                    if let Some(text) = item["text"].as_str() {
-                                        // Skip system messages
-                                        if !text.contains("<environment_context>")
-                                            && !text.contains("# AGENTS.md instructions")
-                                            && !text.is_empty() {
-                                            return Ok(text.to_string());
-                                        }
+            if event["type"].as_str() == Some("response_item")
+                && event["payload"]["role"].as_str() == Some("user")
+            {
+                if user_message_count == prompt_index {
+                    // Extract text from content array
+                    if let Some(content) = event["payload"]["content"].as_array() {
+                        for item in content {
+                            if item["type"].as_str() == Some("input_text") {
+                                if let Some(text) = item["text"].as_str() {
+                                    // Skip system messages
+                                    if !text.contains("<environment_context>")
+                                        && !text.contains("# AGENTS.md instructions")
+                                        && !text.is_empty()
+                                    {
+                                        return Ok(text.to_string());
                                     }
                                 }
                             }
                         }
                     }
-                    user_message_count += 1;
                 }
+                user_message_count += 1;
             }
         }
     }
@@ -1909,38 +1968,38 @@ fn truncate_codex_session_to_prompt(session_id: &str, prompt_index: usize) -> Re
         }
 
         if let Ok(event) = serde_json::from_str::<serde_json::Value>(line) {
-            if event["type"].as_str() == Some("response_item") {
-                if event["payload"]["role"].as_str() == Some("user") {
-                    // Extract user text and skip system injections
-                    let mut prompt_text: Option<String> = None;
-                    if let Some(content) = event["payload"]["content"].as_array() {
-                        for item in content {
-                            if item["type"].as_str() == Some("input_text") {
-                                if let Some(text) = item["text"].as_str() {
-                                    if !text.contains("<environment_context>")
-                                        && !text.contains("# AGENTS.md instructions")
-                                        && !text.trim().is_empty()
-                                    {
-                                        prompt_text = Some(text.to_string());
-                                        break;
-                                    }
+            if event["type"].as_str() == Some("response_item")
+                && event["payload"]["role"].as_str() == Some("user")
+            {
+                // Extract user text and skip system injections
+                let mut prompt_text: Option<String> = None;
+                if let Some(content) = event["payload"]["content"].as_array() {
+                    for item in content {
+                        if item["type"].as_str() == Some("input_text") {
+                            if let Some(text) = item["text"].as_str() {
+                                if !text.contains("<environment_context>")
+                                    && !text.contains("# AGENTS.md instructions")
+                                    && !text.trim().is_empty()
+                                {
+                                    prompt_text = Some(text.to_string());
+                                    break;
                                 }
                             }
                         }
                     }
-
-                    // Skip non-user prompts (e.g., AGENTS/system context)
-                    if prompt_text.is_none() {
-                        continue;
-                    }
-
-                    if user_message_count == prompt_index {
-                        truncate_at_line = idx;
-                        found_target = true;
-                        break;
-                    }
-                    user_message_count += 1;
                 }
+
+                // Skip non-user prompts (e.g., AGENTS/system context)
+                if prompt_text.is_none() {
+                    continue;
+                }
+
+                if user_message_count == prompt_index {
+                    truncate_at_line = idx;
+                    found_target = true;
+                    break;
+                }
+                user_message_count += 1;
             }
         }
     }
@@ -1949,8 +2008,12 @@ fn truncate_codex_session_to_prompt(session_id: &str, prompt_index: usize) -> Re
         return Err(format!("Prompt #{} not found in session", prompt_index));
     }
 
-    log::info!("[Codex Rewind] Total lines: {}, truncating at line {} (prompt #{})",
-        total_lines, truncate_at_line, prompt_index);
+    log::info!(
+        "[Codex Rewind] Total lines: {}, truncating at line {} (prompt #{})",
+        total_lines,
+        truncate_at_line,
+        prompt_index
+    );
 
     // Truncate to the line before this prompt
     let truncated_lines: Vec<&str> = lines.into_iter().take(truncate_at_line).collect();
@@ -1964,8 +2027,11 @@ fn truncate_codex_session_to_prompt(session_id: &str, prompt_index: usize) -> Re
     fs::write(&session_file, new_content)
         .map_err(|e| format!("Failed to write truncated session: {}", e))?;
 
-    log::info!("[Codex Rewind] Truncated session: kept {} lines, deleted {} lines",
-        truncate_at_line, total_lines - truncate_at_line);
+    log::info!(
+        "[Codex Rewind] Truncated session: kept {} lines, deleted {} lines",
+        truncate_at_line,
+        total_lines - truncate_at_line
+    );
 
     Ok(())
 }
@@ -1977,7 +2043,10 @@ pub async fn record_codex_prompt_sent(
     project_path: String,
     _prompt_text: String,
 ) -> Result<usize, String> {
-    log::info!("[Codex Record] Recording prompt sent for session: {}", session_id);
+    log::info!(
+        "[Codex Record] Recording prompt sent for session: {}",
+        session_id
+    );
 
     // Ensure Git repository is initialized
     simple_git::ensure_git_repo(&project_path)
@@ -2009,8 +2078,11 @@ pub async fn record_codex_prompt_sent(
     git_records.records.push(record);
     save_codex_git_records(&session_id, &git_records)?;
 
-    log::info!("[Codex Record] Recorded prompt #{} with commit_before: {}",
-        prompt_index, &commit_before[..8.min(commit_before.len())]);
+    log::info!(
+        "[Codex Record] Recorded prompt #{} with commit_before: {}",
+        prompt_index,
+        &commit_before[..8.min(commit_before.len())]
+    );
 
     Ok(prompt_index)
 }
@@ -2022,17 +2094,26 @@ pub async fn record_codex_prompt_completed(
     project_path: String,
     prompt_index: usize,
 ) -> Result<(), String> {
-    log::info!("[Codex Record] Recording prompt #{} completed for session: {}",
-        prompt_index, session_id);
+    log::info!(
+        "[Codex Record] Recording prompt #{} completed for session: {}",
+        prompt_index,
+        session_id
+    );
 
     // Auto-commit any changes made by AI
     let commit_message = format!("[Codex] After prompt #{}", prompt_index);
     match simple_git::git_commit_changes(&project_path, &commit_message) {
         Ok(true) => {
-            log::info!("[Codex Record] Auto-committed changes after prompt #{}", prompt_index);
+            log::info!(
+                "[Codex Record] Auto-committed changes after prompt #{}",
+                prompt_index
+            );
         }
         Ok(false) => {
-            log::debug!("[Codex Record] No changes to commit after prompt #{}", prompt_index);
+            log::debug!(
+                "[Codex Record] No changes to commit after prompt #{}",
+                prompt_index
+            );
         }
         Err(e) => {
             log::warn!("[Codex Record] Failed to auto-commit: {}", e);
@@ -2047,14 +2128,24 @@ pub async fn record_codex_prompt_completed(
     // Update the record
     let mut git_records = load_codex_git_records(&session_id)?;
 
-    if let Some(record) = git_records.records.iter_mut().find(|r| r.prompt_index == prompt_index) {
+    if let Some(record) = git_records
+        .records
+        .iter_mut()
+        .find(|r| r.prompt_index == prompt_index)
+    {
         record.commit_after = Some(commit_after.clone());
         save_codex_git_records(&session_id, &git_records)?;
 
-        log::info!("[Codex Record] Updated prompt #{} with commit_after: {}",
-            prompt_index, &commit_after[..8.min(commit_after.len())]);
+        log::info!(
+            "[Codex Record] Updated prompt #{} with commit_after: {}",
+            prompt_index,
+            &commit_after[..8.min(commit_after.len())]
+        );
     } else {
-        log::warn!("[Codex Record] Record not found for prompt #{}", prompt_index);
+        log::warn!(
+            "[Codex Record] Record not found for prompt #{}",
+            prompt_index
+        );
     }
 
     Ok(())
@@ -2068,12 +2159,16 @@ pub async fn revert_codex_to_prompt(
     prompt_index: usize,
     mode: RewindMode,
 ) -> Result<String, String> {
-    log::info!("[Codex Rewind] Reverting session {} to prompt #{} with mode: {:?}",
-        session_id, prompt_index, mode);
+    log::info!(
+        "[Codex Rewind] Reverting session {} to prompt #{} with mode: {:?}",
+        session_id,
+        prompt_index,
+        mode
+    );
 
     // Load execution config to check if Git operations are disabled
-    let execution_config = load_execution_config()
-        .map_err(|e| format!("Failed to load execution config: {}", e))?;
+    let execution_config =
+        load_execution_config().map_err(|e| format!("Failed to load execution config: {}", e))?;
 
     let git_operations_disabled = execution_config.disable_rewind_git_operations;
 
@@ -2089,14 +2184,18 @@ pub async fn revert_codex_to_prompt(
 
     // Load Git records
     let git_records = load_codex_git_records(&session_id)?;
-    let git_record = git_records.records.iter().find(|r| r.prompt_index == prompt_index);
+    let git_record = git_records
+        .records
+        .iter()
+        .find(|r| r.prompt_index == prompt_index);
 
     // Validate mode compatibility
     match mode {
         RewindMode::CodeOnly | RewindMode::Both => {
             if git_operations_disabled {
                 return Err(
-                    "无法回滚代码：Git 操作已在配置中禁用。只能撤回对话历史，无法回滚代码变更。".into()
+                    "无法回滚代码：Git 操作已在配置中禁用。只能撤回对话历史，无法回滚代码变更。"
+                        .into(),
                 );
             }
             if git_record.is_none() {
@@ -2122,7 +2221,10 @@ pub async fn revert_codex_to_prompt(
                 truncate_codex_git_records(&session_id, prompt_index)?;
             }
 
-            log::info!("[Codex Rewind] Successfully reverted conversation to prompt #{}", prompt_index);
+            log::info!(
+                "[Codex Rewind] Successfully reverted conversation to prompt #{}",
+                prompt_index
+            );
         }
 
         RewindMode::CodeOnly => {
@@ -2131,15 +2233,23 @@ pub async fn revert_codex_to_prompt(
             let record = git_record.unwrap();
 
             // Stash uncommitted changes
-            simple_git::git_stash_save(&project_path,
-                &format!("Auto-stash before Codex code revert to prompt #{}", prompt_index))
-                .map_err(|e| format!("Failed to stash changes: {}", e))?;
+            simple_git::git_stash_save(
+                &project_path,
+                &format!(
+                    "Auto-stash before Codex code revert to prompt #{}",
+                    prompt_index
+                ),
+            )
+            .map_err(|e| format!("Failed to stash changes: {}", e))?;
 
             // Reset to commit before this prompt
             simple_git::git_reset_hard(&project_path, &record.commit_before)
                 .map_err(|e| format!("Failed to reset code: {}", e))?;
 
-            log::info!("[Codex Rewind] Successfully reverted code to prompt #{}", prompt_index);
+            log::info!(
+                "[Codex Rewind] Successfully reverted code to prompt #{}",
+                prompt_index
+            );
         }
 
         RewindMode::Both => {
@@ -2148,9 +2258,14 @@ pub async fn revert_codex_to_prompt(
             let record = git_record.unwrap();
 
             // Stash uncommitted changes
-            simple_git::git_stash_save(&project_path,
-                &format!("Auto-stash before Codex full revert to prompt #{}", prompt_index))
-                .map_err(|e| format!("Failed to stash changes: {}", e))?;
+            simple_git::git_stash_save(
+                &project_path,
+                &format!(
+                    "Auto-stash before Codex full revert to prompt #{}",
+                    prompt_index
+                ),
+            )
+            .map_err(|e| format!("Failed to stash changes: {}", e))?;
 
             // Reset code
             simple_git::git_reset_hard(&project_path, &record.commit_before)
@@ -2164,7 +2279,10 @@ pub async fn revert_codex_to_prompt(
                 truncate_codex_git_records(&session_id, prompt_index)?;
             }
 
-            log::info!("[Codex Rewind] Successfully reverted both to prompt #{}", prompt_index);
+            log::info!(
+                "[Codex Rewind] Successfully reverted both to prompt #{}",
+                prompt_index
+            );
         }
     }
 
@@ -2196,7 +2314,7 @@ pub struct CodexProviderConfig {
     pub website_url: Option<String>,
     pub category: Option<String>,
     pub auth: serde_json::Value, // JSON object for auth.json
-    pub config: String, // TOML string for config.toml
+    pub config: String,          // TOML string for config.toml
     pub is_official: Option<bool>,
     pub is_partner: Option<bool>,
     pub created_at: Option<i64>,
@@ -2215,8 +2333,7 @@ pub struct CurrentCodexConfig {
 
 /// Get Codex config directory path
 fn get_codex_config_dir() -> Result<PathBuf, String> {
-    let home_dir = dirs::home_dir()
-        .ok_or_else(|| "Cannot get home directory".to_string())?;
+    let home_dir = dirs::home_dir().ok_or_else(|| "Cannot get home directory".to_string())?;
     Ok(home_dir.join(".codex"))
 }
 
@@ -2254,11 +2371,12 @@ fn extract_base_url_from_config(config: &str) -> Option<String> {
 
 /// Extract model from config.toml text
 fn extract_model_from_config(config: &str) -> Option<String> {
+    let re = regex::Regex::new(r#"model\s*=\s*"([^"]+)""#).ok()?;
     for line in config.lines() {
         let trimmed = line.trim();
         if trimmed.starts_with("model =") {
-            let re = regex::Regex::new(r#"model\s*=\s*"([^"]+)""#).ok()?;
-            return re.captures(trimmed)
+            return re
+                .captures(trimmed)
                 .and_then(|caps| caps.get(1))
                 .map(|m| m.as_str().to_string());
         }
@@ -2298,8 +2416,7 @@ pub async fn get_current_codex_config() -> Result<CurrentCodexConfig, String> {
     let auth: serde_json::Value = if auth_path.exists() {
         let content = fs::read_to_string(&auth_path)
             .map_err(|e| format!("Failed to read auth.json: {}", e))?;
-        serde_json::from_str(&content)
-            .map_err(|e| format!("Failed to parse auth.json: {}", e))?
+        serde_json::from_str(&content).map_err(|e| format!("Failed to parse auth.json: {}", e))?
     } else {
         serde_json::json!({})
     };
@@ -2344,8 +2461,10 @@ pub async fn switch_codex_provider(config: CodexProviderConfig) -> Result<String
 
     // Validate new TOML if not empty
     let new_config_table: Option<toml::Table> = if !config.config.trim().is_empty() {
-        Some(toml::from_str(&config.config)
-            .map_err(|e| format!("Invalid TOML configuration: {}", e))?)
+        Some(
+            toml::from_str(&config.config)
+                .map_err(|e| format!("Invalid TOML configuration: {}", e))?,
+        )
     } else {
         None
     };
@@ -2355,7 +2474,9 @@ pub async fn switch_codex_provider(config: CodexProviderConfig) -> Result<String
         let existing_content = fs::read_to_string(&auth_path)
             .map_err(|e| format!("Failed to read existing auth.json: {}", e))?;
 
-        if let Ok(mut existing_auth) = serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(&existing_content) {
+        if let Ok(mut existing_auth) =
+            serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(&existing_content)
+        {
             // Merge new auth into existing - new values take precedence
             if let serde_json::Value::Object(new_auth_map) = serde_json::to_value(&config.auth)
                 .map_err(|e| format!("Failed to convert auth: {}", e))?
@@ -2375,15 +2496,13 @@ pub async fn switch_codex_provider(config: CodexProviderConfig) -> Result<String
         }
     } else {
         // No existing auth, use new auth directly
-        serde_json::to_value(&config.auth)
-            .map_err(|e| format!("Failed to convert auth: {}", e))?
+        serde_json::to_value(&config.auth).map_err(|e| format!("Failed to convert auth: {}", e))?
     };
 
     // Write merged auth.json
     let auth_content = serde_json::to_string_pretty(&final_auth)
         .map_err(|e| format!("Failed to serialize auth: {}", e))?;
-    fs::write(&auth_path, auth_content)
-        .map_err(|e| format!("Failed to write auth.json: {}", e))?;
+    fs::write(&auth_path, auth_content).map_err(|e| format!("Failed to write auth.json: {}", e))?;
 
     // Merge config.toml - preserve user's custom settings
     let final_config = if config_path.exists() {
@@ -2392,11 +2511,7 @@ pub async fn switch_codex_provider(config: CodexProviderConfig) -> Result<String
 
         if let Ok(mut existing_table) = toml::from_str::<toml::Table>(&existing_content) {
             // Provider-specific keys that will be overwritten
-            let provider_keys = [
-                "model_provider",
-                "model",
-                "model_providers",
-            ];
+            let provider_keys = ["model_provider", "model", "model_providers"];
 
             if let Some(new_table) = new_config_table {
                 // Remove provider-specific keys from existing config
@@ -2434,7 +2549,10 @@ pub async fn switch_codex_provider(config: CodexProviderConfig) -> Result<String
         .map_err(|e| format!("Failed to write config.toml: {}", e))?;
 
     log::info!("[Codex Provider] Successfully switched to: {}", config.name);
-    Ok(format!("Successfully switched to Codex provider: {}", config.name))
+    Ok(format!(
+        "Successfully switched to Codex provider: {}",
+        config.name
+    ))
 }
 
 /// Add a new Codex provider configuration
@@ -2447,8 +2565,7 @@ pub async fn add_codex_provider_config(config: CodexProviderConfig) -> Result<St
     // Ensure parent directory exists
     if let Some(parent) = providers_path.parent() {
         if !parent.exists() {
-            fs::create_dir_all(parent)
-                .map_err(|e| format!("Failed to create directory: {}", e))?;
+            fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
         }
     }
 
@@ -2474,8 +2591,14 @@ pub async fn add_codex_provider_config(config: CodexProviderConfig) -> Result<St
     fs::write(&providers_path, content)
         .map_err(|e| format!("Failed to write providers.json: {}", e))?;
 
-    log::info!("[Codex Provider] Successfully added provider: {}", config.name);
-    Ok(format!("Successfully added Codex provider: {}", config.name))
+    log::info!(
+        "[Codex Provider] Successfully added provider: {}",
+        config.name
+    );
+    Ok(format!(
+        "Successfully added Codex provider: {}",
+        config.name
+    ))
 }
 
 /// Update an existing Codex provider configuration
@@ -2495,7 +2618,9 @@ pub async fn update_codex_provider_config(config: CodexProviderConfig) -> Result
         .map_err(|e| format!("Failed to parse providers.json: {}", e))?;
 
     // Find and update the provider
-    let index = providers.iter().position(|p| p.id == config.id)
+    let index = providers
+        .iter()
+        .position(|p| p.id == config.id)
         .ok_or_else(|| format!("Provider with ID '{}' not found", config.id))?;
 
     providers[index] = config.clone();
@@ -2506,8 +2631,14 @@ pub async fn update_codex_provider_config(config: CodexProviderConfig) -> Result
     fs::write(&providers_path, content)
         .map_err(|e| format!("Failed to write providers.json: {}", e))?;
 
-    log::info!("[Codex Provider] Successfully updated provider: {}", config.name);
-    Ok(format!("Successfully updated Codex provider: {}", config.name))
+    log::info!(
+        "[Codex Provider] Successfully updated provider: {}",
+        config.name
+    );
+    Ok(format!(
+        "Successfully updated Codex provider: {}",
+        config.name
+    ))
 }
 
 /// Delete a Codex provider configuration
@@ -2554,8 +2685,7 @@ pub async fn clear_codex_provider_config() -> Result<String, String> {
 
     // Remove auth.json if exists
     if auth_path.exists() {
-        fs::remove_file(&auth_path)
-            .map_err(|e| format!("Failed to remove auth.json: {}", e))?;
+        fs::remove_file(&auth_path).map_err(|e| format!("Failed to remove auth.json: {}", e))?;
     }
 
     // Remove config.toml if exists
@@ -2570,7 +2700,10 @@ pub async fn clear_codex_provider_config() -> Result<String, String> {
 
 /// Test Codex provider connection
 #[tauri::command]
-pub async fn test_codex_provider_connection(base_url: String, api_key: Option<String>) -> Result<String, String> {
+pub async fn test_codex_provider_connection(
+    base_url: String,
+    api_key: Option<String>,
+) -> Result<String, String> {
     log::info!("[Codex Provider] Testing connection to: {}", base_url);
 
     // Simple connectivity test - just try to reach the endpoint
@@ -2592,14 +2725,14 @@ pub async fn test_codex_provider_connection(base_url: String, api_key: Option<St
             let status = response.status();
             if status.is_success() || status.as_u16() == 401 {
                 // 401 means the endpoint exists but auth is required
-                Ok(format!("Connection test successful: endpoint is reachable (status: {})", status))
+                Ok(format!(
+                    "Connection test successful: endpoint is reachable (status: {})",
+                    status
+                ))
             } else {
                 Ok(format!("Connection test completed with status: {}", status))
             }
         }
-        Err(e) => {
-            Err(format!("Connection test failed: {}", e))
-        }
+        Err(e) => Err(format!("Connection test failed: {}", e)),
     }
 }
-

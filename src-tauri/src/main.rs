@@ -10,20 +10,19 @@ use claude_binary::init_shell_environment;
 use std::sync::{Arc, Mutex};
 
 use commands::acemcp::{
-    enhance_prompt_with_context, test_acemcp_availability,
-    save_acemcp_config, load_acemcp_config, preindex_project,
-    export_acemcp_sidecar, get_extracted_sidecar_path
+    enhance_prompt_with_context, export_acemcp_sidecar, get_extracted_sidecar_path,
+    load_acemcp_config, preindex_project, save_acemcp_config, test_acemcp_availability,
 };
 use commands::claude::{
     cancel_claude_execution, check_claude_version, clear_custom_claude_path, continue_claude_code,
     delete_project, delete_project_permanently, delete_session, delete_sessions_batch,
-    execute_claude_code, find_claude_md_files,
-    get_available_tools, get_claude_execution_config, get_claude_path, get_claude_permission_config,
-    get_claude_session_output, get_claude_settings, get_codex_system_prompt, get_hooks_config, get_permission_presets,
-    get_project_sessions, get_system_prompt, list_directory_contents, list_hidden_projects,
-    list_projects, list_running_claude_sessions, load_session_history, open_new_session,
-    read_claude_md_file, reset_claude_execution_config, restore_project, resume_claude_code,
-    save_claude_md_file, save_claude_settings, save_codex_system_prompt, save_system_prompt, search_files,
+    execute_claude_code, find_claude_md_files, get_available_tools, get_claude_execution_config,
+    get_claude_path, get_claude_permission_config, get_claude_session_output, get_claude_settings,
+    get_codex_system_prompt, get_hooks_config, get_permission_presets, get_project_sessions,
+    get_system_prompt, list_directory_contents, list_hidden_projects, list_projects,
+    list_running_claude_sessions, load_session_history, open_new_session, read_claude_md_file,
+    reset_claude_execution_config, restore_project, resume_claude_code, save_claude_md_file,
+    save_claude_settings, save_codex_system_prompt, save_system_prompt, search_files,
     set_custom_claude_path, update_claude_execution_config, update_claude_permission_config,
     update_hooks_config, update_thinking_mode, validate_hook_command, validate_permission_config,
     ClaudeProcessState,
@@ -47,9 +46,9 @@ use commands::provider::{
 };
 use commands::simple_git::check_and_init_git;
 use commands::storage::{
-    storage_analyze_query, storage_delete_row, storage_execute_sql,
-    storage_get_performance_stats, storage_insert_row, storage_list_tables,
-    storage_read_table, storage_reset_database, storage_update_row,
+    storage_analyze_query, storage_delete_row, storage_execute_sql, storage_get_performance_stats,
+    storage_insert_row, storage_list_tables, storage_read_table, storage_reset_database,
+    storage_update_row,
 };
 use commands::translator::{
     clear_translation_cache, detect_text_language, get_translation_cache_stats,
@@ -58,31 +57,48 @@ use commands::translator::{
 };
 use commands::usage::{get_session_stats, get_usage_by_date_range, get_usage_stats};
 
+use commands::codex::{
+    add_codex_provider_config,
+    cancel_codex,
+    check_codex_availability,
+    check_codex_rewind_capabilities,
+    clear_codex_provider_config,
+    clear_custom_codex_path,
+    delete_codex_provider_config,
+    delete_codex_session,
+    execute_codex,
+    // Codex mode configuration
+    get_codex_mode_config,
+    get_codex_path,
+    get_codex_prompt_list,
+    // Codex provider management
+    get_codex_provider_presets,
+    get_current_codex_config,
+    list_codex_sessions,
+    load_codex_session_history,
+    record_codex_prompt_completed,
+    // Codex rewind commands
+    record_codex_prompt_sent,
+    resume_codex,
+    resume_last_codex,
+    revert_codex_to_prompt,
+    set_codex_mode_config,
+    set_custom_codex_path,
+    switch_codex_provider,
+    test_codex_provider_connection,
+    update_codex_provider_config,
+    CodexProcessState,
+};
 use commands::enhanced_hooks::{
     execute_pre_commit_review, test_hook_condition, trigger_hook_event,
 };
 use commands::extensions::{
     create_skill, create_subagent, list_agent_skills, list_plugins, list_subagents,
-    open_agents_directory, open_plugins_directory, open_skills_directory, read_skill, read_subagent,
+    open_agents_directory, open_plugins_directory, open_skills_directory, read_skill,
+    read_subagent,
 };
 use commands::file_operations::{open_directory_in_explorer, open_file_with_default_app};
 use commands::git_stats::{get_git_diff_stats, get_session_code_changes};
-use commands::codex::{
-    execute_codex, resume_codex, resume_last_codex, cancel_codex,
-    list_codex_sessions, delete_codex_session,
-    load_codex_session_history, get_codex_prompt_list, check_codex_rewind_capabilities,
-    check_codex_availability,
-    set_custom_codex_path, get_codex_path, clear_custom_codex_path,
-    // Codex mode configuration
-    get_codex_mode_config, set_codex_mode_config,
-    // Codex rewind commands
-    record_codex_prompt_sent, record_codex_prompt_completed, revert_codex_to_prompt,
-    // Codex provider management
-    get_codex_provider_presets, get_current_codex_config, switch_codex_provider,
-    add_codex_provider_config, update_codex_provider_config, delete_codex_provider_config,
-    clear_codex_provider_config, test_codex_provider_connection,
-    CodexProcessState,
-};
 use process::ProcessRegistryState;
 use tauri::Manager;
 use tauri_plugin_window_state::Builder as WindowStatePlugin;
@@ -95,9 +111,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
-        .plugin(
-            tauri_plugin_http::init()
-        )
+        .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
@@ -113,7 +127,7 @@ fn main() {
             init_shell_environment();
 
             // Initialize database for storage operations
-            let conn = init_database(&app.handle()).expect("Failed to initialize database");
+            let conn = init_database(app.handle()).expect("Failed to initialize database");
             app.manage(AgentDb(Mutex::new(conn)));
 
             // Initialize process registry

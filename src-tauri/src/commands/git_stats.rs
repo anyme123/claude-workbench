@@ -25,7 +25,7 @@ pub async fn get_git_diff_stats(
     // 使用 git diff --numstat 获取统计
     let mut cmd = StdCommand::new("git");
     cmd.current_dir(&project_path);
-    cmd.args(&["diff", "--numstat", &from_commit, &to_ref]);
+    cmd.args(["diff", "--numstat", &from_commit, &to_ref]);
 
     #[cfg(target_os = "windows")]
     {

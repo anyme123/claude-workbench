@@ -9,8 +9,7 @@ pub fn get_claude_dir() -> Result<PathBuf> {
         .join(".claude");
 
     // Ensure the directory exists
-    fs::create_dir_all(&claude_dir)
-        .context("Failed to create ~/.claude directory")?;
+    fs::create_dir_all(&claude_dir).context("Failed to create ~/.claude directory")?;
 
     // Return the path directly without canonicalization to avoid permission issues
     // The path is valid since we just created it successfully
@@ -39,9 +38,7 @@ pub fn get_codex_dir() -> Result<PathBuf> {
 /// Encodes a project path to match Claude CLI's encoding scheme
 /// Uses single hyphens to separate path components
 pub fn encode_project_path(path: &str) -> String {
-    path.replace('\\', "-")
-        .replace('/', "-")
-        .replace(':', "")
+    path.replace(['\\', '/'], "-").replace(':', "")
 }
 
 /// Decodes a project directory name back to its original path

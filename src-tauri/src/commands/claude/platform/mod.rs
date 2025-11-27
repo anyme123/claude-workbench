@@ -16,9 +16,6 @@ use std::process::Command;
 #[cfg(target_os = "windows")]
 pub use windows::*;
 
-#[cfg(not(target_os = "windows"))]
-pub use unix::*;
-
 /// Platform-specific constants
 #[cfg(target_os = "windows")]
 pub const CREATE_NO_WINDOW: u32 = 0x08000000;

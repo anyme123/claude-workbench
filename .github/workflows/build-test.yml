@@ -100,6 +100,11 @@ jobs:
       - name: Build frontend
         run: bun run build
 
+      # Run Rust clippy lint
+      - name: Run cargo clippy
+        working-directory: src-tauri
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
       # Build Tauri application (no bundle for faster CI)
       - name: Build Tauri application
         run: bun run tauri build --no-bundle -d

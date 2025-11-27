@@ -7,11 +7,11 @@ use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
 
 use crate::commands::permission_config::{
-    ClaudePermissionConfig, ClaudeExecutionConfig, build_execution_args,
+    build_execution_args, ClaudeExecutionConfig, ClaudePermissionConfig,
 };
 
-use super::paths::{encode_project_path, get_claude_dir};
 use super::config::get_claude_execution_config;
+use super::paths::{encode_project_path, get_claude_dir};
 use super::platform;
 
 /// Global state to track current Claude process
@@ -31,7 +31,7 @@ impl Drop for ClaudeProcessState {
     fn drop(&mut self) {
         // When the application exits, clean up the current process
         log::info!("ClaudeProcessState dropping, cleaning up current process...");
-        
+
         // Use a runtime to execute the async cleanup
         let process = self.current_process.clone();
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
@@ -62,7 +62,10 @@ impl Drop for ClaudeProcessState {
                                 log::info!("Cleanup on drop: Successfully killed Claude process");
                             }
                             Err(e) => {
-                                log::error!("Cleanup on drop: Failed to kill Claude process: {}", e);
+                                log::error!(
+                                    "Cleanup on drop: Failed to kill Claude process: {}",
+                                    e
+                                );
                             }
                         }
                     }
@@ -100,7 +103,11 @@ fn create_command_with_env(program: &str) -> Command {
         if program.ends_with(".cmd") {
             // Use the resolver from claude_binary module
             if let Some((node_path, script_path)) = platform::resolve_cmd_wrapper(program) {
-                log::info!("Resolved .cmd wrapper {} to Node.js script: {}", program, script_path);
+                log::info!(
+                    "Resolved .cmd wrapper {} to Node.js script: {}",
+                    program,
+                    script_path
+                );
                 (node_path, vec![script_path])
             } else {
                 (program.to_string(), vec![])
@@ -158,7 +165,7 @@ fn create_command_with_env(program: &str) -> Command {
         if let Some(node_bin_dir) = std::path::Path::new(program).parent() {
             let current_path = std::env::var("PATH").unwrap_or_default();
             let node_bin_str = node_bin_dir.to_string_lossy();
-            if !current_path.contains(&node_bin_str.as_ref()) {
+            if !current_path.contains(node_bin_str.as_ref()) {
                 // Use platform-specific path separator
                 #[cfg(target_os = "windows")]
                 let separator = ";";
@@ -179,7 +186,10 @@ fn create_command_with_env(program: &str) -> Command {
             if let Ok(content) = fs::read_to_string(&settings_path) {
                 if let Ok(settings) = serde_json::from_str::<serde_json::Value>(&content) {
                     if let Some(env_obj) = settings.get("env").and_then(|v| v.as_object()) {
-                        log::info!("Loading {} custom environment variables from settings.json", env_obj.len());
+                        log::info!(
+                            "Loading {} custom environment variables from settings.json",
+                            env_obj.len()
+                        );
                         for (key, value) in env_obj {
                             if let Some(value_str) = value.as_str() {
                                 log::info!("Setting custom env var: {}={}", key, value_str);
@@ -194,9 +204,6 @@ fn create_command_with_env(program: &str) -> Command {
 
     tokio_cmd
 }
-
-
-
 
 /// Helper function to spawn Claude process and handle streaming
 /// Enhanced for Windows compatibility with router support
@@ -222,7 +229,10 @@ fn create_windows_command(
 
     // 🔥 修复：设置ANTHROPIC_MODEL环境变量以确保模型选择生效
     if let Some(model_name) = model {
-        log::info!("Setting ANTHROPIC_MODEL environment variable to: {}", model_name);
+        log::info!(
+            "Setting ANTHROPIC_MODEL environment variable to: {}",
+            model_name
+        );
         cmd.env("ANTHROPIC_MODEL", model_name);
     }
 
@@ -248,7 +258,6 @@ fn create_windows_command(
     // This allows us to kill the entire process tree with a single signal
     #[cfg(unix)]
     {
-        use std::os::unix::process::CommandExt;
         cmd.process_group(0); // Create new process group, process becomes group leader
     }
 
@@ -276,14 +285,15 @@ pub async fn execute_claude_code(
     );
 
     let claude_path = crate::claude_binary::find_claude_binary(&app)?;
-    
+
     // 获取当前执行配置
-    let mut execution_config = get_claude_execution_config(app.clone()).await
+    let mut execution_config = get_claude_execution_config(app.clone())
+        .await
         .unwrap_or_else(|e| {
             log::warn!("Failed to load execution config, using default: {}", e);
             ClaudeExecutionConfig::default()
         });
-    
+
     // 设置 maxThinkingTokens（如果提供）
     if let Some(tokens) = max_thinking_tokens {
         execution_config.max_thinking_tokens = Some(tokens);
@@ -308,7 +318,13 @@ pub async fn execute_claude_code(
     let args = build_execution_args(&execution_config, &mapped_model);
 
     // Create command
-    let cmd = create_system_command(&claude_path, args, &project_path, Some(&mapped_model), max_thinking_tokens)?;
+    let cmd = create_system_command(
+        &claude_path,
+        args,
+        &project_path,
+        Some(&mapped_model),
+        max_thinking_tokens,
+    )?;
     spawn_claude_process(app, cmd, prompt, model, project_path).await
 }
 
@@ -332,9 +348,10 @@ pub async fn continue_claude_code(
     );
 
     let claude_path = crate::claude_binary::find_claude_binary(&app)?;
-    
+
     // 获取当前执行配置
-    let mut execution_config = get_claude_execution_config(app.clone()).await
+    let mut execution_config = get_claude_execution_config(app.clone())
+        .await
         .unwrap_or_else(|e| {
             log::warn!("Failed to load execution config, using default: {}", e);
             ClaudeExecutionConfig::default()
@@ -367,7 +384,13 @@ pub async fn continue_claude_code(
     args.insert(0, "-c".to_string());
 
     // Create command
-    let cmd = create_system_command(&claude_path, args, &project_path, Some(&mapped_model), max_thinking_tokens)?;
+    let cmd = create_system_command(
+        &claude_path,
+        args,
+        &project_path,
+        Some(&mapped_model),
+        max_thinking_tokens,
+    )?;
     spawn_claude_process(app, cmd, prompt, model, project_path).await
 }
 
@@ -391,20 +414,23 @@ pub async fn resume_claude_code(
         model,
         plan_mode
     );
-    
+
     // Log the session file path for debugging
-    let session_dir = format!("{}/.claude/projects/{}", 
-        std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE"))
-            .unwrap_or_else(|_| "~".to_string()), 
+    let session_dir = format!(
+        "{}/.claude/projects/{}",
+        std::env::var("HOME")
+            .or_else(|_| std::env::var("USERPROFILE"))
+            .unwrap_or_else(|_| "~".to_string()),
         encode_project_path(&project_path)
     );
     log::info!("Expected session file directory: {}", session_dir);
     log::info!("Session ID to resume: {}", session_id);
 
     let claude_path = crate::claude_binary::find_claude_binary(&app)?;
-    
+
     // 获取当前执行配置
-    let mut execution_config = get_claude_execution_config(app.clone()).await
+    let mut execution_config = get_claude_execution_config(app.clone())
+        .await
         .unwrap_or_else(|e| {
             log::warn!("Failed to load execution config, using default: {}", e);
             ClaudeExecutionConfig::default()
@@ -440,15 +466,40 @@ pub async fn resume_claude_code(
     log::info!("Resume command: claude {}", args.join(" "));
 
     // Create command
-    let cmd = create_system_command(&claude_path, args, &project_path, Some(&mapped_model), max_thinking_tokens)?;
-    
+    let cmd = create_system_command(
+        &claude_path,
+        args,
+        &project_path,
+        Some(&mapped_model),
+        max_thinking_tokens,
+    )?;
+
     // Try to spawn the process - if it fails, fall back to continue mode
-    match spawn_claude_process(app.clone(), cmd, prompt.clone(), model.clone(), project_path.clone()).await {
+    match spawn_claude_process(
+        app.clone(),
+        cmd,
+        prompt.clone(),
+        model.clone(),
+        project_path.clone(),
+    )
+    .await
+    {
         Ok(_) => Ok(()),
         Err(resume_error) => {
-            log::warn!("Resume failed: {}, trying continue mode as fallback", resume_error);
+            log::warn!(
+                "Resume failed: {}, trying continue mode as fallback",
+                resume_error
+            );
             // Fallback to continue mode
-            continue_claude_code(app, project_path, prompt, model, Some(plan_mode), max_thinking_tokens).await
+            continue_claude_code(
+                app,
+                project_path,
+                prompt,
+                model,
+                Some(plan_mode),
+                max_thinking_tokens,
+            )
+            .await
         }
     }
 }
@@ -472,8 +523,12 @@ pub async fn cancel_claude_execution(
         let registry = app.state::<crate::process::ProcessRegistryState>();
         match registry.0.get_claude_session_by_id(sid) {
             Ok(Some(process_info)) => {
-                log::info!("Found process in registry for session {}: run_id={}, PID={}", 
-                    sid, process_info.run_id, process_info.pid);
+                log::info!(
+                    "Found process in registry for session {}: run_id={}, PID={}",
+                    sid,
+                    process_info.run_id,
+                    process_info.pid
+                );
                 match registry.0.kill_process(process_info.run_id).await {
                     Ok(success) => {
                         if success {
@@ -506,7 +561,10 @@ pub async fn cancel_claude_execution(
         if let Some(mut child) = current_process.take() {
             // Try to get the PID before killing
             let pid = child.id();
-            log::info!("Attempting to kill Claude process via ClaudeProcessState with PID: {:?}", pid);
+            log::info!(
+                "Attempting to kill Claude process via ClaudeProcessState with PID: {:?}",
+                pid
+            );
 
             // Kill the process
             match child.kill().await {
@@ -515,8 +573,11 @@ pub async fn cancel_claude_execution(
                     killed = true;
                 }
                 Err(e) => {
-                    log::error!("Failed to kill Claude process via ClaudeProcessState: {}", e);
-                    
+                    log::error!(
+                        "Failed to kill Claude process via ClaudeProcessState: {}",
+                        e
+                    );
+
                     // Method 3: If we have a PID, try system kill as last resort
                     if let Some(pid) = pid {
                         log::info!("Attempting system kill as last resort for PID: {}", pid);
@@ -548,18 +609,18 @@ pub async fn cancel_claude_execution(
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
         let _ = app.emit(&format!("claude-complete:{}", sid), false);
     }
-    
+
     // Also emit generic events for backward compatibility
     let _ = app.emit("claude-cancelled", true);
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     let _ = app.emit("claude-complete", false);
-    
+
     if killed {
         log::info!("Claude process cancellation completed successfully");
     } else if !attempted_methods.is_empty() {
         log::warn!("Claude process cancellation attempted but process may have already exited. Attempted methods: {:?}", attempted_methods);
     }
-    
+
     Ok(())
 }
 
@@ -588,9 +649,15 @@ pub async fn get_claude_session_output(
 /// Helper function to spawn Claude process and handle streaming
 /// 🔥 修复：prompt 现在通过 stdin 管道传递，而非命令行参数
 /// 这样可以避免操作系统命令行长度限制（Windows ~8KB, Linux/macOS ~128KB-2MB）
-async fn spawn_claude_process(app: AppHandle, mut cmd: Command, prompt: String, model: String, project_path: String) -> Result<(), String> {
-    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+async fn spawn_claude_process(
+    app: AppHandle,
+    mut cmd: Command,
+    prompt: String,
+    model: String,
+    project_path: String,
+) -> Result<(), String> {
     use std::sync::Mutex;
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
     // Spawn the process
     let mut child = cmd
@@ -627,10 +694,7 @@ async fn spawn_claude_process(app: AppHandle, mut cmd: Command, prompt: String, 
 
     // Get the child PID for logging
     let pid = child.id().unwrap_or(0);
-    log::info!(
-        "Spawned Claude process with PID: {:?}",
-        pid
-    );
+    log::info!("Spawned Claude process with PID: {:?}", pid);
 
     // Create readers first (before moving child)
     let stdout_reader = BufReader::new(stdout);
@@ -653,7 +717,9 @@ async fn spawn_claude_process(app: AppHandle, mut cmd: Command, prompt: String, 
     }
 
     // Check if auto-compact state is available
-    let auto_compact_available = app.try_state::<crate::commands::context_manager::AutoCompactState>().is_some();
+    let auto_compact_available = app
+        .try_state::<crate::commands::context_manager::AutoCompactState>()
+        .is_some();
 
     // Spawn tasks to read stdout and stderr
     let app_handle = app.clone();
@@ -668,7 +734,7 @@ async fn spawn_claude_process(app: AppHandle, mut cmd: Command, prompt: String, 
         let mut lines = stdout_reader.lines();
         while let Ok(Some(line)) = lines.next_line().await {
             log::debug!("Claude stdout: {}", line);
-            
+
             // Parse the line to check for init message with session ID
             if let Ok(msg) = serde_json::from_str::<serde_json::Value>(&line) {
                 if msg["type"] == "system" && msg["subtype"] == "init" {
@@ -713,13 +779,24 @@ async fn spawn_claude_process(app: AppHandle, mut cmd: Command, prompt: String, 
                                         "pid": pid,
                                         "run_id": run_id,
                                     });
-                                    if let Err(e) = app_handle.emit("claude-session-state", &event_payload) {
-                                        log::warn!("Failed to emit claude-session-state event: {}", e);
+                                    if let Err(e) =
+                                        app_handle.emit("claude-session-state", &event_payload)
+                                    {
+                                        log::warn!(
+                                            "Failed to emit claude-session-state event: {}",
+                                            e
+                                        );
                                     } else {
-                                        log::info!("Emitted claude-session-started event for session: {}", claude_session_id);
+                                        log::info!(
+                                            "Emitted claude-session-started event for session: {}",
+                                            claude_session_id
+                                        );
                                     }
 
-                                    log::info!("Claude CLI will handle project creation for session: {}", claude_session_id);
+                                    log::info!(
+                                        "Claude CLI will handle project creation for session: {}",
+                                        claude_session_id
+                                    );
                                 }
                                 Err(e) => {
                                     log::error!("Failed to register Claude session: {}", e);
@@ -731,24 +808,27 @@ async fn spawn_claude_process(app: AppHandle, mut cmd: Command, prompt: String, 
 
                 // Check for usage information and update context tracking
                 if let Some(usage) = msg.get("usage") {
-                    if let (Some(input_tokens), Some(output_tokens)) =
-                        (usage.get("input_tokens").and_then(|t| t.as_u64()),
-                         usage.get("output_tokens").and_then(|t| t.as_u64())) {
-
+                    if let (Some(input_tokens), Some(output_tokens)) = (
+                        usage.get("input_tokens").and_then(|t| t.as_u64()),
+                        usage.get("output_tokens").and_then(|t| t.as_u64()),
+                    ) {
                         let total_tokens = (input_tokens + output_tokens) as usize;
 
                         // Extract cache tokens if available
-                        let _cache_creation_tokens = usage.get("cache_creation_input_tokens").and_then(|t| t.as_u64());
-                        let _cache_read_tokens = usage.get("cache_read_input_tokens").and_then(|t| t.as_u64());
+                        let _cache_creation_tokens = usage
+                            .get("cache_creation_input_tokens")
+                            .and_then(|t| t.as_u64());
+                        let _cache_read_tokens = usage
+                            .get("cache_read_input_tokens")
+                            .and_then(|t| t.as_u64());
 
                         // Store usage data in database for real-time token statistics
-                        let session_id_for_update = {
-                            session_id_holder_clone.lock().unwrap().as_ref().cloned()
-                        };
+                        let session_id_for_update =
+                            { session_id_holder_clone.lock().unwrap().as_ref().cloned() };
 
                         if let Some(session_id_str) = &session_id_for_update {
                             // Agent database functionality removed - usage tracking disabled
-                            
+
                             // Update auto-compact manager with token count
                             if auto_compact_available {
                                 if let Some(auto_compact_state) = app_handle.try_state::<crate::commands::context_manager::AutoCompactState>() {
@@ -775,12 +855,12 @@ async fn spawn_claude_process(app: AppHandle, mut cmd: Command, prompt: String, 
                     }
                 }
             }
-            
+
             // Store live output in registry if we have a run_id
             if let Some(run_id) = *run_id_holder_clone.lock().unwrap() {
                 let _ = registry_clone.append_live_output(run_id, &line);
             }
-            
+
             // Emit the line to the frontend with session isolation if we have session ID
             if let Some(ref session_id) = *session_id_holder_clone.lock().unwrap() {
                 let _ = app_handle.emit(&format!("claude-output:{}", session_id), &line);
@@ -831,11 +911,9 @@ async fn spawn_claude_process(app: AppHandle, mut cmd: Command, prompt: String, 
                             "success": status.success(),
                         });
                         let _ = app_handle_wait.emit("claude-session-state", &event_payload);
-                        
-                        let _ = app_handle_wait.emit(
-                            &format!("claude-complete:{}", session_id),
-                            status.success(),
-                        );
+
+                        let _ = app_handle_wait
+                            .emit(&format!("claude-complete:{}", session_id), status.success());
                     }
                     // Also emit to the generic event for backward compatibility
                     let _ = app_handle_wait.emit("claude-complete", status.success());
@@ -853,9 +931,9 @@ async fn spawn_claude_process(app: AppHandle, mut cmd: Command, prompt: String, 
                             "error": e.to_string(),
                         });
                         let _ = app_handle_wait.emit("claude-session-state", &event_payload);
-                        
-                        let _ = app_handle_wait
-                            .emit(&format!("claude-complete:{}", session_id), false);
+
+                        let _ =
+                            app_handle_wait.emit(&format!("claude-complete:{}", session_id), false);
                     }
                     // Also emit to the generic event for backward compatibility
                     let _ = app_handle_wait.emit("claude-complete", false);
@@ -874,4 +952,3 @@ async fn spawn_claude_process(app: AppHandle, mut cmd: Command, prompt: String, 
 
     Ok(())
 }
-

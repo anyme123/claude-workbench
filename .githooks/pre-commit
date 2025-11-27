@@ -1,0 +1,16 @@
+#!/bin/sh
+set -euo pipefail
+
+# Skip hook when explicitly requested
+if [ "${SKIP_CLIPPY:-}" = "1" ]; then
+  echo "SKIP_CLIPPY=1 detected, skipping cargo clippy"
+  exit 0
+fi
+
+if [ ! -d "src-tauri" ]; then
+  echo "src-tauri directory not found; skipping cargo clippy"
+  exit 0
+fi
+
+echo "Running cargo clippy..."
+(cd src-tauri && cargo clippy --all-targets --all-features -- -D warnings)

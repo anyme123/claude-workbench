@@ -1,14 +1,14 @@
 use anyhow::{Context, Result};
-use serde::{Deserialize, Serialize};
-use std::fs;
-use std::path::PathBuf;
-use std::collections::HashMap;
 use chrono::Utc;
 use log;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
 
-use super::simple_git;
 use super::claude::get_claude_dir;
 use super::permission_config::ClaudeExecutionConfig;
+use super::simple_git;
 
 /// Rewind mode for reverting prompts
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -35,7 +35,7 @@ pub struct RewindCapabilities {
     /// Warning message if code revert is not available
     pub warning: Option<String>,
     /// Prompt source indicator
-    pub source: String,  // "project" or "cli"
+    pub source: String, // "project" or "cli"
 }
 
 /// A record of a user prompt (legacy structure, kept for compatibility)
@@ -68,15 +68,14 @@ pub struct GitRecord {
     pub timestamp: i64,
 }
 
-
 /// Load execution config from file
 pub fn load_execution_config() -> Result<ClaudeExecutionConfig> {
     let claude_dir = get_claude_dir().context("Failed to get claude dir")?;
     let config_file = claude_dir.join("execution_config.json");
-    
+
     if config_file.exists() {
-        let content = fs::read_to_string(&config_file)
-            .context("Failed to read execution config file")?;
+        let content =
+            fs::read_to_string(&config_file).context("Failed to read execution config file")?;
         let config = serde_json::from_str::<ClaudeExecutionConfig>(&content)
             .context("Failed to parse execution config")?;
         Ok(config)
@@ -104,8 +103,7 @@ fn load_git_records(session_id: &str, project_id: &str) -> Result<HashMap<usize,
         return Ok(HashMap::new());
     }
 
-    let content = fs::read_to_string(&records_path)
-        .context("Failed to read git records file")?;
+    let content = fs::read_to_string(&records_path).context("Failed to read git records file")?;
 
     // Support both old format (String keys) and new format (usize keys)
     // Try parsing as new format first
@@ -124,26 +122,33 @@ fn load_git_records(session_id: &str, project_id: &str) -> Result<HashMap<usize,
 }
 
 /// Save git records to .git-records.json (using prompt_index as key)
-fn save_git_records(session_id: &str, project_id: &str, records: &HashMap<usize, GitRecord>) -> Result<()> {
+fn save_git_records(
+    session_id: &str,
+    project_id: &str,
+    records: &HashMap<usize, GitRecord>,
+) -> Result<()> {
     let records_path = get_git_records_path(session_id, project_id)?;
 
     // Ensure directory exists
     if let Some(parent) = records_path.parent() {
-        fs::create_dir_all(parent)
-            .context("Failed to create sessions directory")?;
+        fs::create_dir_all(parent).context("Failed to create sessions directory")?;
     }
 
-    let content = serde_json::to_string_pretty(&records)
-        .context("Failed to serialize git records")?;
+    let content =
+        serde_json::to_string_pretty(&records).context("Failed to serialize git records")?;
 
-    fs::write(&records_path, content)
-        .context("Failed to write git records file")?;
+    fs::write(&records_path, content).context("Failed to write git records file")?;
 
     Ok(())
 }
 
 /// Save a single git record (using prompt_index as key)
-fn save_git_record(session_id: &str, project_id: &str, prompt_index: usize, record: GitRecord) -> Result<()> {
+fn save_git_record(
+    session_id: &str,
+    project_id: &str,
+    prompt_index: usize,
+    record: GitRecord,
+) -> Result<()> {
     let mut records = load_git_records(session_id, project_id)?;
     records.insert(prompt_index, record);
     save_git_records(session_id, project_id, &records)?;
@@ -152,7 +157,11 @@ fn save_git_record(session_id: &str, project_id: &str, prompt_index: usize, reco
 }
 
 /// Get a git record by prompt_index
-fn get_git_record(session_id: &str, project_id: &str, prompt_index: usize) -> Result<Option<GitRecord>> {
+fn get_git_record(
+    session_id: &str,
+    project_id: &str,
+    prompt_index: usize,
+) -> Result<Option<GitRecord>> {
     let records = load_git_records(session_id, project_id)?;
     Ok(records.get(&prompt_index).cloned())
 }
@@ -174,7 +183,10 @@ fn truncate_git_records(
     }
 
     save_git_records(session_id, project_id, &records)?;
-    log::info!("[Truncate] Truncated git records after prompt #{}", prompt_index);
+    log::info!(
+        "[Truncate] Truncated git records after prompt #{}",
+        prompt_index
+    );
     Ok(())
 }
 
@@ -188,77 +200,92 @@ fn truncate_session_to_prompt(
     let claude_dir = get_claude_dir().context("Failed to get claude dir")?;
     let project_dir = claude_dir.join("projects").join(project_id);
     let session_path = project_dir.join(format!("{}.jsonl", session_id));
-    
+
     if !session_path.exists() {
-        return Ok(());  // No session file, nothing to truncate
+        return Ok(()); // No session file, nothing to truncate
     }
-    
+
     // ========================================================================
     // Step 1: Process main session file
     // ========================================================================
-    
+
     // Read all lines
-    let content = fs::read_to_string(&session_path)
-        .context("Failed to read session file")?;
-    
+    let content = fs::read_to_string(&session_path).context("Failed to read session file")?;
+
     let lines: Vec<&str> = content.lines().collect();
-    
+
     // Count user messages and find the line index to truncate at
     let mut user_message_count = 0;
     let mut truncate_at_line = 0;
-    let mut found_target = false;  // Flag to track if we found the target prompt
-    
+    let mut found_target = false; // Flag to track if we found the target prompt
+
     for (line_index, line) in lines.iter().enumerate() {
         // Parse line as JSON to check message type
         if let Ok(msg) = serde_json::from_str::<serde_json::Value>(line) {
             // 🆕 跳过非用户消息类型（新版 Claude 引入的消息类型）
             let msg_type = msg.get("type").and_then(|t| t.as_str());
-            
+
             log::debug!("Line {}: type={:?}", line_index, msg_type);
-            
+
             // 忽略 summary 和 file-history-snapshot 类型
             if msg_type == Some("summary") || msg_type == Some("file-history-snapshot") {
-                log::debug!("Skipping {} message at line {}", msg_type.unwrap(), line_index);
+                log::debug!(
+                    "Skipping {} message at line {}",
+                    msg_type.unwrap(),
+                    line_index
+                );
                 continue;
             }
-            
+
             // 只处理用户消息
             if msg_type == Some("user") {
                 // 检查是否是侧链消息（agent 消息）
-                let is_sidechain = msg.get("isSidechain")
+                let is_sidechain = msg
+                    .get("isSidechain")
                     .and_then(|v| v.as_bool())
                     .unwrap_or(false);
-                
+
                 if is_sidechain {
                     log::debug!("Skipping sidechain user message at line {}", line_index);
                     continue;
                 }
-                
+
                 // 检查是否有 parent_tool_use_id（子代理的消息）
-                let has_parent_tool_use_id = msg.get("parent_tool_use_id").is_some() 
+                let has_parent_tool_use_id = msg.get("parent_tool_use_id").is_some()
                     && !msg.get("parent_tool_use_id").unwrap().is_null();
-                
+
                 if has_parent_tool_use_id {
-                    log::debug!("Skipping subagent message at line {} (has parent_tool_use_id)", line_index);
+                    log::debug!(
+                        "Skipping subagent message at line {} (has parent_tool_use_id)",
+                        line_index
+                    );
                     continue;
                 }
-                
+
                 // 提取消息内容（支持字符串和数组两种格式）
                 let content_value = msg.get("message").and_then(|m| m.get("content"));
-                
-                log::debug!("Line {}: content_value exists={}", line_index, content_value.is_some());
-                
+
+                log::debug!(
+                    "Line {}: content_value exists={}",
+                    line_index,
+                    content_value.is_some()
+                );
+
                 let mut extracted_text = String::new();
                 let mut has_text_content = false;
                 let mut has_tool_result = false;
-                
+
                 if let Some(content) = content_value {
                     if let Some(text) = content.as_str() {
                         // 字符串格式
                         extracted_text = text.to_string();
                         has_text_content = !text.trim().is_empty();
-                        log::debug!("Line {}: extracted string content, length={}, has_text={}", 
-                            line_index, extracted_text.len(), has_text_content);
+                        log::debug!(
+                            "Line {}: extracted string content, length={}, has_text={}",
+                            line_index,
+                            extracted_text.len(),
+                            has_text_content
+                        );
                     } else if let Some(arr) = content.as_array() {
                         // 数组格式（可能包含 text 和 tool_result）
                         for item in arr {
@@ -275,101 +302,128 @@ fn truncate_session_to_prompt(
                         }
                     }
                 }
-                
+
                 // 如果只有 tool_result 没有 text，跳过（这些是工具执行结果，不是用户输入）
                 if has_tool_result && !has_text_content {
                     log::debug!("Skipping tool-result-only message at line {}", line_index);
                     continue;
                 }
-                
+
                 // 必须有文本内容
                 if !has_text_content {
                     log::debug!("Skipping empty user message at line {}", line_index);
                     continue;
                 }
-                
+
                 // ⚡ 检查是否是自动发送的 Warmup 消息或 Skills 消息
                 let is_warmup = extracted_text.contains("Warmup");
-                let is_skill_message = extracted_text.contains("<command-name>") 
+                let is_skill_message = extracted_text.contains("<command-name>")
                     || extracted_text.contains("Launching skill:")
                     || extracted_text.contains("skill is running");
-                
-                log::debug!("Line {}: is_warmup={}, is_skill={}, text_preview={}", 
-                    line_index, is_warmup, is_skill_message, 
-                    extracted_text.chars().take(20).collect::<String>());
-                
+
+                log::debug!(
+                    "Line {}: is_warmup={}, is_skill={}, text_preview={}",
+                    line_index,
+                    is_warmup,
+                    is_skill_message,
+                    extracted_text.chars().take(20).collect::<String>()
+                );
+
                 if !is_warmup && !is_skill_message {
                     // 只计算真实用户输入的消息（排除自动 Warmup）
-                    log::info!("[OK] Found real user message at line {}, count={}, looking for={}", 
-                        line_index, user_message_count, prompt_index);
-                    
+                    log::info!(
+                        "[OK] Found real user message at line {}, count={}, looking for={}",
+                        line_index,
+                        user_message_count,
+                        prompt_index
+                    );
+
                     if user_message_count == prompt_index {
                         // Found the target prompt, truncate before it
                         truncate_at_line = line_index;
-                        found_target = true;  // Mark that we found it
-                        log::info!("[TARGET] Target prompt #{} found at line {}", prompt_index, line_index);
+                        found_target = true; // Mark that we found it
+                        log::info!(
+                            "[TARGET] Target prompt #{} found at line {}",
+                            prompt_index,
+                            line_index
+                        );
                         break;
                     }
                     user_message_count += 1;
                 } else if is_warmup {
-                    log::debug!("Skipping Warmup message at line {}: {}", line_index, extracted_text.chars().take(50).collect::<String>());
+                    log::debug!(
+                        "Skipping Warmup message at line {}: {}",
+                        line_index,
+                        extracted_text.chars().take(50).collect::<String>()
+                    );
                 } else if is_skill_message {
-                    log::debug!("Skipping Skills message at line {}: {}", line_index, extracted_text.chars().take(50).collect::<String>());
+                    log::debug!(
+                        "Skipping Skills message at line {}: {}",
+                        line_index,
+                        extracted_text.chars().take(50).collect::<String>()
+                    );
                 }
             }
         }
     }
-    
+
     let total_lines = lines.len();
-    
+
     // 安全检查：如果没找到目标 prompt，返回错误而不是清空所有内容
     if !found_target {
         if user_message_count == 0 {
             return Err(anyhow::anyhow!(
-                "Prompt #{} not found in session (no user messages found)", 
+                "Prompt #{} not found in session (no user messages found)",
                 prompt_index
             ));
         } else {
             return Err(anyhow::anyhow!(
-                "Prompt #{} not found in session (only {} user messages found)", 
+                "Prompt #{} not found in session (only {} user messages found)",
                 prompt_index,
                 user_message_count
             ));
         }
     }
-    
-    log::info!("Total lines: {}, will keep lines 0..{} (delete prompt #{} at line {} and after)", 
-        total_lines, truncate_at_line, prompt_index, truncate_at_line);
-    
+
+    log::info!(
+        "Total lines: {}, will keep lines 0..{} (delete prompt #{} at line {} and after)",
+        total_lines,
+        truncate_at_line,
+        prompt_index,
+        truncate_at_line
+    );
+
     // Truncate to the line before this prompt
     let truncated_lines: Vec<&str> = lines.into_iter().take(truncate_at_line).collect();
-    
+
     // Join with newline and add final newline if we have content
     let new_content = if truncated_lines.is_empty() {
         String::new()
     } else {
-        truncated_lines.join("\n") + "\n"  // Add trailing newline
+        truncated_lines.join("\n") + "\n" // Add trailing newline
     };
-    
-    fs::write(&session_path, new_content)
-        .context("Failed to write truncated session")?;
-    
-    log::info!("Truncated main session: kept {} lines, deleted {} lines", 
-        truncate_at_line, total_lines - truncate_at_line);
-    
+
+    fs::write(&session_path, new_content).context("Failed to write truncated session")?;
+
+    log::info!(
+        "Truncated main session: kept {} lines, deleted {} lines",
+        truncate_at_line,
+        total_lines - truncate_at_line
+    );
+
     // ========================================================================
     // Step 2: Handle agent files (新版 Claude 引入的 sidechain 文件)
     // ========================================================================
-    
+
     // Agent 文件处理策略：
     // - Agent 文件通常只包含会话初始化的 Warmup 消息（通常只有2行）
     // - 如果撤回到 prompt #0（首个用户输入之前），则删除所有 agent 文件
     // - 如果撤回到 prompt #N (N>0)，保持 agent 文件不变（因为它们只在初始化时创建一次）
-    
+
     if prompt_index == 0 {
         // 撤回到初始状态，删除所有 agent 文件
         log::info!("Reverting to prompt #0, removing all agent files");
-        
+
         if let Ok(entries) = fs::read_dir(&project_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
@@ -377,7 +431,7 @@ fn truncate_session_to_prompt(
                     // Match pattern: agent-{id}.jsonl
                     if filename.starts_with("agent-") && filename.ends_with(".jsonl") {
                         log::info!("Removing agent file: {}", filename);
-                        
+
                         if let Err(e) = fs::remove_file(&path) {
                             log::warn!("Failed to remove agent file {}: {}", filename, e);
                         } else {
@@ -391,7 +445,7 @@ fn truncate_session_to_prompt(
         // 撤回到后续提示词，agent 文件保持不变
         log::info!("Reverting to prompt #{}, keeping agent files unchanged (they only contain initialization data)", prompt_index);
     }
-    
+
     Ok(())
 }
 
@@ -403,7 +457,10 @@ pub async fn record_prompt_sent(
     project_path: String,
     _prompt_text: String,
 ) -> Result<usize, String> {
-    log::info!("[Record Prompt] Recording prompt sent for session: {}", session_id);
+    log::info!(
+        "[Record Prompt] Recording prompt sent for session: {}",
+        session_id
+    );
 
     // Ensure Git repository is initialized
     simple_git::ensure_git_repo(&project_path)
@@ -420,10 +477,13 @@ pub async fn record_prompt_sent(
     // The new prompt hasn't been written to JSONL yet, so prompts.len() will be the index of the new prompt
     let prompts = extract_prompts_from_jsonl(&session_id, &project_id)
         .map_err(|e| format!("Failed to extract prompts from JSONL: {}", e))?;
-    
+
     let prompt_index = prompts.len(); // This will be the index of the new prompt
-    
-    log::info!("[Record Prompt] New prompt will be assigned index #{}", prompt_index);
+
+    log::info!(
+        "[Record Prompt] New prompt will be assigned index #{}",
+        prompt_index
+    );
 
     // Create git record
     let git_record = GitRecord {
@@ -437,8 +497,11 @@ pub async fn record_prompt_sent(
     save_git_record(&session_id, &project_id, prompt_index, git_record)
         .map_err(|e| format!("Failed to save git record: {}", e))?;
 
-    log::info!("[Record Prompt] ✅ Saved git record for prompt #{} with commit_before: {}", 
-        prompt_index, commit_before);
+    log::info!(
+        "[Record Prompt] ✅ Saved git record for prompt #{} with commit_before: {}",
+        prompt_index,
+        commit_before
+    );
 
     Ok(prompt_index)
 }
@@ -459,12 +522,16 @@ pub async fn mark_prompt_completed(
     match simple_git::git_commit_changes(&project_path, &commit_message) {
         Ok(true) => {
             log::info!("Auto-committed changes after prompt #{}", prompt_index);
-        },
+        }
         Ok(false) => {
             log::debug!("No changes to commit after prompt #{}", prompt_index);
-        },
+        }
         Err(e) => {
-            log::warn!("Failed to auto-commit after prompt #{}: {}", prompt_index, e);
+            log::warn!(
+                "Failed to auto-commit after prompt #{}: {}",
+                prompt_index,
+                e
+            );
             // Continue anyway, don't fail the whole operation
         }
     }
@@ -485,8 +552,11 @@ pub async fn mark_prompt_completed(
     save_git_record(&session_id, &project_id, prompt_index, git_record)
         .map_err(|e| format!("Failed to save git record: {}", e))?;
 
-    log::info!("[Mark Complete] ✅ Marked prompt #{} as completed with git_commit_after: {}", 
-        prompt_index, commit_after);
+    log::info!(
+        "[Mark Complete] ✅ Marked prompt #{} as completed with git_commit_after: {}",
+        prompt_index,
+        commit_after
+    );
     Ok(())
 }
 
@@ -499,15 +569,19 @@ pub async fn revert_to_prompt(
     prompt_index: usize,
     mode: RewindMode,
 ) -> Result<String, String> {
-    log::info!("Reverting to prompt #{} in session: {} with mode: {:?}",
-        prompt_index, session_id, mode);
+    log::info!(
+        "Reverting to prompt #{} in session: {} with mode: {:?}",
+        prompt_index,
+        session_id,
+        mode
+    );
 
     // Load execution config to check if Git operations are disabled
-    let execution_config = load_execution_config()
-        .map_err(|e| format!("Failed to load execution config: {}", e))?;
-    
+    let execution_config =
+        load_execution_config().map_err(|e| format!("Failed to load execution config: {}", e))?;
+
     let git_operations_disabled = execution_config.disable_rewind_git_operations;
-    
+
     if git_operations_disabled {
         log::warn!("Git operations are disabled in rewind config");
     }
@@ -516,7 +590,8 @@ pub async fn revert_to_prompt(
     let prompts = extract_prompts_from_jsonl(&session_id, &project_id)
         .map_err(|e| format!("Failed to extract prompts: {}", e))?;
 
-    let prompt = prompts.get(prompt_index)
+    let prompt = prompts
+        .get(prompt_index)
         .ok_or_else(|| format!("Prompt #{} not found", prompt_index))?;
 
     // 🔧 FIX: Get git record using prompt_index (not hash!)
@@ -527,9 +602,10 @@ pub async fn revert_to_prompt(
     match mode {
         RewindMode::CodeOnly | RewindMode::Both => {
             if git_operations_disabled {
-                return Err(format!(
+                return Err(
                     "无法回滚代码：Git 操作已在配置中禁用。只能撤回对话历史，无法回滚代码变更。"
-                ));
+                        .to_string(),
+                );
             }
             if git_record.is_none() {
                 return Err(format!(
@@ -559,7 +635,10 @@ pub async fn revert_to_prompt(
                 log::info!("Skipping git records truncation (Git operations disabled)");
             }
 
-            log::info!("Successfully reverted conversation to prompt #{}", prompt_index);
+            log::info!(
+                "Successfully reverted conversation to prompt #{}",
+                prompt_index
+            );
         }
 
         RewindMode::CodeOnly => {
@@ -568,9 +647,11 @@ pub async fn revert_to_prompt(
             let record = git_record.unwrap(); // Safe because we validated above
 
             // 1. Stash any uncommitted changes
-            simple_git::git_stash_save(&project_path,
-                &format!("Auto-stash before code revert to prompt #{}", prompt_index))
-                .map_err(|e| format!("Failed to stash changes: {}", e))?;
+            simple_git::git_stash_save(
+                &project_path,
+                &format!("Auto-stash before code revert to prompt #{}", prompt_index),
+            )
+            .map_err(|e| format!("Failed to stash changes: {}", e))?;
 
             // 2. Reset code to state before this prompt
             simple_git::git_reset_hard(&project_path, &record.commit_before)
@@ -585,9 +666,11 @@ pub async fn revert_to_prompt(
             let record = git_record.unwrap(); // Safe because we validated above
 
             // 1. Stash any uncommitted changes
-            simple_git::git_stash_save(&project_path,
-                &format!("Auto-stash before full revert to prompt #{}", prompt_index))
-                .map_err(|e| format!("Failed to stash changes: {}", e))?;
+            simple_git::git_stash_save(
+                &project_path,
+                &format!("Auto-stash before full revert to prompt #{}", prompt_index),
+            )
+            .map_err(|e| format!("Failed to stash changes: {}", e))?;
 
             // 2. Reset code to state before this prompt
             simple_git::git_reset_hard(&project_path, &record.commit_before)
@@ -606,7 +689,10 @@ pub async fn revert_to_prompt(
                 log::info!("Skipping git records truncation (Git operations disabled)");
             }
 
-            log::info!("Successfully reverted both conversation and code to prompt #{}", prompt_index);
+            log::info!(
+                "Successfully reverted both conversation and code to prompt #{}",
+                prompt_index
+            );
         }
     }
 
@@ -632,12 +718,16 @@ pub async fn check_rewind_capabilities(
     project_id: String,
     prompt_index: usize,
 ) -> Result<RewindCapabilities, String> {
-    log::info!("Checking rewind capabilities for prompt #{} in session: {}", prompt_index, session_id);
+    log::info!(
+        "Checking rewind capabilities for prompt #{} in session: {}",
+        prompt_index,
+        session_id
+    );
 
     // Load execution config to check if Git operations are disabled
-    let execution_config = load_execution_config()
-        .map_err(|e| format!("Failed to load execution config: {}", e))?;
-    
+    let execution_config =
+        load_execution_config().map_err(|e| format!("Failed to load execution config: {}", e))?;
+
     let git_operations_disabled = execution_config.disable_rewind_git_operations;
 
     // Extract prompts from JSONL (single source of truth)
@@ -645,12 +735,17 @@ pub async fn check_rewind_capabilities(
         .map_err(|e| format!("Failed to extract prompts from JSONL: {}", e))?;
 
     // Get the prompt at the specified index
-    let prompt = prompts.get(prompt_index)
+    let prompt = prompts
+        .get(prompt_index)
         .ok_or_else(|| format!("Prompt #{} not found", prompt_index))?;
 
     // 🔧 FIX: Use prompt.source field (from queue-operation detection) instead of hash matching
     // This is more reliable as hash matching is fragile (affected by string escaping, encoding, etc.)
-    log::info!("[Rewind Check] Prompt #{} source: {}", prompt_index, prompt.source);
+    log::info!(
+        "[Rewind Check] Prompt #{} source: {}",
+        prompt_index,
+        prompt.source
+    );
 
     // If Git operations are disabled, always return conversation-only capability with warning
     if git_operations_disabled {
@@ -659,7 +754,9 @@ pub async fn check_rewind_capabilities(
             conversation: true,
             code: false,
             both: false,
-            warning: Some("Git 操作已在配置中禁用。只能撤回对话历史，无法回滚代码变更。".to_string()),
+            warning: Some(
+                "Git 操作已在配置中禁用。只能撤回对话历史，无法回滚代码变更。".to_string(),
+            ),
             source: prompt.source.clone(),
         });
     }
@@ -671,11 +768,15 @@ pub async fn check_rewind_capabilities(
             .map_err(|e| format!("Failed to get git record: {}", e))?;
 
         if let Some(record) = git_record {
-            let has_valid_commit = !record.commit_before.is_empty() && record.commit_before != "NONE";
-            
-            log::info!("[Rewind Check] ✅ Project prompt #{} with git record: has_valid_commit={}", 
-                prompt_index, has_valid_commit);
-            
+            let has_valid_commit =
+                !record.commit_before.is_empty() && record.commit_before != "NONE";
+
+            log::info!(
+                "[Rewind Check] ✅ Project prompt #{} with git record: has_valid_commit={}",
+                prompt_index,
+                has_valid_commit
+            );
+
             Ok(RewindCapabilities {
                 conversation: true,
                 code: has_valid_commit,
@@ -689,18 +790,26 @@ pub async fn check_rewind_capabilities(
             })
         } else {
             // Project prompt but no git record (edge case: record_prompt_sent might have failed)
-            log::warn!("[Rewind Check] ⚠️ Project prompt #{} but no git record found", prompt_index);
+            log::warn!(
+                "[Rewind Check] ⚠️ Project prompt #{} but no git record found",
+                prompt_index
+            );
             Ok(RewindCapabilities {
                 conversation: true,
                 code: false,
                 both: false,
-                warning: Some("此提示词来自项目界面，但没有找到 Git 记录，只能删除消息".to_string()),
+                warning: Some(
+                    "此提示词来自项目界面，但没有找到 Git 记录，只能删除消息".to_string(),
+                ),
                 source: "project".to_string(),
             })
         }
     } else {
         // This prompt was sent from CLI (no queue-operation marker)
-        log::info!("[Rewind Check] CLI prompt #{} - conversation only", prompt_index);
+        log::info!(
+            "[Rewind Check] CLI prompt #{} - conversation only",
+            prompt_index
+        );
         Ok(RewindCapabilities {
             conversation: true,
             code: false,
@@ -714,10 +823,7 @@ pub async fn check_rewind_capabilities(
 /// Extract prompts from JSONL session file
 /// This function reads the .jsonl file and extracts all user prompts
 /// This is the single source of truth for all prompts (both CLI and project interface)
-fn extract_prompts_from_jsonl(
-    session_id: &str,
-    project_id: &str,
-) -> Result<Vec<PromptRecord>> {
+fn extract_prompts_from_jsonl(session_id: &str, project_id: &str) -> Result<Vec<PromptRecord>> {
     let claude_dir = get_claude_dir().context("Failed to get claude dir")?;
     let session_path = claude_dir
         .join("projects")
@@ -728,8 +834,7 @@ fn extract_prompts_from_jsonl(
         return Ok(Vec::new());
     }
 
-    let content = fs::read_to_string(&session_path)
-        .context("Failed to read session file")?;
+    let content = fs::read_to_string(&session_path).context("Failed to read session file")?;
 
     let mut prompts = Vec::new();
     let mut prompt_index = 0;
@@ -744,19 +849,24 @@ fn extract_prompts_from_jsonl(
                     // Record the content and timestamp of queue-operation
                     if let (Some(content_text), Some(ts)) = (
                         msg.get("content").and_then(|c| c.as_str()),
-                        msg.get("timestamp").and_then(|t| t.as_str())
+                        msg.get("timestamp").and_then(|t| t.as_str()),
                     ) {
                         // Store a hash of content + timestamp (within 10 second window) for matching
                         queue_operations.insert(content_text.to_string());
-                        log::debug!("[Prompt Source] Found queue-operation: content_preview={}, ts={}", 
-                            content_text.chars().take(20).collect::<String>(), ts);
+                        log::debug!(
+                            "[Prompt Source] Found queue-operation: content_preview={}, ts={}",
+                            content_text.chars().take(20).collect::<String>(),
+                            ts
+                        );
                     }
                 }
             }
         }
     }
-    log::info!("[Prompt Source] Found {} queue-operation records", queue_operations.len());
-
+    log::info!(
+        "[Prompt Source] Found {} queue-operation records",
+        queue_operations.len()
+    );
 
     for line in content.lines() {
         if let Ok(msg) = serde_json::from_str::<serde_json::Value>(line) {
@@ -768,7 +878,8 @@ fn extract_prompts_from_jsonl(
             }
 
             // Skip sidechain messages (agent messages)
-            let is_sidechain = msg.get("isSidechain")
+            let is_sidechain = msg
+                .get("isSidechain")
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false);
 
@@ -831,7 +942,8 @@ fn extract_prompts_from_jsonl(
             }
 
             // Extract timestamp
-            let timestamp = msg.get("timestamp")
+            let timestamp = msg
+                .get("timestamp")
                 .and_then(|t| t.as_str())
                 .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
                 .map(|dt| dt.timestamp())
@@ -839,10 +951,16 @@ fn extract_prompts_from_jsonl(
 
             // Determine source: check if this prompt has a matching queue-operation record
             let source = if queue_operations.contains(&extracted_text) {
-                log::debug!("[Prompt Source] Prompt #{} matched queue-operation -> source=project", prompt_index);
+                log::debug!(
+                    "[Prompt Source] Prompt #{} matched queue-operation -> source=project",
+                    prompt_index
+                );
                 "project".to_string()
             } else {
-                log::debug!("[Prompt Source] Prompt #{} no queue-operation -> source=cli", prompt_index);
+                log::debug!(
+                    "[Prompt Source] Prompt #{} no queue-operation -> source=cli",
+                    prompt_index
+                );
                 "cli".to_string()
             };
 
@@ -850,7 +968,7 @@ fn extract_prompts_from_jsonl(
             prompts.push(PromptRecord {
                 index: prompt_index,
                 text: extracted_text,
-                git_commit_before: "NONE".to_string(),  // Will be filled later from git records
+                git_commit_before: "NONE".to_string(), // Will be filled later from git records
                 git_commit_after: None,
                 timestamp,
                 source,
@@ -892,9 +1010,15 @@ pub async fn get_unified_prompt_list(
             if let Some(record) = git_records.get(&prompt.index) {
                 prompt.git_commit_before = record.commit_before.clone();
                 prompt.git_commit_after = record.commit_after.clone();
-                log::debug!("[Unified List] Enriched prompt #{} with git commits", prompt.index);
+                log::debug!(
+                    "[Unified List] Enriched prompt #{} with git commits",
+                    prompt.index
+                );
             } else {
-                log::debug!("[Unified List] No git record found for prompt #{}", prompt.index);
+                log::debug!(
+                    "[Unified List] No git record found for prompt #{}",
+                    prompt.index
+                );
             }
             // If no git record found, keep "NONE" placeholder
         } else {
@@ -903,9 +1027,12 @@ pub async fn get_unified_prompt_list(
         }
     }
 
-    log::info!("[Unified List] Found {} total prompts ({} from project interface, {} from CLI)",
-        prompts.len(), project_count, cli_count);
+    log::info!(
+        "[Unified List] Found {} total prompts ({} from project interface, {} from CLI)",
+        prompts.len(),
+        project_count,
+        cli_count
+    );
 
     Ok(prompts)
 }
-

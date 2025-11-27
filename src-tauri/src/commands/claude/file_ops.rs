@@ -133,7 +133,7 @@ pub async fn search_files(base_path: String, query: String) -> Result<Vec<FileEn
     let query_lower = query.to_lowercase();
     let mut results = Vec::new();
 
-    search_files_recursive(&path, &path, &query_lower, &mut results, 0)?;
+    search_files_recursive(&path, &query_lower, &mut results, 0)?;
 
     // Sort by relevance: exact matches first, then by name
     results.sort_by(|a, b| {
@@ -157,13 +157,11 @@ pub async fn search_files(base_path: String, query: String) -> Result<Vec<FileEn
 ///
 /// # Arguments
 /// * `current_path` - Current directory being searched
-/// * `base_path` - Base search directory (for reference)
 /// * `query` - Search query (lowercase)
 /// * `results` - Mutable reference to results vector
 /// * `depth` - Current recursion depth
 fn search_files_recursive(
     current_path: &PathBuf,
-    base_path: &PathBuf,
     query: &str,
     results: &mut Vec<FileEntry>,
     depth: usize,
@@ -223,7 +221,7 @@ fn search_files_recursive(
                 }
             }
 
-            search_files_recursive(&entry_path, base_path, query, results, depth + 1)?;
+            search_files_recursive(&entry_path, query, results, depth + 1)?;
         }
     }
 

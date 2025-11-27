@@ -1,4 +1,5 @@
-use super::JobObject;
+#[cfg(windows)]
+use super::job_object::JobObject;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -57,7 +58,7 @@ impl ProcessRegistry {
     }
 
     /// Register a new running agent process
-    #[allow(dead_code)]
+    #[allow(dead_code, clippy::too_many_arguments)]
     pub fn register_process(
         &self,
         run_id: i64,
@@ -638,7 +639,6 @@ impl ProcessRegistry {
                 finished_runs.push(run_id);
             }
         }
-
 
         // Then remove them from the registry
         {

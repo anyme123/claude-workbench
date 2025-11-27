@@ -84,7 +84,8 @@ impl ProjectStore {
                         for session_entry in session_entries.flatten() {
                             let session_path = session_entry.path();
                             if session_path.is_file()
-                                && session_path.extension().and_then(|s| s.to_str()) == Some("jsonl")
+                                && session_path.extension().and_then(|s| s.to_str())
+                                    == Some("jsonl")
                             {
                                 if let Some(session_id) =
                                     session_path.file_stem().and_then(|s| s.to_str())
@@ -203,7 +204,11 @@ impl ProjectStore {
     }
 
     pub fn delete_session(&self, project_id: &str, session_id: &str) -> Result<bool, String> {
-        log::info!("Deleting session {} from project {}", session_id, project_id);
+        log::info!(
+            "Deleting session {} from project {}",
+            session_id,
+            project_id
+        );
 
         let mut session_deleted = false;
 
@@ -269,10 +274,7 @@ impl ProjectStore {
                         deleted_count += 1;
                     } else {
                         failed_count += 1;
-                        errors.push(format!(
-                            "Session file not found for ID: {}",
-                            session_id
-                        ));
+                        errors.push(format!("Session file not found for ID: {}", session_id));
                     }
                 }
                 Err(e) => {
@@ -308,7 +310,10 @@ impl ProjectStore {
             self.save_hidden_projects(&hidden_projects)?;
             Ok(())
         } else {
-            Err(format!("Project '{}' is not in the hidden list", project_id))
+            Err(format!(
+                "Project '{}' is not in the hidden list",
+                project_id
+            ))
         }
     }
 
@@ -330,14 +335,12 @@ impl ProjectStore {
             for entry in entries.flatten() {
                 if entry.path().is_dir() {
                     if let Some(dir_name) = entry.file_name().to_str() {
-                        let candidate_path =
-                            match get_project_path_from_sessions(&entry.path()) {
-                                Ok(path) => path,
-                                Err(_) => decode_project_path(dir_name),
-                            };
+                        let candidate_path = match get_project_path_from_sessions(&entry.path()) {
+                            Ok(path) => path,
+                            Err(_) => decode_project_path(dir_name),
+                        };
 
-                        if normalize_path_for_comparison(&candidate_path)
-                            == target_normalized_path
+                        if normalize_path_for_comparison(&candidate_path) == target_normalized_path
                         {
                             actual_project_dir = Some(entry.path());
                             actual_project_id = dir_name.to_string();
@@ -360,10 +363,7 @@ impl ProjectStore {
                     project_id
                 )
             } else {
-                format!(
-                    "项目目录不存在: {:?}",
-                    projects_dir.join(project_id)
-                )
+                format!("项目目录不存在: {:?}", projects_dir.join(project_id))
             }
         })?;
 
@@ -405,8 +405,7 @@ impl ProjectStore {
                                         Err(_) => decode_project_path(dir_name),
                                     };
 
-                                if normalize_path_for_comparison(&candidate_path)
-                                    == normalized_path
+                                if normalize_path_for_comparison(&candidate_path) == normalized_path
                                 {
                                     validated_hidden_projects.push(dir_name.to_string());
                                     log::debug!(
@@ -507,14 +506,13 @@ impl ProjectStore {
                         existing_project.created_at = project.created_at;
                     }
 
-                    let should_update_id =
-                        project.id.len() < existing_project.id.len()
-                            || (project.id.len() == existing_project.id.len()
-                                && !project.id.contains("--")
-                                && existing_project.id.contains("--"))
-                            || (project.id.len() == existing_project.id.len()
-                                && project.id.chars().any(|c| c.is_uppercase())
-                                && existing_project.id.chars().all(|c| !c.is_uppercase()));
+                    let should_update_id = project.id.len() < existing_project.id.len()
+                        || (project.id.len() == existing_project.id.len()
+                            && !project.id.contains("--")
+                            && existing_project.id.contains("--"))
+                        || (project.id.len() == existing_project.id.len()
+                            && project.id.chars().any(|c| c.is_uppercase())
+                            && existing_project.id.chars().all(|c| !c.is_uppercase()));
 
                     if should_update_id {
                         log::debug!(
@@ -531,17 +529,16 @@ impl ProjectStore {
             }
         }
 
-        let mut unique_projects: Vec<Project> =
-            unique_projects_map
-                .into_values()
-                .map(|mut project| {
-                    let mut unique_sessions = HashSet::new();
-                    project
-                        .sessions
-                        .retain(|session| unique_sessions.insert(session.clone()));
-                    project
-                })
-                .collect();
+        let mut unique_projects: Vec<Project> = unique_projects_map
+            .into_values()
+            .map(|mut project| {
+                let mut unique_sessions = HashSet::new();
+                project
+                    .sessions
+                    .retain(|session| unique_sessions.insert(session.clone()));
+                project
+            })
+            .collect();
 
         unique_projects.sort_by(|a, b| b.created_at.cmp(&a.created_at));
 
@@ -578,32 +575,28 @@ fn get_project_path_from_sessions(project_dir: &Path) -> Result<String, String> 
     let entries = fs::read_dir(project_dir)
         .map_err(|e| format!("Failed to read project directory: {}", e))?;
 
-    for entry in entries {
-        if let Ok(entry) = entry {
-            let path = entry.path();
-            if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
-                if let Ok(file) = fs::File::open(&path) {
-                    let reader = BufReader::new(file);
-                    if let Some(Ok(first_line)) = reader.lines().next() {
-                        if let Ok(json) =
-                            serde_json::from_str::<serde_json::Value>(&first_line)
-                        {
-                            if let Some(cwd) = json.get("cwd").and_then(|v| v.as_str()) {
-                                let cleaned_cwd = cwd.replace("\\\\", "\\");
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
+            if let Ok(file) = fs::File::open(&path) {
+                let reader = BufReader::new(file);
+                if let Some(Ok(first_line)) = reader.lines().next() {
+                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&first_line) {
+                        if let Some(cwd) = json.get("cwd").and_then(|v| v.as_str()) {
+                            let cleaned_cwd = cwd.replace("\\\\", "\\");
 
-                                let normalized_cwd = Path::new(&cleaned_cwd)
-                                    .canonicalize()
-                                    .map(|p| {
-                                        let path_str = p.to_string_lossy().to_string();
-                                        if path_str.starts_with("\\\\?\\") {
-                                            path_str[4..].to_string()
-                                        } else {
-                                            path_str
-                                        }
-                                    })
-                                    .unwrap_or_else(|_| cleaned_cwd.clone());
-                                return Ok(normalized_cwd);
-                            }
+                            let normalized_cwd = Path::new(&cleaned_cwd)
+                                .canonicalize()
+                                .map(|p| {
+                                    let path_str = p.to_string_lossy().to_string();
+                                    if let Some(stripped) = path_str.strip_prefix("\\\\?\\") {
+                                        stripped.to_string()
+                                    } else {
+                                        path_str
+                                    }
+                                })
+                                .unwrap_or_else(|_| cleaned_cwd.clone());
+                            return Ok(normalized_cwd);
                         }
                     }
                 }
