@@ -292,26 +292,29 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
               setMessages(prev => [...prev, message]);
               setRawJsonlOutput((prev) => [...prev, payload]);
 
-              // Extract and save Codex session ID from thread.started
+              // Extract and save Codex thread_id from thread.started for session resuming
+              // NOTE: claudeSessionId is already set to the backend channel ID in codex-session-init handler
+              // Here we only save the thread_id for session resuming purposes (different from channel ID)
               if (message.type === 'system' && message.subtype === 'init' && (message as any).session_id) {
-                const codexSessionId = (message as any).session_id;
-                setClaudeSessionId(codexSessionId);
+                const codexThreadId = (message as any).session_id;  // This is the Codex thread_id
+                // 🔧 FIX: Don't override claudeSessionId here - it's already set to backend channel ID
+                // setClaudeSessionId(codexThreadId);  // REMOVED - would break event channel subscription
 
-                // Save session info for resuming
+                // Save session info for resuming (uses thread_id, not channel ID)
                 const projectId = projectPath.replace(/[^a-zA-Z0-9]/g, '-');
-                setExtractedSessionInfo({ sessionId: codexSessionId, projectId });
+                setExtractedSessionInfo({ sessionId: codexThreadId, projectId });
 
                 // Mark as not first prompt anymore
                 setIsFirstPrompt(false);
 
                 // If this is a new Codex session and prompt not yet recorded, record now
                 if (isUserInitiated && codexPendingInfo && codexPendingInfo.promptIndex === undefined) {
-                  api.recordCodexPromptSent(codexSessionId, projectPath, codexPendingInfo.promptText)
+                  api.recordCodexPromptSent(codexThreadId, projectPath, codexPendingInfo.promptText)
                     .then((idx) => {
                       codexPendingInfo.promptIndex = idx;
-                      codexPendingInfo.sessionId = codexSessionId;
+                      codexPendingInfo.sessionId = codexThreadId;
                       window.__codexPendingPrompt = {
-                        sessionId: codexSessionId,
+                        sessionId: codexThreadId,
                         projectPath,
                         promptIndex: idx
                       };
@@ -323,7 +326,7 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
                 } else if (codexPendingInfo && codexPendingInfo.promptIndex !== undefined) {
                   // Update pending sessionId for completion handler
                   window.__codexPendingPrompt = {
-                    sessionId: codexSessionId,
+                    sessionId: codexThreadId,
                     projectPath,
                     promptIndex: codexPendingInfo.promptIndex
                   };
@@ -389,6 +392,9 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
             console.log('[usePromptExecution] Received codex-session-init:', evt.payload);
             if (evt.payload.session_id && !currentCodexSessionId) {
               currentCodexSessionId = evt.payload.session_id;
+              // 🔧 FIX: Set claudeSessionId to the backend channel ID for reconnection and cancellation
+              // This is different from the Codex thread_id which is used for resuming sessions
+              setClaudeSessionId(currentCodexSessionId);
               // Switch to session-specific listeners
               await attachCodexSessionListeners(currentCodexSessionId);
             }
