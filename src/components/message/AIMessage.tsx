@@ -43,16 +43,19 @@ const extractAIText = (message: ClaudeStreamMessage): string => {
 
 /**
  * 检测消息中是否有工具调用
+ *
+ * 注意：只检查 tool_use，不检查 tool_result
+ * tool_result 是工具执行的结果，通常通过 ToolCallsGroup 根据 tool_use 匹配显示
+ * Codex 的 function_call_output 事件会生成仅包含 tool_result 的消息，
+ * 这些消息不应该触发工具卡片渲染（避免空白消息卡片）
  */
 const hasToolCalls = (message: ClaudeStreamMessage): boolean => {
   if (!message.message?.content) return false;
-  
+
   const content = message.message.content;
   if (!Array.isArray(content)) return false;
-  
-  return content.some((item: any) => 
-    item.type === 'tool_use' || item.type === 'tool_result'
-  );
+
+  return content.some((item: any) => item.type === 'tool_use');
 };
 
 /**
