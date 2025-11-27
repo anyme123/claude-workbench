@@ -5,6 +5,7 @@ use std::process::Command;
 /// Resolve a .cmd wrapper file to its actual Node.js script path
 ///
 /// On Unix-like systems, .cmd files are not used, so this always returns None.
+#[allow(dead_code)]
 pub fn resolve_cmd_wrapper(_cmd_path: &str) -> Option<(String, String)> {
     None
 }
@@ -49,6 +50,7 @@ pub fn kill_process_tree_impl(pid: u32) -> Result<(), String> {
 /// Setup Unix-specific environment variables for a command
 ///
 /// On Unix, this adds NVM paths if detected.
+#[allow(dead_code)]
 pub fn setup_command_environment(cmd: &mut Command, program_path: &str) {
     use std::path::Path;
 
@@ -57,7 +59,7 @@ pub fn setup_command_environment(cmd: &mut Command, program_path: &str) {
         if let Some(node_bin_dir) = Path::new(program_path).parent() {
             let current_path = std::env::var("PATH").unwrap_or_default();
             let node_bin_str = node_bin_dir.to_string_lossy();
-            if !current_path.contains(&node_bin_str.as_ref()) {
+            if !current_path.contains(node_bin_str.as_ref()) {
                 let new_path = format!("{}:{}", node_bin_str, current_path);
                 cmd.env("PATH", new_path);
             }
@@ -68,6 +70,7 @@ pub fn setup_command_environment(cmd: &mut Command, program_path: &str) {
 /// Setup Unix-specific environment variables for a tokio command
 ///
 /// Async version for use with tokio::process::Command
+#[allow(dead_code)]
 pub fn setup_command_environment_async(cmd: &mut tokio::process::Command, program_path: &str) {
     use std::path::Path;
 
@@ -76,7 +79,7 @@ pub fn setup_command_environment_async(cmd: &mut tokio::process::Command, progra
         if let Some(node_bin_dir) = Path::new(program_path).parent() {
             let current_path = std::env::var("PATH").unwrap_or_default();
             let node_bin_str = node_bin_dir.to_string_lossy();
-            if !current_path.contains(&node_bin_str.as_ref()) {
+            if !current_path.contains(node_bin_str.as_ref()) {
                 let new_path = format!("{}:{}", node_bin_str, current_path);
                 cmd.env("PATH", new_path);
             }

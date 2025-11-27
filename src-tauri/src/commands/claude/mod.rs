@@ -1,62 +1,34 @@
 mod cli_runner;
 mod config;
+mod file_ops;
 mod hooks;
 mod models;
 mod paths;
+mod platform;
 mod project_store;
 mod session_history;
-mod platform;
-mod file_ops;
 
 pub use models::*;
 pub use paths::*;
 // Export platform utilities for process window hiding
-pub use platform::apply_no_window_async;
 pub use self::cli_runner::{
-    cancel_claude_execution,
-    continue_claude_code,
-    execute_claude_code,
-    get_claude_session_output,
-    list_running_claude_sessions,
-    resume_claude_code,
-    ClaudeProcessState,
+    cancel_claude_execution, continue_claude_code, execute_claude_code, get_claude_session_output,
+    list_running_claude_sessions, resume_claude_code, ClaudeProcessState,
 };
 pub use self::config::{
-    check_claude_version,
-    clear_custom_claude_path,
-    find_claude_md_files,
-    get_available_tools,
-    get_claude_execution_config,
-    get_claude_path,
-    get_claude_permission_config,
-    get_claude_settings,
-    get_codex_system_prompt,
-    get_permission_presets,
-    get_system_prompt,
-    open_new_session,
-    read_claude_md_file,
-    reset_claude_execution_config,
-    save_claude_md_file,
-    save_claude_settings,
-    save_codex_system_prompt,
-    save_system_prompt,
-    set_custom_claude_path,
-    update_claude_execution_config,
-    update_claude_permission_config,
-    update_thinking_mode,
+    check_claude_version, clear_custom_claude_path, find_claude_md_files, get_available_tools,
+    get_claude_execution_config, get_claude_path, get_claude_permission_config,
+    get_claude_settings, get_codex_system_prompt, get_permission_presets, get_system_prompt,
+    open_new_session, read_claude_md_file, reset_claude_execution_config, save_claude_md_file,
+    save_claude_settings, save_codex_system_prompt, save_system_prompt, set_custom_claude_path,
+    update_claude_execution_config, update_claude_permission_config, update_thinking_mode,
     validate_permission_config,
 };
-pub use self::hooks::{
-    get_hooks_config,
-    update_hooks_config,
-    validate_hook_command,
-};
+pub use self::hooks::{get_hooks_config, update_hooks_config, validate_hook_command};
 use self::project_store::ProjectStore;
 pub use file_ops::{list_directory_contents, search_files};
+pub use platform::apply_no_window_async;
 // Agent functionality removed
-
- 
-
 
 #[tauri::command]
 pub async fn list_projects() -> Result<Vec<Project>, String> {
@@ -73,10 +45,7 @@ pub async fn get_project_sessions(project_id: String) -> Result<Vec<Session>, St
 
 /// Deletes a session and all its associated data
 #[tauri::command]
-pub async fn delete_session(
-    session_id: String,
-    project_id: String,
-) -> Result<String, String> {
+pub async fn delete_session(session_id: String, project_id: String) -> Result<String, String> {
     let store = ProjectStore::new()?;
     let session_deleted = store.delete_session(&project_id, &session_id)?;
 
@@ -173,9 +142,6 @@ pub async fn list_hidden_projects() -> Result<Vec<String>, String> {
     store.list_hidden_projects()
 }
 
-/// Reads the Claude settings file
-
-
 /// Loads the JSONL history for a specific session
 #[tauri::command]
 pub async fn load_session_history(
@@ -184,6 +150,3 @@ pub async fn load_session_history(
 ) -> Result<Vec<serde_json::Value>, String> {
     session_history::load_session_history(&session_id, &project_id)
 }
-
-
-

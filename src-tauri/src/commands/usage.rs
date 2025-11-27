@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tauri::command;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -84,16 +84,16 @@ struct ModelPricing {
 /// Model family enumeration for categorization
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum ModelFamily {
-    Opus41,      // Claude 4.1 Opus
-    Sonnet45,    // Claude 4.5 Sonnet
-    Haiku45,     // Claude 4.5 Haiku
-    Sonnet4,     // Claude 4 Sonnet
-    Opus4,       // Claude 4 Opus
-    Sonnet35,    // Claude 3.5 Sonnet
-    Haiku35,     // Claude 3.5 Haiku
-    Opus3,       // Claude 3 Opus
-    Sonnet3,     // Claude 3 Sonnet
-    Unknown,     // Unknown model
+    Opus41,   // Claude 4.1 Opus
+    Sonnet45, // Claude 4.5 Sonnet
+    Haiku45,  // Claude 4.5 Haiku
+    Sonnet4,  // Claude 4 Sonnet
+    Opus4,    // Claude 4 Opus
+    Sonnet35, // Claude 3.5 Sonnet
+    Haiku35,  // Claude 3.5 Haiku
+    Opus3,    // Claude 3 Opus
+    Sonnet3,  // Claude 3 Sonnet
+    Unknown,  // Unknown model
 }
 
 impl ModelPricing {
@@ -205,18 +205,26 @@ fn parse_model_family(model: &str) -> ModelFamily {
     }
 
     // Claude 4 Series
-    if normalized.contains("opus") && (normalized.contains("opus-4") || normalized.contains("opus_4")) {
+    if normalized.contains("opus")
+        && (normalized.contains("opus-4") || normalized.contains("opus_4"))
+    {
         return ModelFamily::Opus4;
     }
-    if normalized.contains("sonnet") && (normalized.contains("sonnet-4") || normalized.contains("sonnet_4")) {
+    if normalized.contains("sonnet")
+        && (normalized.contains("sonnet-4") || normalized.contains("sonnet_4"))
+    {
         return ModelFamily::Sonnet4;
     }
 
     // Claude 3.5 Series (check BEFORE 3.x to avoid mismatches)
-    if normalized.contains("haiku") && (normalized.contains("3.5") || normalized.contains("3-5") || normalized.contains("35")) {
+    if normalized.contains("haiku")
+        && (normalized.contains("3.5") || normalized.contains("3-5") || normalized.contains("35"))
+    {
         return ModelFamily::Haiku35;
     }
-    if normalized.contains("sonnet") && (normalized.contains("3.5") || normalized.contains("3-5") || normalized.contains("35")) {
+    if normalized.contains("sonnet")
+        && (normalized.contains("3.5") || normalized.contains("3-5") || normalized.contains("35"))
+    {
         return ModelFamily::Sonnet35;
     }
 
@@ -285,16 +293,18 @@ fn calculate_cost(model: &str, usage: &UsageData) -> f64 {
 
     // Log unrecognized models for debugging
     if family == ModelFamily::Unknown {
-        log::warn!("Unknown model detected: '{}'. Cost calculation will return 0.", model);
+        log::warn!(
+            "Unknown model detected: '{}'. Cost calculation will return 0.",
+            model
+        );
     }
 
     // Calculate cost (prices are per million tokens)
-    let cost = (input_tokens * pricing.input / 1_000_000.0)
+
+    (input_tokens * pricing.input / 1_000_000.0)
         + (output_tokens * pricing.output / 1_000_000.0)
         + (cache_creation_tokens * pricing.cache_write / 1_000_000.0)
-        + (cache_read_tokens * pricing.cache_read / 1_000_000.0);
-
-    cost
+        + (cache_read_tokens * pricing.cache_read / 1_000_000.0)
 }
 
 fn parse_jsonl_file(
@@ -409,7 +419,7 @@ fn get_earliest_timestamp(path: &PathBuf) -> Option<String> {
     None
 }
 
-fn get_all_usage_entries(claude_path: &PathBuf) -> Vec<UsageEntry> {
+fn get_all_usage_entries(claude_path: &Path) -> Vec<UsageEntry> {
     let mut all_entries = Vec::new();
     let mut processed_hashes = HashSet::new();
     let projects_dir = claude_path.join("projects");
@@ -454,7 +464,7 @@ pub fn get_usage_stats(days: Option<u32>) -> Result<UsageStats, String> {
         .ok_or("Failed to get home directory")?
         .join(".claude");
 
-    let all_entries = get_all_usage_entries(&claude_path);
+    let all_entries = get_all_usage_entries(claude_path.as_path());
 
     if all_entries.is_empty() {
         return Ok(UsageStats {
@@ -537,7 +547,8 @@ pub fn get_usage_stats(days: Option<u32>) -> Result<UsageStats, String> {
             dt.with_timezone(&Local).format("%Y-%m-%d").to_string()
         } else {
             // 降级：直接从字符串提取（可能不准确）
-            entry.timestamp
+            entry
+                .timestamp
                 .split('T')
                 .next()
                 .unwrap_or(&entry.timestamp)
@@ -567,7 +578,7 @@ pub fn get_usage_stats(days: Option<u32>) -> Result<UsageStats, String> {
                     project_name: entry
                         .project_path
                         .split('/')
-                        .last()
+                        .next_back()
                         .unwrap_or(&entry.project_path)
                         .to_string(),
                     total_cost: 0.0,
@@ -622,7 +633,7 @@ pub fn get_usage_by_date_range(start_date: String, end_date: String) -> Result<U
         .ok_or("Failed to get home directory")?
         .join(".claude");
 
-    let all_entries = get_all_usage_entries(&claude_path);
+    let all_entries = get_all_usage_entries(claude_path.as_path());
 
     // Parse dates
     let start = NaiveDate::parse_from_str(&start_date, "%Y-%m-%d").or_else(|_| {
@@ -713,7 +724,8 @@ pub fn get_usage_by_date_range(start_date: String, end_date: String) -> Result<U
             dt.with_timezone(&Local).format("%Y-%m-%d").to_string()
         } else {
             // 降级：直接从字符串提取（可能不准确）
-            entry.timestamp
+            entry
+                .timestamp
                 .split('T')
                 .next()
                 .unwrap_or(&entry.timestamp)
@@ -743,7 +755,7 @@ pub fn get_usage_by_date_range(start_date: String, end_date: String) -> Result<U
                     project_name: entry
                         .project_path
                         .split('/')
-                        .last()
+                        .next_back()
                         .unwrap_or(&entry.project_path)
                         .to_string(),
                     total_cost: 0.0,
@@ -791,7 +803,7 @@ pub fn get_session_stats(
         .ok_or("Failed to get home directory")?
         .join(".claude");
 
-    let all_entries = get_all_usage_entries(&claude_path);
+    let all_entries = get_all_usage_entries(claude_path.as_path());
 
     // Filter by date range if provided
     // 🚀 修复时区问题：转换为本地时区后进行日期比较
@@ -825,7 +837,7 @@ pub fn get_session_stats(
                     project_name: entry
                         .project_path
                         .split('/')
-                        .last()
+                        .next_back()
                         .unwrap_or(&entry.project_path)
                         .to_string(),
                     total_cost: 0.0,

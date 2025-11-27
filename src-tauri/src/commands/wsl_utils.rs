@@ -1,3 +1,5 @@
+#![cfg_attr(not(target_os = "windows"), allow(dead_code))]
+
 //! WSL (Windows Subsystem for Linux) 兼容性工具
 //!
 //! 提供 Windows 主机与 WSL 环境之间的路径转换和命令执行支持
@@ -62,9 +64,7 @@ static CODEX_CONFIG: OnceLock<CodexConfig> = OnceLock::new();
 
 /// 获取 Codex 配置（带缓存）
 pub fn get_codex_config() -> &'static CodexConfig {
-    CODEX_CONFIG.get_or_init(|| {
-        load_codex_config().unwrap_or_default()
-    })
+    CODEX_CONFIG.get_or_init(|| load_codex_config().unwrap_or_default())
 }
 
 /// 从配置文件加载 Codex 配置
@@ -78,19 +78,20 @@ fn load_codex_config() -> Option<CodexConfig> {
     }
 
     match std::fs::read_to_string(&config_file) {
-        Ok(content) => {
-            match serde_json::from_str::<CodexConfig>(&content) {
-                Ok(config) => {
-                    log::info!("[Codex Config] Loaded config: mode={:?}, wsl_distro={:?}",
-                        config.mode, config.wsl_distro);
-                    Some(config)
-                }
-                Err(e) => {
-                    log::warn!("[Codex Config] Failed to parse config: {}", e);
-                    None
-                }
+        Ok(content) => match serde_json::from_str::<CodexConfig>(&content) {
+            Ok(config) => {
+                log::info!(
+                    "[Codex Config] Loaded config: mode={:?}, wsl_distro={:?}",
+                    config.mode,
+                    config.wsl_distro
+                );
+                Some(config)
             }
-        }
+            Err(e) => {
+                log::warn!("[Codex Config] Failed to parse config: {}", e);
+                None
+            }
+        },
         Err(e) => {
             log::warn!("[Codex Config] Failed to read config file: {}", e);
             None
@@ -100,8 +101,7 @@ fn load_codex_config() -> Option<CodexConfig> {
 
 /// 保存 Codex 配置到文件
 pub fn save_codex_config(config: &CodexConfig) -> Result<(), String> {
-    let home_dir = dirs::home_dir()
-        .ok_or_else(|| "Failed to get home directory".to_string())?;
+    let home_dir = dirs::home_dir().ok_or_else(|| "Failed to get home directory".to_string())?;
 
     let codex_dir = home_dir.join(".codex");
     if !codex_dir.exists() {
@@ -150,7 +150,10 @@ impl WslConfig {
     #[cfg(target_os = "windows")]
     pub fn detect() -> Self {
         let codex_config = get_codex_config();
-        info!("[WSL] Detecting Codex configuration (mode: {:?})...", codex_config.mode);
+        info!(
+            "[WSL] Detecting Codex configuration (mode: {:?})...",
+            codex_config.mode
+        );
 
         match codex_config.mode {
             CodexMode::Native => {
@@ -191,7 +194,10 @@ impl WslConfig {
                 info!("[WSL] Using user-specified distro: {}", d);
                 Some(d.to_string())
             } else {
-                warn!("[WSL] User-specified distro '{}' not found, using default", d);
+                warn!(
+                    "[WSL] User-specified distro '{}' not found, using default",
+                    d
+                );
                 get_default_wsl_distro()
             }
         } else {
@@ -349,10 +355,16 @@ fn get_native_codex_paths() -> Vec<String> {
         paths.push(format!(r"{}\.volta\bin\codex", userprofile));
         // fnm (Fast Node Manager) 安装路径
         paths.push(format!(r"{}\.fnm\aliases\default\codex.cmd", userprofile));
-        paths.push(format!(r"{}\.fnm\node-versions\v*\installation\bin\codex.cmd", userprofile));
+        paths.push(format!(
+            r"{}\.fnm\node-versions\v*\installation\bin\codex.cmd",
+            userprofile
+        ));
         // Scoop 安装路径
         paths.push(format!(r"{}\scoop\shims\codex.cmd", userprofile));
-        paths.push(format!(r"{}\scoop\apps\nodejs\current\codex.cmd", userprofile));
+        paths.push(format!(
+            r"{}\scoop\apps\nodejs\current\codex.cmd",
+            userprofile
+        ));
         // 本地 bin 目录
         paths.push(format!(r"{}\.local\bin\codex.cmd", userprofile));
         paths.push(format!(r"{}\.local\bin\codex", userprofile));
@@ -573,7 +585,10 @@ pub fn check_wsl_codex(distro: Option<&str>) -> Option<String> {
 
                     if let Ok(test_output) = test_cmd.output() {
                         if test_output.status.success() {
-                            info!("[WSL] Found codex in nvm version {} at: {}", version, codex_path);
+                            info!(
+                                "[WSL] Found codex in nvm version {} at: {}",
+                                version, codex_path
+                            );
                             return Some(codex_path);
                         }
                     }
@@ -694,11 +709,7 @@ pub fn wsl_to_windows_path(wsl_path: &str) -> String {
 /// Windows UNC 路径，如 "\\\\wsl.localhost\\Debian\\root\\.codex\\sessions"
 pub fn build_wsl_unc_path(wsl_path: &str, distro: &str) -> PathBuf {
     // 尝试 wsl.localhost（Windows 10 2004+）
-    let unc_path = format!(
-        r"\\wsl.localhost\{}{}",
-        distro,
-        wsl_path.replace('/', "\\")
-    );
+    let unc_path = format!(r"\\wsl.localhost\{}{}", distro, wsl_path.replace('/', "\\"));
     let path = PathBuf::from(&unc_path);
 
     // 检查路径是否可访问
@@ -812,10 +823,7 @@ mod tests {
 
     #[test]
     fn test_windows_to_wsl_path() {
-        assert_eq!(
-            windows_to_wsl_path("C:\\Users\\test"),
-            "/mnt/c/Users/test"
-        );
+        assert_eq!(windows_to_wsl_path("C:\\Users\\test"), "/mnt/c/Users/test");
         assert_eq!(
             windows_to_wsl_path("D:\\Projects\\app"),
             "/mnt/d/Projects/app"
@@ -826,10 +834,7 @@ mod tests {
 
     #[test]
     fn test_wsl_to_windows_path() {
-        assert_eq!(
-            wsl_to_windows_path("/mnt/c/Users/test"),
-            "C:\\Users\\test"
-        );
+        assert_eq!(wsl_to_windows_path("/mnt/c/Users/test"), "C:\\Users\\test");
         assert_eq!(wsl_to_windows_path("/mnt/d/Projects"), "D:\\Projects");
         assert_eq!(wsl_to_windows_path("/home/user"), "/home/user"); // 不转换
         assert_eq!(wsl_to_windows_path("/mnt/c"), "C:\\"); // 边界情况

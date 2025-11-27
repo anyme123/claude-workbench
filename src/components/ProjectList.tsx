@@ -34,6 +34,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DeletedProjects } from "./DeletedProjects";
 import { ProjectListSkeleton } from "@/components/skeletons/ProjectListSkeleton";
+import { useTranslation } from "react-i18next";
 
 interface ProjectListProps {
   /**
@@ -104,12 +105,22 @@ export const ProjectList: React.FC<ProjectListProps> = ({
   loading,
   className,
 }) => {
+  const { t } = useTranslation();
   const [currentPage, setCurrentPage] = useState(1);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState("active");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const VIEW_MODE_STORAGE_KEY = "anycode.projects.viewMode";
+  const [viewMode, setViewMode] = useState<"grid" | "list">(() => {
+    if (typeof window !== "undefined") {
+      const stored = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+      if (stored === "grid" || stored === "list") {
+        return stored;
+      }
+    }
+    return "grid";
+  });
   const [codexSessions, setCodexSessions] = useState<CodexSession[]>([]);
   
   // Calculate pagination
@@ -136,6 +147,12 @@ export const ProjectList: React.FC<ProjectListProps> = ({
   React.useEffect(() => {
     setCurrentPage(1);
   }, [projects.length]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, viewMode);
+    }
+  }, [viewMode]);
 
   const handleDeleteProject = (project: Project) => {
     setProjectToDelete(project);
@@ -195,7 +212,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
             size="icon-sm"
             onClick={() => setViewMode("grid")}
             className="h-7 w-7"
-            title="网格视图"
+            title={t("projects.gridView")}
           >
             <LayoutGrid className="h-4 w-4" />
           </Button>
@@ -204,7 +221,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
             size="icon-sm"
             onClick={() => setViewMode("list")}
             className="h-7 w-7"
-            title="列表视图"
+            title={t("projects.listView")}
           >
             <List className="h-4 w-4" />
           </Button>
@@ -224,6 +241,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
         {currentProjects.map((project) => {
           const projectName = getProjectName(project.path);
           const sessionCount = getTotalSessionCount(project);
+          const isCodexOnly = project.isCodexOnly;
 
           return (
             <div
@@ -269,13 +287,6 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                 </p>
               )}
 
-              {/* 列表视图的额外信息 */}
-              {viewMode === "list" && (
-                <div className="text-xs text-muted-foreground hidden md:block w-32 text-right">
-                  {formatAbsoluteDateTime(project.created_at)}
-                </div>
-              )}
-
               {/* 右上角：会话数徽章 + 操作菜单 */}
               <div className={cn(
                 "flex items-center gap-2",
@@ -292,8 +303,14 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                   </div>
                 )}
 
+                {viewMode === "list" && (
+                  <div className="text-xs text-muted-foreground hidden md:block w-32 text-right">
+                    {formatAbsoluteDateTime(project.created_at)}
+                  </div>
+                )}
+
                 {/* 操作菜单 */}
-                {(onProjectSettings || onProjectDelete) && (
+                {(((onProjectSettings && !isCodexOnly) || onProjectDelete)) && (
                   <div className={cn(
                     "transition-opacity",
                     viewMode === "grid" ? "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100" : "opacity-100"
@@ -310,7 +327,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        {onProjectSettings && (
+                        {onProjectSettings && !isCodexOnly && (
                           <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation();
@@ -318,10 +335,10 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                             }}
                           >
                             <Settings className="h-4 w-4 mr-2" aria-hidden="true" />
-                            Hooks 配置
+                            {t("projects.hooksConfig")}
                           </DropdownMenuItem>
                         )}
-                        {onProjectSettings && onProjectDelete && (
+                        {onProjectSettings && !isCodexOnly && onProjectDelete && (
                           <DropdownMenuSeparator />
                         )}
                         {onProjectDelete && (
@@ -333,7 +350,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                             className="text-destructive hover:text-destructive"
                           >
                             <Trash2 className="h-4 w-4 mr-2" aria-hidden="true" />
-                            删除项目
+                            {t(project.isCodexOnly ? "projects.removeProject" : "projects.deleteProject")}
                           </DropdownMenuItem>
                         )}
                       </DropdownMenuContent>
@@ -361,11 +378,11 @@ export const ProjectList: React.FC<ProjectListProps> = ({
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="active" className="flex items-center gap-2">
             <FolderOpen className="h-4 w-4" />
-            活跃项目
+            {t("projects.activeTab")}
           </TabsTrigger>
           <TabsTrigger value="deleted" className="flex items-center gap-2">
             <Archive className="h-4 w-4" />
-            已删除项目
+            {t("projects.deletedTab")}
           </TabsTrigger>
         </TabsList>
         
@@ -382,10 +399,20 @@ export const ProjectList: React.FC<ProjectListProps> = ({
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>确认删除项目</DialogTitle>
+            <DialogTitle>
+              {projectToDelete?.isCodexOnly
+                ? t("projects.confirmRemoveTitle")
+                : t("projects.confirmDeleteTitle")}
+            </DialogTitle>
             <DialogDescription>
-              您确定要删除项目 "{projectToDelete ? getProjectName(projectToDelete.path) : ""}" 吗？
-              这将删除所有相关的会话数据和Todo文件，此操作无法撤销。
+              {projectToDelete
+                ? t(
+                    projectToDelete.isCodexOnly
+                      ? "projects.confirmRemoveDescription"
+                      : "projects.confirmDeleteDescription",
+                    { project: getProjectName(projectToDelete.path) }
+                  )
+                : ""}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -394,14 +421,16 @@ export const ProjectList: React.FC<ProjectListProps> = ({
               onClick={cancelDelete}
               disabled={isDeleting}
             >
-              取消
+              {t("buttons.cancel")}
             </Button>
             <Button
               variant="destructive"
               onClick={confirmDelete}
               disabled={isDeleting}
             >
-              {isDeleting ? "删除中..." : "确认删除"}
+              {isDeleting
+                ? t("messages.processing")
+                : t(projectToDelete?.isCodexOnly ? "projects.removeProject" : "projects.deleteProject")}
             </Button>
           </DialogFooter>
         </DialogContent>

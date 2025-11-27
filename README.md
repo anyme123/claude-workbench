@@ -993,6 +993,10 @@ git push origin feature/your-feature-name
 - 错误处理使用 `Result` 和 `anyhow`
 - 异步代码使用 `tokio`
 
+> 💡 为了避免将 clippy 警告带入仓库，项目附带了一个 Git 预提交钩子：
+> 1. 执行一次 `git config core.hooksPath .githooks` 启用仓库内的钩子目录；
+> 2. 之后 `git commit` 会自动运行 `cargo clippy --all-targets --all-features -- -D warnings`（可通过 `SKIP_CLIPPY=1 git commit ...` 临时跳过）。
+
 **提交信息规范**
 ```
 <type>(<scope>): <subject>

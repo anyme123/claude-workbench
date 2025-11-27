@@ -30,6 +30,10 @@ export interface Project {
   sessions: string[];
   /** Unix timestamp when the project directory was created */
   created_at: number;
+  /** Indicates this project entry only has Codex sessions */
+  isCodexOnly?: boolean;
+  /** Cached Codex session count associated with this project */
+  codexSessionCount?: number;
 }
 
 /**
@@ -551,7 +555,21 @@ export const api = {
   async getProjectSessions(projectId: string, projectPath?: string): Promise<Session[]> {
     try {
       // Get Claude sessions
-      const claudeSessions = await invoke<Session[]>('get_project_sessions', { projectId });
+      const isCodexOnlyProject = projectId.startsWith('codex-only::');
+      let claudeSessions: Session[] = [];
+      if (!isCodexOnlyProject) {
+        try {
+          claudeSessions = await invoke<Session[]>('get_project_sessions', { projectId });
+        } catch (invokeError) {
+          const errorMessage = invokeError instanceof Error ? invokeError.message : String(invokeError);
+          if (errorMessage?.includes("Project directory not found")) {
+            console.warn(`[SessionList] Project ${projectId} not found in Claude store, continuing with Codex sessions only.`);
+            claudeSessions = [];
+          } else {
+            throw invokeError;
+          }
+        }
+      }
       console.log('[SessionList] Claude sessions:', claudeSessions.length);
 
       // Get Codex sessions and filter by project path

@@ -97,11 +97,11 @@ impl TranslationService {
             .filter(|c| {
                 let ch = *c as u32;
                 // 更全面的中文字符范围
-                (ch >= 0x4E00 && ch <= 0x9FFF) ||  // CJK统一表意文字
-                (ch >= 0x3400 && ch <= 0x4DBF) ||  // CJK扩展A
-                (ch >= 0xF900 && ch <= 0xFAFF) ||  // CJK兼容表意文字
-                (ch >= 0x3000 && ch <= 0x303F) ||  // CJK符号和标点
-                (ch >= 0xFF00 && ch <= 0xFFEF) // 全角ASCII、全角中英文标点、半宽片假名、半宽平假名、半宽韩文字母
+                (0x4E00..=0x9FFF).contains(&ch) ||  // CJK统一表意文字
+                (0x3400..=0x4DBF).contains(&ch) ||  // CJK扩展A
+                (0xF900..=0xFAFF).contains(&ch) ||  // CJK兼容表意文字
+                (0x3000..=0x303F).contains(&ch) ||  // CJK符号和标点
+                (0xFF00..=0xFFEF).contains(&ch) // 全角ASCII、全角中英文标点、半宽片假名、半宽平假名、半宽韩文字母
             })
             .collect();
 
@@ -130,9 +130,9 @@ impl TranslationService {
             .chars()
             .filter(|c| {
                 let ch = *c as u32;
-                (ch >= 0x4E00 && ch <= 0x9FFF)
-                    || (ch >= 0x3400 && ch <= 0x4DBF)
-                    || (ch >= 0xF900 && ch <= 0xFAFF)
+                (0x4E00..=0x9FFF).contains(&ch)
+                    || (0x3400..=0x4DBF).contains(&ch)
+                    || (0xF900..=0xFAFF).contains(&ch)
             })
             .count();
 
@@ -309,7 +309,7 @@ impl TranslationService {
         let from_lang = self.detect_language(text);
 
         // 确定目标语言
-        let to_lang = target_lang.unwrap_or_else(|| {
+        let to_lang = target_lang.unwrap_or({
             match from_lang.as_str() {
                 "zh" => "en", // 中文翻译为英文
                 _ => "zh",    // 其他语言翻译为中文

@@ -235,7 +235,7 @@ impl AutoCompactManager {
                     session.last_compaction = Some(SystemTime::now());
                     session.compaction_count += 1;
                     session.status = SessionStatus::Active;
-                    session.current_tokens = session.current_tokens / 3; // Estimated token reduction
+                    session.current_tokens /= 3; // Estimated token reduction
 
                     info!(
                         "Auto-compaction completed for session {}: compaction #{}, estimated tokens: {}",
@@ -304,7 +304,7 @@ impl AutoCompactManager {
 
         // Build compaction command
         let mut cmd = tokio::process::Command::new(&claude_path);
-        cmd.args(&["/compact"])
+        cmd.args(["/compact"])
             .current_dir(project_path)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())

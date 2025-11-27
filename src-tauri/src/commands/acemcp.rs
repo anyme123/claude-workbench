@@ -1,4 +1,4 @@
-/**
+/*!
  * Acemcp Integration Module
  *
  * 集成 acemcp 语义搜索能力，用于提示词优化时自动添加项目上下文
@@ -9,18 +9,17 @@
  * 3. 调用 search_context 工具获取相关代码
  * 4. 格式化上下文信息并附加到提示词
  */
-
 use anyhow::Result;
+use log::{debug, error, info, warn};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::process::Stdio;
-use std::path::PathBuf;
 use std::collections::HashSet;
+use std::path::PathBuf;
+use std::process::Stdio;
 use tauri::AppHandle;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
-use log::{debug, error, info, warn};
-use regex::Regex;
 
 // Windows: 导入 CommandExt trait 以使用 creation_flags
 #[cfg(target_os = "windows")]
@@ -66,7 +65,6 @@ struct JsonRpcError {
     message: String,
 }
 
-
 /// 增强结果
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -111,7 +109,7 @@ struct HistoryContextInfo {
 async fn load_recent_history(
     session_id: &str,
     project_id: &str,
-    limit: usize
+    limit: usize,
 ) -> Result<Vec<HistoryMessage>> {
     let history_file = dirs::home_dir()
         .ok_or_else(|| anyhow::anyhow!("Cannot find home directory"))?
@@ -238,10 +236,7 @@ fn extract_context_from_history(history: &[HistoryMessage]) -> HistoryContextInf
 }
 
 /// 生成智能搜索查询（结合历史和当前提示词）
-fn generate_smart_query(
-    current_prompt: &str,
-    history_info: &HistoryContextInfo
-) -> String {
+fn generate_smart_query(current_prompt: &str, history_info: &HistoryContextInfo) -> String {
     let mut query_parts = Vec::new();
 
     // 1. 当前提示词的关键词
@@ -249,7 +244,9 @@ fn generate_smart_query(
     query_parts.push(current_keywords);
 
     // 2. 历史中的文件路径（取前3个）
-    let file_paths: Vec<String> = history_info.file_paths.iter()
+    let file_paths: Vec<String> = history_info
+        .file_paths
+        .iter()
         .take(3)
         .map(|s| s.to_string())
         .collect();
@@ -258,7 +255,9 @@ fn generate_smart_query(
     }
 
     // 3. 历史中的函数名（取前5个）
-    let functions: Vec<String> = history_info.function_names.iter()
+    let functions: Vec<String> = history_info
+        .function_names
+        .iter()
         .take(5)
         .map(|s| s.to_string())
         .collect();
@@ -267,7 +266,9 @@ fn generate_smart_query(
     }
 
     // 4. 历史中的关键词（取前5个）
-    let keywords: Vec<String> = history_info.keywords.iter()
+    let keywords: Vec<String> = history_info
+        .keywords
+        .iter()
         .take(5)
         .map(|s| s.to_string())
         .collect();
@@ -335,7 +336,10 @@ impl AcemcpClient {
                     std::fs::set_permissions(&sidecar_path, perms)?;
                 }
 
-                info!("Sidecar extracted successfully ({} bytes)", ACEMCP_SIDECAR_BYTES.len());
+                info!(
+                    "Sidecar extracted successfully ({} bytes)",
+                    ACEMCP_SIDECAR_BYTES.len()
+                );
             } else {
                 debug!("Using existing sidecar at: {:?}", sidecar_path);
             }
@@ -396,14 +400,15 @@ impl AcemcpClient {
             cmd.creation_flags(CREATE_NO_WINDOW);
         }
 
-        let child = cmd.spawn()
-            .map_err(|e| anyhow::anyhow!("Failed to spawn sidecar: {}. Path: {:?}", e, sidecar_path))?;
+        let child = cmd.spawn().map_err(|e| {
+            anyhow::anyhow!("Failed to spawn sidecar: {}. Path: {:?}", e, sidecar_path)
+        })?;
 
         info!("Acemcp sidecar started successfully");
 
         Ok(Self {
             child,
-            request_id: 0
+            request_id: 0,
         })
     }
 
@@ -449,7 +454,9 @@ impl AcemcpClient {
                         ));
                     }
 
-                    response.result.ok_or_else(|| anyhow::anyhow!("No result in response"))
+                    response
+                        .result
+                        .ok_or_else(|| anyhow::anyhow!("No result in response"))
                 }
                 Ok(Err(e)) => Err(anyhow::anyhow!("Failed to read response: {}", e)),
                 Err(_) => Err(anyhow::anyhow!("Request timeout (30s)")),
@@ -498,7 +505,8 @@ impl AcemcpClient {
         self.send_request("initialize", Some(params)).await?;
 
         // 发送 initialized 通知（不等待响应）
-        self.send_notification("notifications/initialized", None).await?;
+        self.send_notification("notifications/initialized", None)
+            .await?;
 
         info!("MCP session initialized successfully");
         Ok(())
@@ -506,7 +514,10 @@ impl AcemcpClient {
 
     /// 调用 search_context 工具
     async fn search_context(&mut self, project_path: &str, query: &str) -> Result<String> {
-        info!("Calling search_context: project={}, query={}", project_path, query);
+        info!(
+            "Calling search_context: project={}, query={}",
+            project_path, query
+        );
 
         let params = json!({
             "name": "search_context",
@@ -616,51 +627,130 @@ impl AcemcpClient {
 /// 英文技术缩写词库 - 常见2-3字符的技术术语
 const TECH_ABBREVIATIONS: &[&str] = &[
     // UI/UX 设计
-    "ui", "ux", "css", "svg", "dom",
-    // 编程语言/运行时
-    "js", "ts", "py", "go", "rs", "rb", "php", "cpp", "jsx", "tsx",
-    // 框架/工具
-    "vue", "npm", "pnpm", "yarn", "git", "vim", "zsh", "wsl",
-    // 概念/架构
-    "api", "sdk", "cli", "gui", "ide", "orm", "mvc", "mvp", "mvvm",
-    "spa", "ssr", "ssg", "pwa", "cdn", "dns", "tcp", "udp", "http",
-    // AI/数据
-    "ai", "ml", "dl", "nlp", "llm", "gpt", "rag",
-    "db", "sql", "kv", "etl",
+    "ui", "ux", "css", "svg", "dom", // 编程语言/运行时
+    "js", "ts", "py", "go", "rs", "rb", "php", "cpp", "jsx", "tsx", // 框架/工具
+    "vue", "npm", "pnpm", "yarn", "git", "vim", "zsh", "wsl", // 概念/架构
+    "api", "sdk", "cli", "gui", "ide", "orm", "mvc", "mvp", "mvvm", "spa", "ssr", "ssg", "pwa",
+    "cdn", "dns", "tcp", "udp", "http", // AI/数据
+    "ai", "ml", "dl", "nlp", "llm", "gpt", "rag", "db", "sql", "kv", "etl",
     // 系统/运维
-    "io", "os", "vm", "k8s", "ci", "cd", "aws", "gcp",
-    // 安全/认证
-    "jwt", "ssh", "ssl", "tls", "rsa", "aes", "md5",
-    // 其他常用
-    "id", "url", "uri", "xml", "json", "yaml", "toml", "csv",
-    "rgb", "hex", "utf", "ascii", "base64",
-    "fps", "gpu", "cpu", "ram", "ssd", "hdd",
-    // 项目相关
+    "io", "os", "vm", "k8s", "ci", "cd", "aws", "gcp", // 安全/认证
+    "jwt", "ssh", "ssl", "tls", "rsa", "aes", "md5", // 其他常用
+    "id", "url", "uri", "xml", "json", "yaml", "toml", "csv", "rgb", "hex", "utf", "ascii",
+    "base64", "fps", "gpu", "cpu", "ram", "ssd", "hdd", // 项目相关
     "mcp", "acemcp",
 ];
 
 /// 中文技术词库 - 常见编程/开发相关词汇
 const CHINESE_TECH_WORDS: &[&str] = &[
     // 动作词
-    "优化", "重构", "修复", "添加", "删除", "更新", "实现", "集成",
-    "修改", "调整", "改进", "升级", "迁移", "部署", "配置", "调试",
-    "测试", "验证", "检查", "分析", "设计", "创建", "构建", "编译",
+    "优化",
+    "重构",
+    "修复",
+    "添加",
+    "删除",
+    "更新",
+    "实现",
+    "集成",
+    "修改",
+    "调整",
+    "改进",
+    "升级",
+    "迁移",
+    "部署",
+    "配置",
+    "调试",
+    "测试",
+    "验证",
+    "检查",
+    "分析",
+    "设计",
+    "创建",
+    "构建",
+    "编译",
     // 代码结构
-    "接口", "组件", "模块", "函数", "方法", "类", "对象", "实例",
-    "变量", "常量", "参数", "属性", "字段", "结构", "枚举", "类型",
+    "接口",
+    "组件",
+    "模块",
+    "函数",
+    "方法",
+    "类",
+    "对象",
+    "实例",
+    "变量",
+    "常量",
+    "参数",
+    "属性",
+    "字段",
+    "结构",
+    "枚举",
+    "类型",
     // 系统概念
-    "配置", "路由", "状态", "事件", "请求", "响应", "回调", "钩子",
-    "中间件", "插件", "扩展", "服务", "控制器", "模型", "视图",
+    "配置",
+    "路由",
+    "状态",
+    "事件",
+    "请求",
+    "响应",
+    "回调",
+    "钩子",
+    "中间件",
+    "插件",
+    "扩展",
+    "服务",
+    "控制器",
+    "模型",
+    "视图",
     // 功能模块
-    "登录", "注册", "权限", "认证", "授权", "缓存", "数据库", "存储",
-    "上传", "下载", "导入", "导出", "搜索", "过滤", "排序", "分页",
+    "登录",
+    "注册",
+    "权限",
+    "认证",
+    "授权",
+    "缓存",
+    "数据库",
+    "存储",
+    "上传",
+    "下载",
+    "导入",
+    "导出",
+    "搜索",
+    "过滤",
+    "排序",
+    "分页",
     // 前端相关
-    "页面", "布局", "样式", "动画", "表单", "按钮", "输入", "列表",
-    "弹窗", "提示", "加载", "渲染", "绑定", "监听",
+    "页面",
+    "布局",
+    "样式",
+    "动画",
+    "表单",
+    "按钮",
+    "输入",
+    "列表",
+    "弹窗",
+    "提示",
+    "加载",
+    "渲染",
+    "绑定",
+    "监听",
     // 后端相关
-    "接口", "端点", "网关", "代理", "负载", "集群", "容器", "日志",
+    "接口",
+    "端点",
+    "网关",
+    "代理",
+    "负载",
+    "集群",
+    "容器",
+    "日志",
     // 数据相关
-    "查询", "插入", "更新", "删除", "事务", "索引", "关联", "聚合",
+    "查询",
+    "插入",
+    "更新",
+    "删除",
+    "事务",
+    "索引",
+    "关联",
+    "聚合",
 ];
 
 /// 关键词提取结果
@@ -703,14 +793,14 @@ fn extract_keywords_v2(prompt: &str) -> ExtractedKeywords {
 
     // 英文停用词（小写）
     let stopwords: HashSet<&str> = [
-        "the", "a", "an", "is", "are", "was", "were", "be", "been",
-        "please", "help", "me", "i", "want", "how", "can", "could",
-        "would", "should", "will", "shall", "may", "might", "must",
-        "have", "has", "had", "do", "does", "did", "this", "that",
-        "these", "those", "and", "or", "but", "not", "with", "for",
-        "from", "into", "about", "after", "before", "between",
-        "get", "set", "new", "add", "use", "let", "var", "const",
-    ].into_iter().collect();
+        "the", "a", "an", "is", "are", "was", "were", "be", "been", "please", "help", "me", "i",
+        "want", "how", "can", "could", "would", "should", "will", "shall", "may", "might", "must",
+        "have", "has", "had", "do", "does", "did", "this", "that", "these", "those", "and", "or",
+        "but", "not", "with", "for", "from", "into", "about", "after", "before", "between", "get",
+        "set", "new", "add", "use", "let", "var", "const",
+    ]
+    .into_iter()
+    .collect();
 
     let mut english_keywords: Vec<String> = Vec::new();
     let mut chinese_keywords: Vec<String> = Vec::new();
@@ -734,8 +824,8 @@ fn extract_keywords_v2(prompt: &str) -> ExtractedKeywords {
         let word = &cap[0];
 
         // 检查是否是驼峰命名
-        let has_mixed_case = word.chars().any(|c| c.is_lowercase())
-                          && word.chars().any(|c| c.is_uppercase());
+        let has_mixed_case =
+            word.chars().any(|c| c.is_lowercase()) && word.chars().any(|c| c.is_uppercase());
 
         if has_mixed_case {
             // 拆分驼峰命名
@@ -762,12 +852,18 @@ fn extract_keywords_v2(prompt: &str) -> ExtractedKeywords {
         // 使用单词边界匹配，避免误匹配（如 "paid" 中的 "ai"）
         // 检查缩写词前后是否为非字母数字字符
         if let Some(pos) = prompt_lower.find(abbr) {
-            let before_ok = pos == 0 || !prompt_lower.chars().nth(pos - 1)
-                .map(|c| c.is_alphanumeric())
-                .unwrap_or(false);
-            let after_ok = pos + abbr.len() >= prompt_lower.len() || !prompt_lower.chars().nth(pos + abbr.len())
-                .map(|c| c.is_alphanumeric())
-                .unwrap_or(false);
+            let before_ok = pos == 0
+                || !prompt_lower
+                    .chars()
+                    .nth(pos - 1)
+                    .map(|c| c.is_alphanumeric())
+                    .unwrap_or(false);
+            let after_ok = pos + abbr.len() >= prompt_lower.len()
+                || !prompt_lower
+                    .chars()
+                    .nth(pos + abbr.len())
+                    .map(|c| c.is_alphanumeric())
+                    .unwrap_or(false);
 
             if before_ok && after_ok && !seen.contains(abbr) {
                 seen.insert(abbr.to_string());
@@ -785,7 +881,7 @@ fn extract_keywords_v2(prompt: &str) -> ExtractedKeywords {
     }
 
     // 5️⃣ 限制关键词数量
-    english_keywords.truncate(12);  // 增加限制，因为缩写词也算英文关键词
+    english_keywords.truncate(12); // 增加限制，因为缩写词也算英文关键词
     chinese_keywords.truncate(5);
 
     // 6️⃣ 构建结果
@@ -801,7 +897,8 @@ fn extract_keywords_v2(prompt: &str) -> ExtractedKeywords {
 
     // 添加重要的英文关键词（前5个）
     for kw in english_keywords.iter().take(5) {
-        if kw.len() >= 4 {  // 只保留较长的词作为独立查询
+        if kw.len() >= 4 {
+            // 只保留较长的词作为独立查询
             individual.push(kw.clone());
         }
     }
@@ -834,7 +931,10 @@ fn extract_keywords(prompt: &str) -> String {
 /// 策略：
 /// - 第1轮：所有关键词组合（找交集）
 /// - 第2轮+：独立的重要关键词（找各自相关）
-fn generate_multi_round_queries(extracted: &ExtractedKeywords, enable_multi_round: bool) -> Vec<String> {
+fn generate_multi_round_queries(
+    extracted: &ExtractedKeywords,
+    enable_multi_round: bool,
+) -> Vec<String> {
     let mut queries = Vec::new();
 
     // 第1轮：组合查询（所有关键词）
@@ -872,11 +972,7 @@ fn generate_multi_round_queries(extracted: &ExtractedKeywords, enable_multi_roun
     // 限制最多 5 轮搜索（避免过多 API 调用）
     queries.truncate(5);
 
-    info!(
-        "Generated {} search queries: {:?}",
-        queries.len(),
-        queries
-    );
+    info!("Generated {} search queries: {:?}", queries.len(), queries);
 
     queries
 }
@@ -911,14 +1007,13 @@ fn truncate_utf8_safe(s: &str, max_bytes: usize) -> &str {
     }
 }
 
-
 #[tauri::command]
 pub async fn enhance_prompt_with_context(
     app: AppHandle,
     prompt: String,
     project_path: String,
-    session_id: Option<String>,      // 新增：会话 ID
-    project_id: Option<String>,      // 新增：项目 ID
+    session_id: Option<String>, // 新增：会话 ID
+    project_id: Option<String>, // 新增：项目 ID
     max_context_length: Option<usize>,
     enable_multi_round: Option<bool>, // 新增：是否启用多轮搜索
 ) -> Result<EnhancementResult, String> {
@@ -938,8 +1033,11 @@ pub async fn enhance_prompt_with_context(
 
     // ⚡ 检查提示词长度
     if prompt.len() > MAX_PROMPT_LENGTH {
-        warn!("Prompt too long ({} chars), exceeds maximum ({})",
-            prompt.len(), MAX_PROMPT_LENGTH);
+        warn!(
+            "Prompt too long ({} chars), exceeds maximum ({})",
+            prompt.len(),
+            MAX_PROMPT_LENGTH
+        );
         return Ok(EnhancementResult {
             original_prompt: prompt.clone(),
             enhanced_prompt: prompt.clone(),
@@ -947,7 +1045,8 @@ pub async fn enhance_prompt_with_context(
             acemcp_used: false,
             error: Some(format!(
                 "提示词过长（{} 字符），超过最大限制（{} 字符）。请缩短提示词或分批处理。",
-                prompt.len(), MAX_PROMPT_LENGTH
+                prompt.len(),
+                MAX_PROMPT_LENGTH
             )),
         });
     }
@@ -968,16 +1067,21 @@ pub async fn enhance_prompt_with_context(
         // 有历史：使用智能查询生成
         match load_recent_history(sid, pid, 10).await {
             Ok(history) if !history.is_empty() => {
-                info!("✅ Loaded {} history messages for smart query generation", history.len());
+                info!(
+                    "✅ Loaded {} history messages for smart query generation",
+                    history.len()
+                );
                 let history_info = extract_context_from_history(&history);
                 let smart_query = generate_smart_query(&prompt, &history_info);
 
                 // 生成多轮查询：基础查询 + 智能查询
                 let queries = if enable_multi_round.unwrap_or(true) {
                     vec![
-                        smart_query.clone(),                    // 第1轮：智能查询（历史+当前）
-                        extract_keywords(&prompt),              // 第2轮：当前提示词关键词
-                        history_info.file_paths.iter()          // 第3轮：历史文件路径
+                        smart_query.clone(),       // 第1轮：智能查询（历史+当前）
+                        extract_keywords(&prompt), // 第2轮：当前提示词关键词
+                        history_info
+                            .file_paths
+                            .iter() // 第3轮：历史文件路径
                             .take(2)
                             .cloned()
                             .collect::<Vec<_>>()
@@ -993,13 +1097,18 @@ pub async fn enhance_prompt_with_context(
                 info!("ℹ️  No history messages found, using enhanced keyword extraction");
                 // 使用 v2 版本提取关键词，支持多轮搜索
                 let extracted = extract_keywords_v2(&prompt);
-                let queries = generate_multi_round_queries(&extracted, enable_multi_round.unwrap_or(true));
+                let queries =
+                    generate_multi_round_queries(&extracted, enable_multi_round.unwrap_or(true));
                 (queries, false)
             }
             Err(e) => {
-                warn!("⚠️  Failed to load history: {}, falling back to enhanced keywords", e);
+                warn!(
+                    "⚠️  Failed to load history: {}, falling back to enhanced keywords",
+                    e
+                );
                 let extracted = extract_keywords_v2(&prompt);
-                let queries = generate_multi_round_queries(&extracted, enable_multi_round.unwrap_or(true));
+                let queries =
+                    generate_multi_round_queries(&extracted, enable_multi_round.unwrap_or(true));
                 (queries, false)
             }
         }
@@ -1012,7 +1121,8 @@ pub async fn enhance_prompt_with_context(
     };
 
     // 过滤空查询
-    let valid_queries: Vec<String> = search_queries.into_iter()
+    let valid_queries: Vec<String> = search_queries
+        .into_iter()
         .filter(|q| !q.trim().is_empty())
         .collect();
 
@@ -1027,7 +1137,11 @@ pub async fn enhance_prompt_with_context(
         });
     }
 
-    info!("📋 Generated {} search queries (history_aware={})", valid_queries.len(), has_history);
+    info!(
+        "📋 Generated {} search queries (history_aware={})",
+        valid_queries.len(),
+        has_history
+    );
     for (i, q) in valid_queries.iter().enumerate() {
         debug!("  Query {}: {}", i + 1, q);
     }
@@ -1062,8 +1176,14 @@ pub async fn enhance_prompt_with_context(
 
     // 🚀 执行搜索（单轮或多轮）
     let context_result = if valid_queries.len() > 1 && enable_multi_round.unwrap_or(true) {
-        info!("🔄 Using multi-round search with {} queries", valid_queries.len());
-        match client.multi_round_search(&project_path, &valid_queries, max_length * 2).await {
+        info!(
+            "🔄 Using multi-round search with {} queries",
+            valid_queries.len()
+        );
+        match client
+            .multi_round_search(&project_path, &valid_queries, max_length * 2)
+            .await
+        {
             Ok(ctx) => ctx,
             Err(e) => {
                 error!("Failed to perform multi-round search: {}", e);
@@ -1079,7 +1199,10 @@ pub async fn enhance_prompt_with_context(
         }
     } else {
         info!("🔍 Using single-round search");
-        match client.search_context(&project_path, &valid_queries[0]).await {
+        match client
+            .search_context(&project_path, &valid_queries[0])
+            .await
+        {
             Ok(ctx) => ctx,
             Err(e) => {
                 error!("Failed to search context: {}", e);
@@ -1100,10 +1223,15 @@ pub async fn enhance_prompt_with_context(
 
     // ⚡ 改进：智能处理上下文结果
     let trimmed_context = if context_result.len() > max_length {
-        warn!("Context too long ({} chars), truncating to {} chars",
-            context_result.len(), max_length);
-        format!("{}...\n\n[上下文过长，已自动截断。建议在设置中降低 maxContextLength 参数]",
-            truncate_utf8_safe(&context_result, max_length))
+        warn!(
+            "Context too long ({} chars), truncating to {} chars",
+            context_result.len(),
+            max_length
+        );
+        format!(
+            "{}...\n\n[上下文过长，已自动截断。建议在设置中降低 maxContextLength 参数]",
+            truncate_utf8_safe(&context_result, max_length)
+        )
     } else {
         context_result.clone()
     };
@@ -1121,14 +1249,19 @@ pub async fn enhance_prompt_with_context(
 
         // 检查最终输出长度
         if candidate.len() > MAX_TOTAL_OUTPUT_LENGTH {
-            warn!("Enhanced prompt too long ({} chars), exceeds maximum ({})",
-                candidate.len(), MAX_TOTAL_OUTPUT_LENGTH);
+            warn!(
+                "Enhanced prompt too long ({} chars), exceeds maximum ({})",
+                candidate.len(),
+                MAX_TOTAL_OUTPUT_LENGTH
+            );
 
             // 动态调整上下文长度
             let available_space = MAX_TOTAL_OUTPUT_LENGTH.saturating_sub(prompt.len() + 100); // 预留100字符给分隔符
             if available_space > 1000 {
-                let adjusted_context = format!("{}...\n\n[上下文已自动调整以适应长度限制]",
-                    truncate_utf8_safe(&trimmed_context, available_space));
+                let adjusted_context = format!(
+                    "{}...\n\n[上下文已自动调整以适应长度限制]",
+                    truncate_utf8_safe(&trimmed_context, available_space)
+                );
                 format!(
                     "{}\n\n--- 项目上下文 (来自 acemcp 语义搜索) ---\n{}",
                     prompt.trim(),
@@ -1136,7 +1269,10 @@ pub async fn enhance_prompt_with_context(
                 )
             } else {
                 // 如果连最小的上下文都放不下，返回带警告的原提示词
-                warn!("Cannot fit any context, prompt too long: {} chars", prompt.len());
+                warn!(
+                    "Cannot fit any context, prompt too long: {} chars",
+                    prompt.len()
+                );
                 return Ok(EnhancementResult {
                     original_prompt: prompt.clone(),
                     enhanced_prompt: prompt.clone(),
@@ -1233,8 +1369,8 @@ pub async fn save_acemcp_config(
     batch_size: Option<u32>,
     max_lines_per_blob: Option<u32>,
 ) -> Result<(), String> {
-    use std::fs;
     use std::collections::HashMap;
+    use std::fs;
 
     info!("Saving acemcp config: base_url={}", base_url);
 
@@ -1302,12 +1438,20 @@ pub async fn save_acemcp_config(
                     }
 
                     // 保留非 UI 管理的字段
-                    if key != "BASE_URL" && key != "TOKEN" && key != "BATCH_SIZE" && key != "MAX_LINES_PER_BLOB" {
+                    if key != "BASE_URL"
+                        && key != "TOKEN"
+                        && key != "BATCH_SIZE"
+                        && key != "MAX_LINES_PER_BLOB"
+                    {
                         existing_entries.insert(key.to_string(), multiline_content);
                     }
                 } else {
                     // 单行配置
-                    if key != "BASE_URL" && key != "TOKEN" && key != "BATCH_SIZE" && key != "MAX_LINES_PER_BLOB" {
+                    if key != "BASE_URL"
+                        && key != "TOKEN"
+                        && key != "BATCH_SIZE"
+                        && key != "MAX_LINES_PER_BLOB"
+                    {
                         existing_entries.insert(key.to_string(), line.to_string());
                     }
                 }
@@ -1345,8 +1489,7 @@ pub async fn save_acemcp_config(
         }
     }
 
-    fs::write(&config_file, toml_content)
-        .map_err(|e| format!("Failed to write config: {}", e))?;
+    fs::write(&config_file, toml_content).map_err(|e| format!("Failed to write config: {}", e))?;
 
     info!("Acemcp config saved to: {:?}", config_file);
     Ok(())
@@ -1371,7 +1514,10 @@ pub async fn load_acemcp_config() -> Result<AcemcpConfigData, String> {
         match fs::rename(&old_config_file, &config_file) {
             Ok(_) => info!("✅ Configuration migrated successfully"),
             Err(e) => {
-                warn!("Failed to migrate config file: {}. Will try to copy instead.", e);
+                warn!(
+                    "Failed to migrate config file: {}. Will try to copy instead.",
+                    e
+                );
                 // 如果重命名失败（可能是跨设备），尝试复制
                 if let Ok(content) = fs::read_to_string(&old_config_file) {
                     if let Err(copy_err) = fs::write(&config_file, content) {
@@ -1388,8 +1534,8 @@ pub async fn load_acemcp_config() -> Result<AcemcpConfigData, String> {
         return Ok(AcemcpConfigData::default());
     }
 
-    let content = fs::read_to_string(&config_file)
-        .map_err(|e| format!("Failed to read config: {}", e))?;
+    let content =
+        fs::read_to_string(&config_file).map_err(|e| format!("Failed to read config: {}", e))?;
 
     // 简单的 TOML 解析（只解析我们需要的字段）
     let mut base_url = String::new();
@@ -1457,11 +1603,17 @@ fn extract_toml_number_value(line: &str) -> Option<u32> {
 /// 在用户选择项目后自动调用，提前完成索引以加快后续搜索
 #[tauri::command]
 pub async fn preindex_project(app: AppHandle, project_path: String) -> Result<(), String> {
-    info!("Starting background pre-indexing for project: {}", project_path);
+    info!(
+        "Starting background pre-indexing for project: {}",
+        project_path
+    );
 
     // 检查项目路径是否存在
     if !std::path::Path::new(&project_path).exists() {
-        warn!("Project path does not exist, skipping pre-index: {}", project_path);
+        warn!(
+            "Project path does not exist, skipping pre-index: {}",
+            project_path
+        );
         return Ok(());
     }
 
@@ -1472,7 +1624,10 @@ pub async fn preindex_project(app: AppHandle, project_path: String) -> Result<()
                 info!("✅ Background pre-indexing completed for: {}", project_path);
             }
             Err(e) => {
-                warn!("⚠️ Background pre-indexing failed for {}: {}", project_path, e);
+                warn!(
+                    "⚠️ Background pre-indexing failed for {}: {}",
+                    project_path, e
+                );
             }
         }
     });
@@ -1493,7 +1648,9 @@ async fn preindex_project_internal(app: &AppHandle, project_path: &str) -> Resul
 
     // 调用 search_context，触发自动索引
     // 使用一个通用的查询来触发索引，不关心搜索结果
-    let _ = client.search_context(project_path, "preindex initialization").await;
+    let _ = client
+        .search_context(project_path, "preindex initialization")
+        .await;
 
     // 关闭客户端
     client.shutdown().await?;
@@ -1514,9 +1671,9 @@ pub async fn export_acemcp_sidecar(target_path: String) -> Result<String, String
     info!("Exporting acemcp sidecar to: {}", target_path);
 
     // 处理 ~/ 路径
-    let expanded_path = if target_path.starts_with("~/") {
+    let expanded_path = if let Some(stripped) = target_path.strip_prefix("~/") {
         let home = dirs::home_dir().ok_or("Cannot find home directory")?;
-        home.join(&target_path[2..])
+        home.join(stripped)
     } else if target_path == "~" {
         dirs::home_dir().ok_or("Cannot find home directory")?
     } else {
@@ -1526,8 +1683,7 @@ pub async fn export_acemcp_sidecar(target_path: String) -> Result<String, String
     info!("Expanded path: {:?}", expanded_path);
 
     // 判断是否为目录
-    let is_directory = expanded_path.is_dir()
-        || expanded_path.extension().is_none();
+    let is_directory = expanded_path.is_dir() || expanded_path.extension().is_none();
 
     info!("Is directory: {}", is_directory);
 
@@ -1543,8 +1699,7 @@ pub async fn export_acemcp_sidecar(target_path: String) -> Result<String, String
 
     // 创建父目录
     if let Some(parent) = final_path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create directory: {}", e))?;
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
     }
 
     // 写入 sidecar 字节
