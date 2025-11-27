@@ -2327,7 +2327,7 @@ pub async fn get_current_codex_config() -> Result<CurrentCodexConfig, String> {
 }
 
 /// Switch to a Codex provider configuration
-/// Preserves user's custom settings that are not provider-specific
+/// Preserves user's custom settings and OAuth tokens
 #[tauri::command]
 pub async fn switch_codex_provider(config: CodexProviderConfig) -> Result<String, String> {
     log::info!("[Codex Provider] Switching to provider: {}", config.name);
@@ -2350,8 +2350,37 @@ pub async fn switch_codex_provider(config: CodexProviderConfig) -> Result<String
         None
     };
 
-    // Write auth.json
-    let auth_content = serde_json::to_string_pretty(&config.auth)
+    // Merge auth.json - preserve existing OAuth tokens and other credentials
+    let final_auth = if auth_path.exists() {
+        let existing_content = fs::read_to_string(&auth_path)
+            .map_err(|e| format!("Failed to read existing auth.json: {}", e))?;
+
+        if let Ok(mut existing_auth) = serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(&existing_content) {
+            // Merge new auth into existing - new values take precedence
+            if let serde_json::Value::Object(new_auth_map) = serde_json::to_value(&config.auth)
+                .map_err(|e| format!("Failed to convert auth: {}", e))?
+            {
+                for (key, value) in new_auth_map {
+                    // Only update if the new value is not empty/null
+                    if !value.is_null() && value != serde_json::Value::String(String::new()) {
+                        existing_auth.insert(key, value);
+                    }
+                }
+            }
+            serde_json::Value::Object(existing_auth)
+        } else {
+            // Existing auth is invalid, use new auth directly
+            serde_json::to_value(&config.auth)
+                .map_err(|e| format!("Failed to convert auth: {}", e))?
+        }
+    } else {
+        // No existing auth, use new auth directly
+        serde_json::to_value(&config.auth)
+            .map_err(|e| format!("Failed to convert auth: {}", e))?
+    };
+
+    // Write merged auth.json
+    let auth_content = serde_json::to_string_pretty(&final_auth)
         .map_err(|e| format!("Failed to serialize auth: {}", e))?;
     fs::write(&auth_path, auth_content)
         .map_err(|e| format!("Failed to write auth.json: {}", e))?;
