@@ -566,6 +566,8 @@ export function initializeToolRegistry(): void {
       pattern: /^exit[-_]?plan[-_]?mode$/i,
       render: createToolAdapter(PlanModeWidget, (props) => ({
         action: 'exit' as const,
+        // 从 input 中提取计划内容
+        plan: props.input?.plan || props.input?.content || '',
         result: props.result,
       })),
       description: '退出 Plan 模式',

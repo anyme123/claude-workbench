@@ -28,6 +28,8 @@ import { useMessageTranslation } from '@/hooks/useMessageTranslation';
 import { useSessionLifecycle } from '@/hooks/useSessionLifecycle';
 import { usePromptExecution } from '@/hooks/usePromptExecution';
 import { MessagesProvider, useMessagesContext } from '@/contexts/MessagesContext';
+import { PlanModeProvider, usePlanMode } from '@/contexts/PlanModeContext';
+import { PlanApprovalDialog } from '@/components/dialogs/PlanApprovalDialog';
 import { codexConverter } from '@/lib/codexConverter';
 import { SessionHeader } from "./session/SessionHeader";
 import { SessionMessages, type SessionMessagesRef } from "./session/SessionMessages";
@@ -96,8 +98,16 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
   const [claudeSessionId, setClaudeSessionId] = useState<string | null>(null);
   const [showSlashCommandsSettings, setShowSlashCommandsSettings] = useState(false);
 
-  // Plan Mode state
-  const [isPlanMode, setIsPlanMode] = useState(false);
+  // Plan Mode state - 使用 Context（方案 B-1）
+  const {
+    isPlanMode,
+    setIsPlanMode,
+    showApprovalDialog,
+    pendingApproval,
+    approvePlan,
+    rejectPlan,
+    closeApprovalDialog,
+  } = usePlanMode();
 
   // 🆕 Execution Engine Config (Codex integration)
   // Load from localStorage to remember user's settings
@@ -161,8 +171,8 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
 
   // Stable callback for toggling plan mode (prevents unnecessary event listener re-registration)
   const handleTogglePlanMode = useCallback(() => {
-    setIsPlanMode(prev => !prev);
-  }, []);
+    setIsPlanMode(!isPlanMode);
+  }, [isPlanMode, setIsPlanMode]);
 
   // Stable callback for showing revert dialog
   const handleShowRevertDialog = useCallback(() => {
@@ -1063,6 +1073,15 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
             onClose={() => setShowRevertPicker(false)}
           />
         )}
+
+        {/* Plan Approval Dialog - 方案 B-1: ExitPlanMode 触发审批 */}
+        <PlanApprovalDialog
+          open={showApprovalDialog}
+          plan={pendingApproval?.plan || ''}
+          onClose={closeApprovalDialog}
+          onApprove={approvePlan}
+          onReject={rejectPlan}
+        />
       </div>
 
       {/* Prompt Navigator - Quick navigation to any user prompt */}
@@ -1080,7 +1099,9 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
 export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = (props) => {
   return (
     <MessagesProvider initialFilterConfig={{ hideWarmupMessages: true }}>
-      <ClaudeCodeSessionInner {...props} />
+      <PlanModeProvider>
+        <ClaudeCodeSessionInner {...props} />
+      </PlanModeProvider>
     </MessagesProvider>
   );
 };
