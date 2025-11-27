@@ -5,9 +5,10 @@
  * 当 Claude 调用 ExitPlanMode 时触发审批对话框
  *
  * 改进功能：
- * - 追踪已审批的计划，避免重复弹窗
- * - 批准后自动发送提示词
- * - 显示已审批状态
+ * - 追踪已审批/已拒绝的计划，避免重复弹窗
+ * - 批准后自动发送提示词开始执行
+ * - 拒绝后自动发送提示词继续规划
+ * - 显示已审批/已拒绝状态
  */
 
 import {
@@ -16,7 +17,6 @@ import {
   useState,
   useCallback,
   useRef,
-  useEffect,
   type ReactNode,
 } from "react";
 
@@ -28,6 +28,9 @@ export interface PendingPlanApproval {
   /** 时间戳 */
   timestamp: number;
 }
+
+/** 计划状态类型 */
+export type PlanStatus = 'pending' | 'approved' | 'rejected';
 
 interface PlanModeContextValue {
   /** 是否处于 Plan 模式 */
@@ -46,15 +49,21 @@ interface PlanModeContextValue {
   triggerPlanApproval: (plan: string) => void;
   /** 批准计划 - 关闭 Plan 模式并自动发送提示词 */
   approvePlan: () => void;
-  /** 拒绝计划 - 保持 Plan 模式 */
+  /** 拒绝计划 - 保持 Plan 模式并自动发送提示词继续规划 */
   rejectPlan: () => void;
   /** 关闭审批对话框 */
   closeApprovalDialog: () => void;
 
+  /** 获取计划状态 */
+  getPlanStatus: (planId: string) => PlanStatus;
   /** 检查计划是否已审批 */
   isPlanApproved: (planId: string) => boolean;
+  /** 检查计划是否已拒绝 */
+  isPlanRejected: (planId: string) => boolean;
   /** 已审批的计划 ID 集合 */
   approvedPlanIds: Set<string>;
+  /** 已拒绝的计划 ID 集合 */
+  rejectedPlanIds: Set<string>;
 
   /** 设置发送提示词的回调（由 ClaudeCodeSession 设置） */
   setSendPromptCallback: (callback: ((prompt: string) => void) | null) => void;
@@ -88,28 +97,28 @@ function generatePlanId(plan: string): string {
 }
 
 /**
- * 从 sessionStorage 加载已审批的计划 ID
+ * 从 sessionStorage 加载计划 ID 集合
  */
-function loadApprovedPlanIds(): Set<string> {
+function loadPlanIds(key: string): Set<string> {
   try {
-    const stored = sessionStorage.getItem('approved_plan_ids');
+    const stored = sessionStorage.getItem(key);
     if (stored) {
       return new Set(JSON.parse(stored));
     }
   } catch (e) {
-    console.error('[PlanMode] Failed to load approved plan IDs:', e);
+    console.error(`[PlanMode] Failed to load ${key}:`, e);
   }
   return new Set();
 }
 
 /**
- * 保存已审批的计划 ID 到 sessionStorage
+ * 保存计划 ID 集合到 sessionStorage
  */
-function saveApprovedPlanIds(ids: Set<string>) {
+function savePlanIds(key: string, ids: Set<string>) {
   try {
-    sessionStorage.setItem('approved_plan_ids', JSON.stringify([...ids]));
+    sessionStorage.setItem(key, JSON.stringify([...ids]));
   } catch (e) {
-    console.error('[PlanMode] Failed to save approved plan IDs:', e);
+    console.error(`[PlanMode] Failed to save ${key}:`, e);
   }
 }
 
@@ -122,7 +131,12 @@ export function PlanModeProvider({
   const [pendingApproval, setPendingApproval] =
     useState<PendingPlanApproval | null>(null);
   const [showApprovalDialog, setShowApprovalDialog] = useState(false);
-  const [approvedPlanIds, setApprovedPlanIds] = useState<Set<string>>(loadApprovedPlanIds);
+  const [approvedPlanIds, setApprovedPlanIds] = useState<Set<string>>(
+    () => loadPlanIds('approved_plan_ids')
+  );
+  const [rejectedPlanIds, setRejectedPlanIds] = useState<Set<string>>(
+    () => loadPlanIds('rejected_plan_ids')
+  );
 
   // 发送提示词的回调引用
   const sendPromptCallbackRef = useRef<((prompt: string) => void) | null>(null);
@@ -145,18 +159,34 @@ export function PlanModeProvider({
     });
   }, [onPlanModeChange]);
 
+  // 获取计划状态
+  const getPlanStatus = useCallback((planId: string): PlanStatus => {
+    if (approvedPlanIds.has(planId)) return 'approved';
+    if (rejectedPlanIds.has(planId)) return 'rejected';
+    return 'pending';
+  }, [approvedPlanIds, rejectedPlanIds]);
+
   // 检查计划是否已审批
   const isPlanApproved = useCallback((planId: string) => {
     return approvedPlanIds.has(planId);
   }, [approvedPlanIds]);
 
+  // 检查计划是否已拒绝
+  const isPlanRejected = useCallback((planId: string) => {
+    return rejectedPlanIds.has(planId);
+  }, [rejectedPlanIds]);
+
   // 触发计划审批
   const triggerPlanApproval = useCallback((plan: string) => {
     const planId = generatePlanId(plan);
 
-    // 如果已审批，不再弹窗
+    // 如果已审批或已拒绝，不再弹窗
     if (approvedPlanIds.has(planId)) {
       console.log("[PlanMode] Plan already approved, skipping dialog:", planId);
+      return;
+    }
+    if (rejectedPlanIds.has(planId)) {
+      console.log("[PlanMode] Plan already rejected, skipping dialog:", planId);
       return;
     }
 
@@ -167,7 +197,7 @@ export function PlanModeProvider({
       timestamp: Date.now(),
     });
     setShowApprovalDialog(true);
-  }, [approvedPlanIds]);
+  }, [approvedPlanIds, rejectedPlanIds]);
 
   // 设置发送提示词回调
   const setSendPromptCallback = useCallback((callback: ((prompt: string) => void) | null) => {
@@ -185,7 +215,7 @@ export function PlanModeProvider({
     setApprovedPlanIds(prev => {
       const newSet = new Set(prev);
       newSet.add(planId);
-      saveApprovedPlanIds(newSet);
+      savePlanIds('approved_plan_ids', newSet);
       return newSet;
     });
 
@@ -207,22 +237,37 @@ export function PlanModeProvider({
     }
   }, [pendingApproval, onPlanModeChange]);
 
-  // 拒绝计划 - 保持 Plan 模式
+  // 拒绝计划 - 保持 Plan 模式并自动发送提示词继续规划
   const rejectPlan = useCallback(() => {
-    console.log("[PlanMode] Plan rejected, staying in plan mode");
+    if (!pendingApproval) return;
+
+    const { planId } = pendingApproval;
+    console.log("[PlanMode] Plan rejected, continuing planning:", planId);
+
+    // 标记为已拒绝
+    setRejectedPlanIds(prev => {
+      const newSet = new Set(prev);
+      newSet.add(planId);
+      savePlanIds('rejected_plan_ids', newSet);
+      return newSet;
+    });
+
+    // 关闭对话框
     setPendingApproval(null);
     setShowApprovalDialog(false);
-    // 保持 isPlanMode 不变
-  }, []);
+
+    // 保持 Plan 模式不变，自动发送提示词让 Claude 继续规划
+    if (sendPromptCallbackRef.current) {
+      console.log("[PlanMode] Auto-sending continue planning prompt");
+      setTimeout(() => {
+        sendPromptCallbackRef.current?.("我对这个计划不太满意，请重新考虑并修改计划。");
+      }, 100);
+    }
+  }, [pendingApproval]);
 
   // 关闭审批对话框
   const closeApprovalDialog = useCallback(() => {
     setShowApprovalDialog(false);
-  }, []);
-
-  // 清理过期的已审批计划（可选：超过 24 小时）
-  useEffect(() => {
-    // 这里可以添加清理逻辑，但 sessionStorage 会在浏览器关闭时自动清理
   }, []);
 
   const value: PlanModeContextValue = {
@@ -235,8 +280,11 @@ export function PlanModeProvider({
     approvePlan,
     rejectPlan,
     closeApprovalDialog,
+    getPlanStatus,
     isPlanApproved,
+    isPlanRejected,
     approvedPlanIds,
+    rejectedPlanIds,
     setSendPromptCallback,
   };
 
