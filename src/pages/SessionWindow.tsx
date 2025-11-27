@@ -199,13 +199,55 @@ export const SessionWindow: React.FC = () => {
     }
   };
 
+  // Simple title bar for loading/error states (frameless window needs this for drag & close)
+  const SimpleTitleBar = () => (
+    <div
+      className="flex-shrink-0 h-10 flex items-center justify-between px-3 border-b border-border bg-muted/30"
+      data-tauri-drag-region
+    >
+      <div className="flex items-center gap-2" data-tauri-drag-region>
+        <Copy className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm font-medium">Session Window</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={handleMinimizeWindow}
+        >
+          <Minimize2 className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={handleMaximizeWindow}
+        >
+          <Square className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 hover:bg-destructive hover:text-destructive-foreground"
+          onClick={handleCloseWindow}
+        >
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    </div>
+  );
+
   // Loading state
   if (state.isLoading) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading session...</p>
+      <div className="h-screen w-screen flex flex-col bg-background">
+        <SimpleTitleBar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading session...</p>
+          </div>
         </div>
       </div>
     );
@@ -214,12 +256,15 @@ export const SessionWindow: React.FC = () => {
   // Error state
   if (state.error) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-background">
-        <div className="text-center max-w-md">
-          <div className="text-destructive text-4xl mb-4">!</div>
-          <h2 className="text-lg font-semibold mb-2">Error</h2>
-          <p className="text-muted-foreground mb-4">{state.error}</p>
-          <Button onClick={handleCloseWindow}>Close Window</Button>
+      <div className="h-screen w-screen flex flex-col bg-background">
+        <SimpleTitleBar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center max-w-md">
+            <div className="text-destructive text-4xl mb-4">!</div>
+            <h2 className="text-lg font-semibold mb-2">Error</h2>
+            <p className="text-muted-foreground mb-4">{state.error}</p>
+            <Button onClick={handleCloseWindow}>Close Window</Button>
+          </div>
         </div>
       </div>
     );
@@ -228,13 +273,16 @@ export const SessionWindow: React.FC = () => {
   // No project path
   if (!state.projectPath) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-background">
-        <div className="text-center max-w-md">
-          <h2 className="text-lg font-semibold mb-2">No Project Selected</h2>
-          <p className="text-muted-foreground mb-4">
-            This session window requires a project path to be specified.
-          </p>
-          <Button onClick={handleCloseWindow}>Close Window</Button>
+      <div className="h-screen w-screen flex flex-col bg-background">
+        <SimpleTitleBar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center max-w-md">
+            <h2 className="text-lg font-semibold mb-2">No Project Selected</h2>
+            <p className="text-muted-foreground mb-4">
+              This session window requires a project path to be specified.
+            </p>
+            <Button onClick={handleCloseWindow}>Close Window</Button>
+          </div>
         </div>
       </div>
     );

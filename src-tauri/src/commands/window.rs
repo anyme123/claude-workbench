@@ -79,7 +79,7 @@ pub async fn create_session_window(
 
     log::info!("[Window] Creating session window: {} with URL: {}", window_label, url);
 
-    // Create new window
+    // Create new window (frameless with custom title bar)
     let window = WebviewWindowBuilder::new(
         &app,
         &window_label,
@@ -92,7 +92,7 @@ pub async fn create_session_window(
     .maximizable(true)
     .minimizable(true)
     .visible(true)
-    .decorations(true)
+    .decorations(false)  // Disable system title bar, use custom title bar in frontend
     .center()
     .build()
     .map_err(|e| format!("Failed to create window: {}", e))?;
