@@ -5,13 +5,16 @@
  * 用于展示 MCP 工具的调用信息和参数
  */
 
-import React, { useState } from "react";
-import { Package2, Sparkles, Code, ChevronRight, ChevronUp, ChevronDown, Zap } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { Package2, Sparkles, Code, ChevronRight, ChevronUp, ChevronDown, Zap, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { getClaudeSyntaxTheme } from "@/lib/claudeSyntaxTheme";
 import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
+
+/** 结果折叠高度阈值 */
+const RESULT_COLLAPSE_HEIGHT = 300;
 
 export interface MCPWidgetProps {
   /** MCP 工具名称 (格式: mcp__namespace__method) */
@@ -19,7 +22,10 @@ export interface MCPWidgetProps {
   /** 输入参数 */
   input?: any;
   /** 工具结果 */
-  result?: any;
+  result?: {
+    content?: any;
+    is_error?: boolean;
+  };
 }
 
 /**
@@ -34,11 +40,31 @@ export interface MCPWidgetProps {
 export const MCPWidget: React.FC<MCPWidgetProps> = ({
   toolName,
   input,
-  result: _result,
+  result,
 }) => {
   const { theme } = useTheme();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isParametersExpanded, setIsParametersExpanded] = useState(false);
+  const [isResultExpanded, setIsResultExpanded] = useState(false);
+  const [shouldCollapseResult, setShouldCollapseResult] = useState(false);
+  const resultRef = useRef<HTMLDivElement>(null);
+
+  // 检查结果是否需要折叠
+  useEffect(() => {
+    if (resultRef.current) {
+      setShouldCollapseResult(resultRef.current.scrollHeight > RESULT_COLLAPSE_HEIGHT);
+    }
+  }, [result]);
+
+  // 解析结果内容
+  const hasResult = result && result.content !== undefined;
+  const isError = result?.is_error ?? false;
+  const resultContent = hasResult
+    ? typeof result.content === 'string'
+      ? result.content
+      : JSON.stringify(result.content, null, 2)
+    : '';
+  const resultTokens = hasResult ? Math.ceil(resultContent.length / 4) : 0;
 
   // 解析工具名称
   // 格式: mcp__namespace__method
@@ -82,10 +108,31 @@ export const MCPWidget: React.FC<MCPWidgetProps> = ({
 
   const inputTokens = hasInput ? estimateTokens(inputString) : 0;
 
+  // 状态相关样式
+  const statusIcon = hasResult
+    ? isError
+      ? <XCircle className="h-4 w-4 text-red-500" />
+      : <CheckCircle2 className="h-4 w-4 text-green-500" />
+    : <Loader2 className="h-4 w-4 text-violet-500 animate-spin" />;
+
+  const statusText = hasResult ? (isError ? '失败' : '成功') : '执行中';
+  const statusColor = hasResult ? (isError ? 'text-red-500' : 'text-green-500') : 'text-violet-500';
+  const borderColor = hasResult
+    ? isError
+      ? 'border-red-500/20'
+      : 'border-green-500/20'
+    : 'border-violet-500/20';
+
   return (
-    <div className="rounded-lg border border-violet-500/20 bg-gradient-to-br from-violet-500/5 to-purple-500/5 overflow-hidden">
+    <div className={cn(
+      "rounded-lg border bg-gradient-to-br from-violet-500/5 to-purple-500/5 overflow-hidden",
+      borderColor
+    )}>
       {/* 头部 */}
-      <div className="px-4 py-3 bg-zinc-200/50 dark:bg-zinc-700/30 border-b border-violet-500/20">
+      <div className={cn(
+        "px-4 py-3 bg-zinc-200/50 dark:bg-zinc-700/30 border-b",
+        borderColor
+      )}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="relative">
@@ -93,14 +140,20 @@ export const MCPWidget: React.FC<MCPWidgetProps> = ({
               <Sparkles className="h-2.5 w-2.5 text-violet-400 absolute -top-1 -right-1" />
             </div>
             <span className="text-sm font-medium text-violet-600 dark:text-violet-400">MCP 工具</span>
+            {/* 状态指示器 */}
+            <div className="flex items-center gap-1.5 ml-2">
+              {statusIcon}
+              <span className={cn("text-xs font-medium", statusColor)}>{statusText}</span>
+            </div>
           </div>
           <div className="flex items-center gap-2">
-            {hasInput && (
+            {/* Token 统计 */}
+            {(hasInput || hasResult) && (
               <Badge
                 variant="outline"
                 className="text-xs border-violet-500/30 text-violet-600 dark:text-violet-400"
               >
-                ~{inputTokens} 令牌
+                ~{inputTokens + resultTokens} 令牌
               </Badge>
             )}
             <button
@@ -201,22 +254,127 @@ export const MCPWidget: React.FC<MCPWidgetProps> = ({
               不需要参数
             </div>
           )}
+
+          {/* 执行结果 */}
+          {hasResult && (
+            <div className="mt-3">
+              <div className={cn(
+                "rounded-lg border overflow-hidden",
+                isError
+                  ? "border-red-500/30 bg-red-500/5"
+                  : "border-green-500/30 bg-green-500/5"
+              )}>
+                <div className={cn(
+                  "px-3 py-2 border-b flex items-center justify-between",
+                  isError
+                    ? "border-red-500/30 bg-red-500/10"
+                    : "border-green-500/30 bg-green-500/10"
+                )}>
+                  <div className="flex items-center gap-2">
+                    {isError ? (
+                      <XCircle className="h-3 w-3 text-red-500" />
+                    ) : (
+                      <CheckCircle2 className="h-3 w-3 text-green-500" />
+                    )}
+                    <span className={cn(
+                      "text-xs font-mono",
+                      isError ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"
+                    )}>
+                      {isError ? '执行失败' : '执行结果'}
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-[10px]",
+                        isError
+                          ? "border-red-500/30 text-red-600 dark:text-red-400"
+                          : "border-green-500/30 text-green-600 dark:text-green-400"
+                      )}
+                    >
+                      ~{resultTokens} 令牌
+                    </Badge>
+                  </div>
+                  {shouldCollapseResult && (
+                    <button
+                      onClick={() => setIsResultExpanded(!isResultExpanded)}
+                      className={cn(
+                        "transition-colors",
+                        isError
+                          ? "text-red-500 hover:text-red-600"
+                          : "text-green-500 hover:text-green-600"
+                      )}
+                    >
+                      {isResultExpanded ? (
+                        <ChevronUp className="h-3 w-3" />
+                      ) : (
+                        <ChevronDown className="h-3 w-3" />
+                      )}
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <div
+                    ref={resultRef}
+                    className={cn(
+                      "p-3 overflow-auto transition-[max-height]",
+                      shouldCollapseResult && !isResultExpanded && "overflow-hidden"
+                    )}
+                    style={shouldCollapseResult && !isResultExpanded ? { maxHeight: `${RESULT_COLLAPSE_HEIGHT}px` } : undefined}
+                  >
+                    <pre className="text-xs font-mono whitespace-pre-wrap break-words text-foreground/80">
+                      {resultContent}
+                    </pre>
+                  </div>
+                  {/* 折叠视图的渐变遮罩 */}
+                  {shouldCollapseResult && !isResultExpanded && (
+                    <div className={cn(
+                      "absolute bottom-0 left-0 right-0 h-12 pointer-events-none",
+                      isError
+                        ? "bg-gradient-to-t from-red-500/10 to-transparent"
+                        : "bg-gradient-to-t from-green-500/10 to-transparent"
+                    )} />
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 等待结果提示 */}
+          {!hasResult && (
+            <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground italic px-2">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              等待执行结果...
+            </div>
+          )}
         </div>
       )}
 
       {/* 折叠时的预览 */}
       {!isExpanded && (
         <div className="px-4 py-2 text-sm">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <span className="text-violet-500 font-medium">MCP</span>
-            <ChevronRight className="h-3 w-3" />
-            <span className="text-purple-600 dark:text-purple-400">
-              {formatNamespace(namespace)}
-            </span>
-            <ChevronRight className="h-3 w-3" />
-            <code className="text-sm font-mono text-foreground">
-              {formatMethod(method)}()
-            </code>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <span className="text-violet-500 font-medium">MCP</span>
+              <ChevronRight className="h-3 w-3" />
+              <span className="text-purple-600 dark:text-purple-400">
+                {formatNamespace(namespace)}
+              </span>
+              <ChevronRight className="h-3 w-3" />
+              <code className="text-sm font-mono text-foreground">
+                {formatMethod(method)}()
+              </code>
+            </div>
+            {/* 折叠状态下的结果预览 */}
+            {hasResult && (
+              <div className={cn(
+                "text-xs px-2 py-0.5 rounded",
+                isError
+                  ? "bg-red-500/10 text-red-600 dark:text-red-400"
+                  : "bg-green-500/10 text-green-600 dark:text-green-400"
+              )}>
+                {isError ? '执行失败' : '执行成功'}
+              </div>
+            )}
           </div>
         </div>
       )}
