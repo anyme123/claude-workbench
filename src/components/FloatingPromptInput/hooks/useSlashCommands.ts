@@ -9,6 +9,7 @@ export interface UseSlashCommandsOptions {
   onCursorPositionChange: (pos: number) => void;
   textareaRef: React.RefObject<HTMLTextAreaElement>;
   expandedTextareaRef: React.RefObject<HTMLTextAreaElement>;
+  disabled?: boolean; // 禁用斜杠命令（用于 Codex 模式）
 }
 
 export function useSlashCommands({
@@ -19,17 +20,21 @@ export function useSlashCommands({
   onCursorPositionChange,
   textareaRef,
   expandedTextareaRef,
+  disabled = false,
 }: UseSlashCommandsOptions) {
   const [showSlashCommandPicker, setShowSlashCommandPicker] = useState(false);
   const [slashCommandQuery, setSlashCommandQuery] = useState("");
 
   // Detect / symbol for slash command picker
   const detectSlashSymbol = (newValue: string, newCursorPosition: number) => {
+    // 在 Codex 模式下禁用斜杠命令检测
+    if (disabled) return;
+
     if (newValue.length > prompt.length && newValue[newCursorPosition - 1] === '/') {
       // Check if it's at the start or after whitespace
-      const isStartOfCommand = newCursorPosition === 1 || 
+      const isStartOfCommand = newCursorPosition === 1 ||
         (newCursorPosition > 1 && /\s/.test(newValue[newCursorPosition - 2]));
-      
+
       if (isStartOfCommand) {
         console.log('[useSlashCommands] / detected for slash command');
         setShowSlashCommandPicker(true);

@@ -163,6 +163,7 @@ const FloatingPromptInputInner = (
     onCursorPositionChange: (p) => dispatch({ type: "SET_CURSOR_POSITION", payload: p }),
     textareaRef,
     expandedTextareaRef,
+    disabled: state.executionEngineConfig.engine === 'codex', // Codex 模式下禁用斜杠命令
   });
 
   const {
@@ -435,6 +436,7 @@ const FloatingPromptInputInner = (
             projectPath={projectPath}
             filePickerQuery={filePickerQuery}
             slashCommandQuery={slashCommandQuery}
+            disableSlashCommands={state.executionEngineConfig.engine === 'codex'}
             onTextChange={handleTextChange}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
