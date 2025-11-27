@@ -27,6 +27,7 @@ import { StorageTab } from "./StorageTab";
 import { PromptEnhancementSettings } from "./PromptEnhancementSettings";
 import { useTranslation } from "@/hooks/useTranslation";
 import ProviderManager from "./ProviderManager";
+import CodexProviderManager from "./CodexProviderManager";
 import { TranslationSettings } from "./TranslationSettings";
 import { GeneralSettings } from "./settings/GeneralSettings";
 import { PermissionsSettings } from "./settings/PermissionsSettings";
@@ -106,6 +107,9 @@ export const Settings: React.FC<SettingsProps> = ({
   // Hooks state
   const [userHooksChanged, setUserHooksChanged] = useState(false);
   const getUserHooks = React.useRef<(() => any) | null>(null);
+
+  // Provider sub-tabs state
+  const [providerSubTab, setProviderSubTab] = useState("claude");
   
   // 挂载时加载设置
   // Load settings on mount
@@ -493,8 +497,19 @@ export const Settings: React.FC<SettingsProps> = ({
             </TabsContent>
             
             {/* Provider Tab */}
-            <TabsContent value="provider">
-              <ProviderManager onBack={() => {}} />
+            <TabsContent value="provider" className="space-y-4">
+              <Tabs value={providerSubTab} onValueChange={setProviderSubTab} className="w-full">
+                <TabsList className="grid grid-cols-2 w-64">
+                  <TabsTrigger value="claude">Claude 代理商</TabsTrigger>
+                  <TabsTrigger value="codex">Codex 代理商</TabsTrigger>
+                </TabsList>
+                <TabsContent value="claude">
+                  <ProviderManager onBack={() => {}} />
+                </TabsContent>
+                <TabsContent value="codex">
+                  <CodexProviderManager />
+                </TabsContent>
+              </Tabs>
             </TabsContent>
             
             {/* Storage Tab */}

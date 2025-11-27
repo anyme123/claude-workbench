@@ -77,6 +77,10 @@ use commands::codex::{
     get_codex_mode_config, set_codex_mode_config,
     // Codex rewind commands
     record_codex_prompt_sent, record_codex_prompt_completed, revert_codex_to_prompt,
+    // Codex provider management
+    get_codex_provider_presets, get_current_codex_config, switch_codex_provider,
+    add_codex_provider_config, update_codex_provider_config, delete_codex_provider_config,
+    clear_codex_provider_config, test_codex_provider_connection,
     CodexProcessState,
 };
 use process::ProcessRegistryState;
@@ -322,6 +326,15 @@ fn main() {
             set_custom_codex_path,
             get_codex_path,
             clear_custom_codex_path,
+            // Codex Provider Management
+            get_codex_provider_presets,
+            get_current_codex_config,
+            switch_codex_provider,
+            add_codex_provider_config,
+            update_codex_provider_config,
+            delete_codex_provider_config,
+            clear_codex_provider_config,
+            test_codex_provider_connection,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

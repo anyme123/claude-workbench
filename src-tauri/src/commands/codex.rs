@@ -2182,3 +2182,348 @@ trait Pipe: Sized {
 #[allow(dead_code)]
 impl<T> Pipe for T {}
 
+// ============================================================================
+// Codex Provider Management
+// ============================================================================
+
+/// Codex provider configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexProviderConfig {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub website_url: Option<String>,
+    pub category: Option<String>,
+    pub auth: serde_json::Value, // JSON object for auth.json
+    pub config: String, // TOML string for config.toml
+    pub is_official: Option<bool>,
+    pub is_partner: Option<bool>,
+    pub created_at: Option<i64>,
+}
+
+/// Current Codex configuration (from ~/.codex directory)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CurrentCodexConfig {
+    pub auth: serde_json::Value,
+    pub config: String,
+    pub api_key: Option<String>,
+    pub base_url: Option<String>,
+    pub model: Option<String>,
+}
+
+/// Get Codex config directory path
+fn get_codex_config_dir() -> Result<PathBuf, String> {
+    let home_dir = dirs::home_dir()
+        .ok_or_else(|| "Cannot get home directory".to_string())?;
+    Ok(home_dir.join(".codex"))
+}
+
+/// Get Codex auth.json path
+fn get_codex_auth_path() -> Result<PathBuf, String> {
+    Ok(get_codex_config_dir()?.join("auth.json"))
+}
+
+/// Get Codex config.toml path
+fn get_codex_config_path() -> Result<PathBuf, String> {
+    Ok(get_codex_config_dir()?.join("config.toml"))
+}
+
+/// Get Codex providers.json path (for custom presets)
+fn get_codex_providers_path() -> Result<PathBuf, String> {
+    Ok(get_codex_config_dir()?.join("providers.json"))
+}
+
+/// Extract API key from auth JSON
+fn extract_api_key_from_auth(auth: &serde_json::Value) -> Option<String> {
+    auth.get("OPENAI_API_KEY")
+        .or_else(|| auth.get("OPENAI_KEY"))
+        .or_else(|| auth.get("API_KEY"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+}
+
+/// Extract base_url from config.toml text
+fn extract_base_url_from_config(config: &str) -> Option<String> {
+    let re = regex::Regex::new(r#"base_url\s*=\s*"([^"]+)""#).ok()?;
+    re.captures(config)
+        .and_then(|caps| caps.get(1))
+        .map(|m| m.as_str().to_string())
+}
+
+/// Extract model from config.toml text
+fn extract_model_from_config(config: &str) -> Option<String> {
+    for line in config.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("model =") {
+            let re = regex::Regex::new(r#"model\s*=\s*"([^"]+)""#).ok()?;
+            return re.captures(trimmed)
+                .and_then(|caps| caps.get(1))
+                .map(|m| m.as_str().to_string());
+        }
+    }
+    None
+}
+
+/// Get Codex provider presets (custom user-defined presets)
+#[tauri::command]
+pub async fn get_codex_provider_presets() -> Result<Vec<CodexProviderConfig>, String> {
+    log::info!("[Codex Provider] Getting provider presets");
+
+    let providers_path = get_codex_providers_path()?;
+
+    if !providers_path.exists() {
+        return Ok(vec![]);
+    }
+
+    let content = fs::read_to_string(&providers_path)
+        .map_err(|e| format!("Failed to read providers.json: {}", e))?;
+
+    let providers: Vec<CodexProviderConfig> = serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse providers.json: {}", e))?;
+
+    Ok(providers)
+}
+
+/// Get current Codex configuration
+#[tauri::command]
+pub async fn get_current_codex_config() -> Result<CurrentCodexConfig, String> {
+    log::info!("[Codex Provider] Getting current config");
+
+    let auth_path = get_codex_auth_path()?;
+    let config_path = get_codex_config_path()?;
+
+    // Read auth.json
+    let auth: serde_json::Value = if auth_path.exists() {
+        let content = fs::read_to_string(&auth_path)
+            .map_err(|e| format!("Failed to read auth.json: {}", e))?;
+        serde_json::from_str(&content)
+            .map_err(|e| format!("Failed to parse auth.json: {}", e))?
+    } else {
+        serde_json::json!({})
+    };
+
+    // Read config.toml
+    let config: String = if config_path.exists() {
+        fs::read_to_string(&config_path)
+            .map_err(|e| format!("Failed to read config.toml: {}", e))?
+    } else {
+        String::new()
+    };
+
+    // Extract values
+    let api_key = extract_api_key_from_auth(&auth);
+    let base_url = extract_base_url_from_config(&config);
+    let model = extract_model_from_config(&config);
+
+    Ok(CurrentCodexConfig {
+        auth,
+        config,
+        api_key,
+        base_url,
+        model,
+    })
+}
+
+/// Switch to a Codex provider configuration
+#[tauri::command]
+pub async fn switch_codex_provider(config: CodexProviderConfig) -> Result<String, String> {
+    log::info!("[Codex Provider] Switching to provider: {}", config.name);
+
+    let config_dir = get_codex_config_dir()?;
+    let auth_path = get_codex_auth_path()?;
+    let config_path = get_codex_config_path()?;
+
+    // Ensure config directory exists
+    if !config_dir.exists() {
+        fs::create_dir_all(&config_dir)
+            .map_err(|e| format!("Failed to create .codex directory: {}", e))?;
+    }
+
+    // Validate TOML if not empty
+    if !config.config.trim().is_empty() {
+        toml::from_str::<toml::Table>(&config.config)
+            .map_err(|e| format!("Invalid TOML configuration: {}", e))?;
+    }
+
+    // Write auth.json
+    let auth_content = serde_json::to_string_pretty(&config.auth)
+        .map_err(|e| format!("Failed to serialize auth: {}", e))?;
+    fs::write(&auth_path, auth_content)
+        .map_err(|e| format!("Failed to write auth.json: {}", e))?;
+
+    // Write config.toml
+    fs::write(&config_path, &config.config)
+        .map_err(|e| format!("Failed to write config.toml: {}", e))?;
+
+    log::info!("[Codex Provider] Successfully switched to: {}", config.name);
+    Ok(format!("Successfully switched to Codex provider: {}", config.name))
+}
+
+/// Add a new Codex provider configuration
+#[tauri::command]
+pub async fn add_codex_provider_config(config: CodexProviderConfig) -> Result<String, String> {
+    log::info!("[Codex Provider] Adding provider: {}", config.name);
+
+    let providers_path = get_codex_providers_path()?;
+
+    // Ensure parent directory exists
+    if let Some(parent) = providers_path.parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create directory: {}", e))?;
+        }
+    }
+
+    // Load existing providers
+    let mut providers: Vec<CodexProviderConfig> = if providers_path.exists() {
+        let content = fs::read_to_string(&providers_path)
+            .map_err(|e| format!("Failed to read providers.json: {}", e))?;
+        serde_json::from_str(&content).unwrap_or_default()
+    } else {
+        vec![]
+    };
+
+    // Check for duplicate ID
+    if providers.iter().any(|p| p.id == config.id) {
+        return Err(format!("Provider with ID '{}' already exists", config.id));
+    }
+
+    providers.push(config.clone());
+
+    // Save providers
+    let content = serde_json::to_string_pretty(&providers)
+        .map_err(|e| format!("Failed to serialize providers: {}", e))?;
+    fs::write(&providers_path, content)
+        .map_err(|e| format!("Failed to write providers.json: {}", e))?;
+
+    log::info!("[Codex Provider] Successfully added provider: {}", config.name);
+    Ok(format!("Successfully added Codex provider: {}", config.name))
+}
+
+/// Update an existing Codex provider configuration
+#[tauri::command]
+pub async fn update_codex_provider_config(config: CodexProviderConfig) -> Result<String, String> {
+    log::info!("[Codex Provider] Updating provider: {}", config.name);
+
+    let providers_path = get_codex_providers_path()?;
+
+    if !providers_path.exists() {
+        return Err(format!("Provider with ID '{}' not found", config.id));
+    }
+
+    let content = fs::read_to_string(&providers_path)
+        .map_err(|e| format!("Failed to read providers.json: {}", e))?;
+    let mut providers: Vec<CodexProviderConfig> = serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse providers.json: {}", e))?;
+
+    // Find and update the provider
+    let index = providers.iter().position(|p| p.id == config.id)
+        .ok_or_else(|| format!("Provider with ID '{}' not found", config.id))?;
+
+    providers[index] = config.clone();
+
+    // Save providers
+    let content = serde_json::to_string_pretty(&providers)
+        .map_err(|e| format!("Failed to serialize providers: {}", e))?;
+    fs::write(&providers_path, content)
+        .map_err(|e| format!("Failed to write providers.json: {}", e))?;
+
+    log::info!("[Codex Provider] Successfully updated provider: {}", config.name);
+    Ok(format!("Successfully updated Codex provider: {}", config.name))
+}
+
+/// Delete a Codex provider configuration
+#[tauri::command]
+pub async fn delete_codex_provider_config(id: String) -> Result<String, String> {
+    log::info!("[Codex Provider] Deleting provider: {}", id);
+
+    let providers_path = get_codex_providers_path()?;
+
+    if !providers_path.exists() {
+        return Err(format!("Provider with ID '{}' not found", id));
+    }
+
+    let content = fs::read_to_string(&providers_path)
+        .map_err(|e| format!("Failed to read providers.json: {}", e))?;
+    let mut providers: Vec<CodexProviderConfig> = serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse providers.json: {}", e))?;
+
+    // Find and remove the provider
+    let initial_len = providers.len();
+    providers.retain(|p| p.id != id);
+
+    if providers.len() == initial_len {
+        return Err(format!("Provider with ID '{}' not found", id));
+    }
+
+    // Save providers
+    let content = serde_json::to_string_pretty(&providers)
+        .map_err(|e| format!("Failed to serialize providers: {}", e))?;
+    fs::write(&providers_path, content)
+        .map_err(|e| format!("Failed to write providers.json: {}", e))?;
+
+    log::info!("[Codex Provider] Successfully deleted provider: {}", id);
+    Ok(format!("Successfully deleted Codex provider: {}", id))
+}
+
+/// Clear Codex provider configuration (reset to official)
+#[tauri::command]
+pub async fn clear_codex_provider_config() -> Result<String, String> {
+    log::info!("[Codex Provider] Clearing config");
+
+    let auth_path = get_codex_auth_path()?;
+    let config_path = get_codex_config_path()?;
+
+    // Remove auth.json if exists
+    if auth_path.exists() {
+        fs::remove_file(&auth_path)
+            .map_err(|e| format!("Failed to remove auth.json: {}", e))?;
+    }
+
+    // Remove config.toml if exists
+    if config_path.exists() {
+        fs::remove_file(&config_path)
+            .map_err(|e| format!("Failed to remove config.toml: {}", e))?;
+    }
+
+    log::info!("[Codex Provider] Successfully cleared config");
+    Ok("Successfully cleared Codex configuration. Now using official OpenAI.".to_string())
+}
+
+/// Test Codex provider connection
+#[tauri::command]
+pub async fn test_codex_provider_connection(base_url: String, api_key: Option<String>) -> Result<String, String> {
+    log::info!("[Codex Provider] Testing connection to: {}", base_url);
+
+    // Simple connectivity test - just try to reach the endpoint
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
+    let test_url = format!("{}/models", base_url.trim_end_matches('/'));
+
+    let mut request = client.get(&test_url);
+
+    if let Some(key) = api_key {
+        request = request.header("Authorization", format!("Bearer {}", key));
+    }
+
+    match request.send().await {
+        Ok(response) => {
+            let status = response.status();
+            if status.is_success() || status.as_u16() == 401 {
+                // 401 means the endpoint exists but auth is required
+                Ok(format!("Connection test successful: endpoint is reachable (status: {})", status))
+            } else {
+                Ok(format!("Connection test completed with status: {}", status))
+            }
+        }
+        Err(e) => {
+            Err(format!("Connection test failed: {}", e))
+        }
+    }
+}
+

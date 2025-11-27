@@ -129,7 +129,7 @@ dependencies = [
 
 [[package]]
 name = "any-code"
-version = "5.0.8"
+version = "5.0.10"
 dependencies = [
  "anyhow",
  "arboard",
@@ -166,6 +166,7 @@ dependencies = [
  "tauri-plugin-window-state",
  "tempfile",
  "tokio",
+ "toml 0.8.23",
  "uuid",
  "walkdir",
  "windows 0.58.0",

@@ -292,6 +292,33 @@ export interface CurrentProviderConfig {
 }
 
 /**
+ * Codex provider configuration for OpenAI Codex API switching
+ */
+export interface CodexProviderConfig {
+  id: string;
+  name: string;
+  description?: string;
+  websiteUrl?: string;
+  category?: 'official' | 'cn_official' | 'aggregator' | 'third_party' | 'custom';
+  auth: Record<string, any>; // 写入 ~/.codex/auth.json
+  config: string; // 写入 ~/.codex/config.toml（TOML 字符串）
+  isOfficial?: boolean;
+  isPartner?: boolean;
+  createdAt?: number;
+}
+
+/**
+ * Current Codex provider configuration from ~/.codex directory
+ */
+export interface CurrentCodexConfig {
+  auth: Record<string, any>; // ~/.codex/auth.json 内容
+  config: string; // ~/.codex/config.toml 内容
+  apiKey?: string; // 从 auth 中提取的 API Key
+  baseUrl?: string; // 从 config 中提取的 Base URL
+  model?: string; // 从 config 中提取的模型名称
+}
+
+/**
  * Represents an MCP server configuration
  */
 export interface MCPServer {
@@ -2890,6 +2917,135 @@ export const api = {
       });
     } catch (error) {
       console.error("Failed to revert Codex to prompt:", error);
+      throw error;
+    }
+  },
+
+  // ============================================================================
+  // CODEX PROVIDER MANAGEMENT
+  // ============================================================================
+
+  /**
+   * Gets the list of Codex provider presets
+   * @returns Promise resolving to array of Codex provider configurations
+   */
+  async getCodexProviderPresets(): Promise<CodexProviderConfig[]> {
+    try {
+      return await invoke<CodexProviderConfig[]>("get_codex_provider_presets");
+    } catch (error) {
+      console.error("Failed to get Codex provider presets:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Gets the current Codex provider configuration from ~/.codex directory
+   * @returns Promise resolving to current Codex configuration
+   */
+  async getCurrentCodexConfig(): Promise<CurrentCodexConfig> {
+    try {
+      return await invoke<CurrentCodexConfig>("get_current_codex_config");
+    } catch (error) {
+      console.error("Failed to get current Codex config:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Switches to a Codex provider configuration
+   * Writes auth.json and config.toml to ~/.codex directory
+   * @param config - The Codex provider configuration to switch to
+   * @returns Promise resolving to success message
+   */
+  async switchCodexProvider(config: CodexProviderConfig): Promise<string> {
+    try {
+      return await invoke<string>("switch_codex_provider", { config });
+    } catch (error) {
+      console.error("Failed to switch Codex provider:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Adds a new Codex provider configuration
+   * @param config - The Codex provider configuration to add
+   * @returns Promise resolving to success message
+   */
+  async addCodexProviderConfig(config: Omit<CodexProviderConfig, 'id'>): Promise<string> {
+    // Generate ID from name
+    const id = config.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+
+    const fullConfig: CodexProviderConfig = {
+      ...config,
+      id,
+      createdAt: Date.now(),
+    };
+
+    try {
+      return await invoke<string>("add_codex_provider_config", { config: fullConfig });
+    } catch (error) {
+      console.error("Failed to add Codex provider config:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Updates an existing Codex provider configuration
+   * @param config - The Codex provider configuration to update (with id)
+   * @returns Promise resolving to success message
+   */
+  async updateCodexProviderConfig(config: CodexProviderConfig): Promise<string> {
+    try {
+      return await invoke<string>("update_codex_provider_config", { config });
+    } catch (error) {
+      console.error("Failed to update Codex provider config:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Deletes a Codex provider configuration by ID
+   * @param id - The ID of the Codex provider configuration to delete
+   * @returns Promise resolving to success message
+   */
+  async deleteCodexProviderConfig(id: string): Promise<string> {
+    try {
+      return await invoke<string>("delete_codex_provider_config", { id });
+    } catch (error) {
+      console.error("Failed to delete Codex provider config:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Clears Codex provider configuration (resets to official)
+   * Removes auth.json and config.toml from ~/.codex directory
+   * @returns Promise resolving to success message
+   */
+  async clearCodexProviderConfig(): Promise<string> {
+    try {
+      return await invoke<string>("clear_codex_provider_config");
+    } catch (error) {
+      console.error("Failed to clear Codex provider config:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Tests Codex provider connection
+   * @param baseUrl - The base URL to test
+   * @param apiKey - The API key to use for testing
+   * @returns Promise resolving to test result message
+   */
+  async testCodexProviderConnection(baseUrl: string, apiKey?: string): Promise<string> {
+    try {
+      return await invoke<string>("test_codex_provider_connection", { baseUrl, apiKey });
+    } catch (error) {
+      console.error("Failed to test Codex provider connection:", error);
       throw error;
     }
   },
