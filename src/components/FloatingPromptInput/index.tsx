@@ -312,9 +312,19 @@ const FloatingPromptInputInner = (
     if (state.prompt.trim() && !disabled) {
       let finalPrompt = state.prompt.trim();
       if (imageAttachments.length > 0) {
+        // Codex CLI doesn't recognize @ prefix syntax, use direct paths instead
+        // Claude Code CLI uses @ prefix to reference files
+        const isCodex = state.executionEngineConfig.engine === 'codex';
         const imagePathMentions = imageAttachments.map(attachment => {
-          return attachment.filePath.includes(' ') ? `@"${attachment.filePath}"` : `@${attachment.filePath}`;
+          if (isCodex) {
+            // For Codex: use direct path without @ prefix
+            return attachment.filePath.includes(' ') ? `"${attachment.filePath}"` : attachment.filePath;
+          } else {
+            // For Claude Code: use @ prefix for file reference
+            return attachment.filePath.includes(' ') ? `@"${attachment.filePath}"` : `@${attachment.filePath}`;
+          }
         }).join(' ');
+
         finalPrompt = finalPrompt + (finalPrompt.endsWith(' ') || finalPrompt === '' ? '' : ' ') + imagePathMentions;
       }
       onSend(finalPrompt, state.selectedModel, undefined);
