@@ -5,6 +5,7 @@
  * 在应用启动时调用 initializeToolRegistry() 完成注册
  */
 
+import React from 'react';
 import { toolRegistry, ToolRenderer, ToolRenderProps } from './toolRegistry';
 
 // ✅ 已迁移组件：从新的 widgets 目录导入
@@ -69,6 +70,25 @@ function createToolAdapter<T extends Record<string, any>>(
     return <WidgetComponent {...widgetProps} />;
   };
 }
+
+const ViewImageWidget: React.FC<{ src: string; caption?: string }> = ({ src, caption }) => {
+  if (!src) return null;
+  return (
+    <div className="rounded-lg border bg-muted/20 overflow-hidden">
+      <div className="p-3 border-b text-xs font-mono text-muted-foreground break-all">
+        {caption || '图像预览'}
+      </div>
+      <div className="p-3 flex items-center justify-center bg-background">
+        <img
+          src={src}
+          alt={caption || 'image preview'}
+          className="max-h-[320px] max-w-full rounded-md shadow-sm border"
+        />
+      </div>
+      <div className="px-3 pb-3 text-[11px] text-muted-foreground break-all">{src}</div>
+    </div>
+  );
+};
 
 /**
  * 解析 unified diff 格式，提取旧内容和新内容
@@ -235,6 +255,26 @@ export function initializeToolRegistry(): void {
         result: props.result,
       })),
       description: '文件读取工具',
+    },
+
+    // View Image - 图像预览
+    {
+      name: 'view_image',
+      render: (props) => {
+        const src =
+          props.input?.file_path ||
+          props.input?.path ||
+          props.input?.image ||
+          props.result?.content ||
+          '';
+        const caption =
+          props.input?.caption ||
+          props.input?.description ||
+          (typeof props.result?.content === 'object' && (props.result?.content as any)?.caption) ||
+          undefined;
+        return <ViewImageWidget src={src} caption={caption} />;
+      },
+      description: '图像预览工具',
     },
 
     // Edit - 编辑文件
