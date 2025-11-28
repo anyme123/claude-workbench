@@ -291,7 +291,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
           variant="destructive"
           size="default"
           disabled={disabled}
-          className="h-8 shadow-sm"
+          className="h-8 shadow-md bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-white font-medium"
         >
           取消
         </Button>
