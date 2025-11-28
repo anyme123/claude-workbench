@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { RotateCcw, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { MessageBubble } from "./MessageBubble";
 import { MessageHeader } from "./MessageHeader";
+import { MessageImagePreview, extractImagesFromContent } from "./MessageImagePreview";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -143,8 +144,15 @@ export const UserMessage: React.FC<UserMessageProps> = ({
   const [shouldCollapse, setShouldCollapse] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // 如果没有文本内容，不渲染
-  if (!text) return null;
+  // 🆕 提取消息中的图片
+  const images = useMemo(() => {
+    const content = message.message?.content;
+    if (!content || !Array.isArray(content)) return [];
+    return extractImagesFromContent(content);
+  }, [message]);
+
+  // 如果没有文本内容且没有图片，不渲染
+  if (!text && images.length === 0) return null;
 
   // ⚡ 检查是否是 Skills 消息
   const isSkills = isSkillsMessage(text);
@@ -257,6 +265,15 @@ export const UserMessage: React.FC<UserMessageProps> = ({
                   </>
                 )}
               </button>
+            )}
+
+            {/* 🆕 图片缩略图预览 */}
+            {images.length > 0 && (
+              <MessageImagePreview
+                images={images}
+                thumbnailSize={120}
+                className="border-blue-200/50 dark:border-blue-400/30"
+              />
             )}
           </div>
 

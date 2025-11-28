@@ -1,0 +1,420 @@
+import React, { useState, useEffect, useCallback } from "react";
+import { X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from "lucide-react";
+import { createPortal } from "react-dom";
+import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
+
+/**
+ * 图片数据结构（从消息内容中提取）
+ */
+export interface MessageImage {
+  /** 图片类型: base64 或 url */
+  sourceType: "base64" | "url";
+  /** base64 数据或 URL */
+  data: string;
+  /** 媒体类型，如 image/png, image/jpeg */
+  mediaType?: string;
+}
+
+interface MessageImagePreviewProps {
+  /** 图片列表 */
+  images: MessageImage[];
+  /** 自定义类名 */
+  className?: string;
+  /** 缩略图尺寸 */
+  thumbnailSize?: number;
+}
+
+/**
+ * Lightbox 模态框组件
+ */
+interface ImageLightboxProps {
+  images: MessageImage[];
+  currentIndex: number;
+  onClose: () => void;
+  onNavigate: (index: number) => void;
+}
+
+const ImageLightbox: React.FC<ImageLightboxProps> = ({
+  images,
+  currentIndex,
+  onClose,
+  onNavigate,
+}) => {
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  const currentImage = images[currentIndex];
+
+  // 获取图片 src
+  const getImageSrc = (image: MessageImage): string => {
+    if (image.sourceType === "base64") {
+      return `data:${image.mediaType || "image/png"};base64,${image.data}`;
+    }
+    return image.data;
+  };
+
+  // 重置缩放和位置
+  const resetTransform = useCallback(() => {
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
+  }, []);
+
+  // 切换图片时重置
+  useEffect(() => {
+    resetTransform();
+  }, [currentIndex, resetTransform]);
+
+  // ESC 键关闭，方向键切换
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      switch (e.key) {
+        case "Escape":
+          onClose();
+          break;
+        case "ArrowLeft":
+          if (images.length > 1) {
+            onNavigate((currentIndex - 1 + images.length) % images.length);
+          }
+          break;
+        case "ArrowRight":
+          if (images.length > 1) {
+            onNavigate((currentIndex + 1) % images.length);
+          }
+          break;
+        case "+":
+        case "=":
+          setScale((s) => Math.min(s + 0.25, 5));
+          break;
+        case "-":
+          setScale((s) => Math.max(s - 0.25, 0.5));
+          break;
+        case "0":
+          resetTransform();
+          break;
+      }
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [onClose, onNavigate, currentIndex, images.length, resetTransform]);
+
+  // 鼠标滚轮缩放
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    setScale((s) => Math.max(0.5, Math.min(5, s + delta)));
+  };
+
+  // 拖拽功能
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (scale > 1) {
+      setIsDragging(true);
+      setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDragging && scale > 1) {
+      setPosition({
+        x: e.clientX - dragStart.x,
+        y: e.clientY - dragStart.y,
+      });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // 双击切换缩放
+  const handleDoubleClick = () => {
+    if (scale === 1) {
+      setScale(2);
+    } else {
+      resetTransform();
+    }
+  };
+
+  return createPortal(
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center"
+      style={{ zIndex: 9999 }}
+      onClick={onClose}
+      onWheel={handleWheel}
+    >
+      {/* 顶部工具栏 */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white/10 backdrop-blur-md rounded-full px-4 py-2">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setScale((s) => Math.max(s - 0.25, 0.5));
+          }}
+          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 text-white transition-colors"
+          title="缩小 (-)"
+        >
+          <ZoomOut className="h-4 w-4" />
+        </button>
+        <span className="text-white text-sm min-w-[60px] text-center">
+          {Math.round(scale * 100)}%
+        </span>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setScale((s) => Math.min(s + 0.25, 5));
+          }}
+          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 text-white transition-colors"
+          title="放大 (+)"
+        >
+          <ZoomIn className="h-4 w-4" />
+        </button>
+        {images.length > 1 && (
+          <span className="text-white/70 text-sm ml-2">
+            {currentIndex + 1} / {images.length}
+          </span>
+        )}
+      </div>
+
+      {/* 关闭按钮 */}
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition-colors"
+        title="关闭 (ESC)"
+      >
+        <X className="h-5 w-5" />
+      </button>
+
+      {/* 图片容器 */}
+      <div
+        className={cn(
+          "relative max-w-[90vw] max-h-[85vh] overflow-hidden",
+          scale > 1 ? "cursor-grab" : "cursor-zoom-in",
+          isDragging && "cursor-grabbing"
+        )}
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onDoubleClick={handleDoubleClick}
+      >
+        <img
+          src={getImageSrc(currentImage)}
+          alt={`图片 ${currentIndex + 1}`}
+          className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-2xl select-none"
+          style={{
+            transform: `scale(${scale}) translate(${position.x / scale}px, ${position.y / scale}px)`,
+            transition: isDragging ? "none" : "transform 0.2s ease-out",
+          }}
+          draggable={false}
+        />
+      </div>
+
+      {/* 左右切换按钮 */}
+      {images.length > 1 && (
+        <>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onNavigate((currentIndex - 1 + images.length) % images.length);
+            }}
+            className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition-colors"
+            title="上一张 (←)"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onNavigate((currentIndex + 1) % images.length);
+            }}
+            className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition-colors"
+            title="下一张 (→)"
+          >
+            <ChevronRight className="h-6 w-6" />
+          </button>
+        </>
+      )}
+
+      {/* 底部缩略图导航（多张图片时显示） */}
+      {images.length > 1 && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white/10 backdrop-blur-md rounded-lg p-2">
+          {images.map((image, index) => (
+            <button
+              key={index}
+              onClick={(e) => {
+                e.stopPropagation();
+                onNavigate(index);
+              }}
+              className={cn(
+                "w-12 h-12 rounded-md overflow-hidden border-2 transition-all",
+                index === currentIndex
+                  ? "border-white scale-110"
+                  : "border-transparent opacity-60 hover:opacity-100"
+              )}
+            >
+              <img
+                src={getImageSrc(image)}
+                alt={`缩略图 ${index + 1}`}
+                className="w-full h-full object-cover"
+              />
+            </button>
+          ))}
+        </div>
+      )}
+    </motion.div>,
+    document.body
+  );
+};
+
+/**
+ * 消息图片预览组件
+ * 用于在消息气泡中显示图片缩略图，点击可放大查看
+ */
+export const MessageImagePreview: React.FC<MessageImagePreviewProps> = ({
+  images,
+  className,
+  thumbnailSize = 150,
+}) => {
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
+
+  if (!images || images.length === 0) return null;
+
+  // 获取图片 src
+  const getImageSrc = (image: MessageImage): string => {
+    if (image.sourceType === "base64") {
+      return `data:${image.mediaType || "image/png"};base64,${image.data}`;
+    }
+    return image.data;
+  };
+
+  const handleImageError = (index: number) => {
+    setImageErrors((prev) => new Set(prev).add(index));
+  };
+
+  // 计算缩略图布局
+  const gridCols = images.length === 1 ? 1 : images.length === 2 ? 2 : 3;
+
+  return (
+    <>
+      <div
+        className={cn(
+          "grid gap-2 mt-2",
+          gridCols === 1 && "grid-cols-1",
+          gridCols === 2 && "grid-cols-2",
+          gridCols === 3 && "grid-cols-3"
+        )}
+        style={{ maxWidth: thumbnailSize * gridCols + (gridCols - 1) * 8 }}
+      >
+        <AnimatePresence>
+          {images.map((image, index) => (
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.2, delay: index * 0.05 }}
+              className="relative group"
+            >
+              <div
+                className={cn(
+                  "relative rounded-lg overflow-hidden border border-border/50 cursor-pointer",
+                  "hover:border-primary/50 hover:shadow-md transition-all duration-200",
+                  className
+                )}
+                style={{
+                  width: images.length === 1 ? thumbnailSize * 1.5 : thumbnailSize,
+                  height: images.length === 1 ? thumbnailSize : thumbnailSize * 0.75,
+                }}
+                onClick={() => setSelectedIndex(index)}
+              >
+                {imageErrors.has(index) ? (
+                  <div className="w-full h-full bg-muted flex items-center justify-center">
+                    <span className="text-xs text-muted-foreground">加载失败</span>
+                  </div>
+                ) : (
+                  <img
+                    src={getImageSrc(image)}
+                    alt={`图片 ${index + 1}`}
+                    className="w-full h-full object-cover"
+                    onError={() => handleImageError(index)}
+                    loading="lazy"
+                  />
+                )}
+
+                {/* 悬停遮罩 */}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                  <ZoomIn className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
+
+      {/* Lightbox 模态框 */}
+      <AnimatePresence>
+        {selectedIndex !== null && (
+          <ImageLightbox
+            images={images}
+            currentIndex={selectedIndex}
+            onClose={() => setSelectedIndex(null)}
+            onNavigate={setSelectedIndex}
+          />
+        )}
+      </AnimatePresence>
+    </>
+  );
+};
+
+/**
+ * 从消息内容中提取图片
+ * @param content 消息内容数组
+ * @returns 图片数组
+ */
+export const extractImagesFromContent = (content: any[]): MessageImage[] => {
+  if (!Array.isArray(content)) return [];
+
+  const images: MessageImage[] = [];
+
+  for (const item of content) {
+    if (item.type !== "image") continue;
+
+    const source = item.source;
+    if (source?.type === "base64") {
+      images.push({
+        sourceType: "base64",
+        data: source.data,
+        mediaType: source.media_type,
+      });
+    } else if (source?.type === "url") {
+      images.push({
+        sourceType: "url",
+        data: source.url,
+        mediaType: source.media_type,
+      });
+    } else if (item.data) {
+      // 处理其他可能的格式
+      images.push({
+        sourceType: "base64",
+        data: item.data,
+        mediaType: item.media_type || "image/png",
+      });
+    }
+  }
+
+  return images;
+};
