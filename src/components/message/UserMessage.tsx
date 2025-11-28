@@ -234,8 +234,8 @@ export const UserMessage: React.FC<UserMessageProps> = ({
       id={promptIndex !== undefined ? `prompt-${promptIndex}` : undefined}
       className={cn("group relative", className)}
     >
-      {/* 使用 flex 布局：图片子气泡在左，主气泡在右 */}
-      <div className="flex items-center justify-end gap-2">
+      {/* 使用 flex 布局：图片子气泡在左，主气泡在右，紧靠在一起 */}
+      <div className="flex items-center justify-end gap-0.5">
         {/* 图片附件子气泡 - 吸附在主气泡左边，垂直居中 */}
         {images.length > 0 && (
           <MessageImagePreview
