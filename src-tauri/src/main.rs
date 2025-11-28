@@ -154,6 +154,24 @@ fn main() {
                 commands::translator::init_translation_service_with_saved_config().await;
             });
 
+            // Fallback window show mechanism for macOS
+            // In case frontend JS fails to execute window.show()
+            if let Some(main_window) = app.get_webview_window("main") {
+                let window_clone = main_window.clone();
+                tauri::async_runtime::spawn(async move {
+                    // Wait for frontend to potentially show the window first
+                    tokio::time::sleep(tokio::time::Duration::from_millis(800)).await;
+                    // Show window as fallback (no-op if already visible)
+                    if let Err(e) = window_clone.show() {
+                        log::error!("Fallback: Failed to show main window: {}", e);
+                    }
+                    if let Err(e) = window_clone.set_focus() {
+                        log::error!("Fallback: Failed to focus main window: {}", e);
+                    }
+                    log::info!("Fallback window show mechanism executed");
+                });
+            }
+
             Ok(())
         })
         .on_window_event(|window, event| {
