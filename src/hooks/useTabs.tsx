@@ -475,6 +475,7 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
         sessionId: tab.session?.id,
         projectPath: tab.projectPath,
         title: `${tab.title} - Any Code`,
+        engine: tab.session?.engine,
       });
 
       // Mark as detached
@@ -523,6 +524,7 @@ export const TabProvider: React.FC<TabProviderProps> = ({ children }) => {
         sessionId: session?.id,
         projectPath: projectPath || session?.project_path,
         title: `${title} - Any Code`,
+        engine: session?.engine,
       });
 
       // Mark as detached

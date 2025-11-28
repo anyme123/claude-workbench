@@ -19,6 +19,8 @@ pub struct CreateSessionWindowParams {
     pub project_path: Option<String>,
     /// Window title
     pub title: String,
+    /// Execution engine: 'claude' | 'codex'
+    pub engine: Option<String>,
 }
 
 /// Result of window creation
@@ -73,6 +75,10 @@ pub async fn create_session_window(
         // URL encode the project path
         let encoded_path = urlencoding::encode(project_path);
         query_parts.push(format!("project_path={}", encoded_path));
+    }
+
+    if let Some(ref engine) = params.engine {
+        query_parts.push(format!("engine={}", engine));
     }
 
     url = format!("{}?{}", url, query_parts.join("&"));

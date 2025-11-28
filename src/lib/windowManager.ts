@@ -16,6 +16,8 @@ export interface CreateSessionWindowParams {
   sessionId?: string;
   projectPath?: string;
   title: string;
+  /** Execution engine: 'claude' | 'codex' */
+  engine?: 'claude' | 'codex';
 }
 
 export interface WindowCreationResult {
@@ -50,6 +52,7 @@ export async function createSessionWindow(params: CreateSessionWindowParams): Pr
         session_id: params.sessionId || null,
         project_path: params.projectPath || null,
         title: params.title,
+        engine: params.engine || null,
       },
     });
 
@@ -207,6 +210,7 @@ export function parseSessionWindowParams(): {
   tabId?: string;
   sessionId?: string;
   projectPath?: string;
+  engine?: 'claude' | 'codex';
 } {
   const params = new URLSearchParams(window.location.search);
   const windowType = params.get('window');
@@ -220,11 +224,14 @@ export function parseSessionWindowParams(): {
   const projectPath = params.get('project_path')
     ? decodeURIComponent(params.get('project_path')!)
     : undefined;
+  const engineParam = params.get('engine');
+  const engine = (engineParam === 'claude' || engineParam === 'codex') ? engineParam : undefined;
 
   console.log('[WindowManager] Parsed session window params:', {
     tabId,
     sessionId,
     projectPath,
+    engine,
   });
 
   return {
@@ -232,6 +239,7 @@ export function parseSessionWindowParams(): {
     tabId,
     sessionId,
     projectPath,
+    engine,
   };
 }
 

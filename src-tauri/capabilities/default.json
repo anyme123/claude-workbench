@@ -22,6 +22,8 @@
     "core:window:allow-minimize",
     "core:window:allow-unmaximize",
     "core:window:allow-unminimize",
+    "core:window:allow-start-dragging",
+    "core:window:allow-is-maximized",
     "core:webview:allow-create-webview",
     "core:webview:allow-create-webview-window",
     "core:event:default",

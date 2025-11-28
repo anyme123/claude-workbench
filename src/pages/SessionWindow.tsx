@@ -22,6 +22,7 @@ interface SessionWindowState {
   session: Session | null;
   projectPath: string | null;
   tabId: string | null;
+  engine: 'claude' | 'codex' | null;
 }
 
 /**
@@ -37,6 +38,7 @@ export const SessionWindow: React.FC = () => {
     session: null,
     projectPath: null,
     tabId: null,
+    engine: null,
   });
 
   // Parse URL parameters on mount
@@ -55,11 +57,13 @@ export const SessionWindow: React.FC = () => {
       }
 
       try {
-        // Set basic params
+        // Set basic params including engine
+        const engine = windowParams.engine || null;
         setState(prev => ({
           ...prev,
           tabId: windowParams.tabId || null,
           projectPath: windowParams.projectPath || null,
+          engine,
         }));
 
         // Create session object if sessionId is provided
@@ -70,9 +74,10 @@ export const SessionWindow: React.FC = () => {
             project_id: windowParams.projectPath.replace(/[^a-zA-Z0-9]/g, '-'),
             project_path: windowParams.projectPath,
             created_at: Date.now() / 1000,
+            engine: engine || undefined,
           };
 
-          console.log('[SessionWindow] Session prepared:', session.id);
+          console.log('[SessionWindow] Session prepared:', session.id, 'engine:', engine);
 
           setState(prev => ({
             ...prev,
@@ -176,13 +181,19 @@ export const SessionWindow: React.FC = () => {
     try {
       // Emit attach event to notify main window to create a tab
       if (state.tabId) {
+        // Ensure session has engine info when merging back
+        const sessionWithEngine = state.session ? {
+          ...state.session,
+          engine: state.session.engine || state.engine || undefined,
+        } : undefined;
+
         await emitWindowSyncEvent({
           type: 'tab_attached',
           tabId: state.tabId,
           sessionId: state.session?.id,
           projectPath: state.projectPath || undefined,
           data: {
-            session: state.session,
+            session: sessionWithEngine,
           },
         });
 
@@ -209,12 +220,30 @@ export const SessionWindow: React.FC = () => {
     WebkitAppRegion: 'no-drag',
   } as React.CSSProperties;
 
+  // Handle manual drag start for macOS compatibility
+  const handleDragStart = async (e: React.MouseEvent) => {
+    // Only trigger if clicking directly on drag region (not on interactive elements)
+    const target = e.target as HTMLElement;
+    if (target.closest('[style*="no-drag"]') || target.closest('button')) {
+      return;
+    }
+
+    try {
+      const window = getCurrentWindow();
+      await window.startDragging();
+    } catch (error) {
+      // Ignore errors - fallback to CSS-based dragging
+      console.debug('[SessionWindow] startDragging fallback:', error);
+    }
+  };
+
   // Simple title bar for loading/error states (frameless window needs this for drag & close)
   const SimpleTitleBar = () => (
     <div
       className="flex-shrink-0 h-10 flex items-center justify-between px-3 border-b border-border bg-muted/30"
       data-tauri-drag-region
       style={dragRegionStyle}
+      onMouseDown={handleDragStart}
     >
       <div className="flex items-center gap-2" data-tauri-drag-region style={dragRegionStyle}>
         <Copy className="h-4 w-4 text-muted-foreground" />
@@ -309,6 +338,7 @@ export const SessionWindow: React.FC = () => {
         className="flex-shrink-0 h-10 flex items-center justify-between px-3 border-b border-border bg-muted/30"
         data-tauri-drag-region
         style={dragRegionStyle}
+        onMouseDown={handleDragStart}
       >
         {/* Left: Window title */}
         <div className="flex items-center gap-2" data-tauri-drag-region style={dragRegionStyle}>

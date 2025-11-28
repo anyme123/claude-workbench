@@ -129,7 +129,7 @@ dependencies = [
 
 [[package]]
 name = "any-code"
-version = "5.1.0"
+version = "5.1.8"
 dependencies = [
  "anyhow",
  "arboard",
