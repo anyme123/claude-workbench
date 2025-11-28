@@ -12,7 +12,7 @@
  * Extracted from ClaudeCodeSession component (296 lines)
  */
 
-import { useCallback } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { api, type Session } from '@/lib/api';
 import { translationMiddleware, isSlashCommand, type TranslationResult } from '@/lib/translationMiddleware';
@@ -122,6 +122,15 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
     setIsFirstPrompt,
     processMessageWithTranslation
   } = config;
+
+  // ============================================================================
+  // 🔧 Fix: 使用 ref 存储 isPlanMode，确保异步回调获取最新值
+  // 解决问题：批准计划后自动发送的提示词仍带 --plan 标志
+  // ============================================================================
+  const isPlanModeRef = useRef(isPlanMode);
+  useEffect(() => {
+    isPlanModeRef.current = isPlanMode;
+  }, [isPlanMode]);
 
   // ============================================================================
   // Main Prompt Execution Function
@@ -880,21 +889,25 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
         // ====================================================================
         // Claude Code Execution Branch
         // ====================================================================
+        // 🔧 Fix: 使用 isPlanModeRef.current 获取最新值，确保批准计划后不带 --plan
+        const currentPlanMode = isPlanModeRef.current;
+        console.log('[usePromptExecution] Using plan mode:', currentPlanMode);
+
         if (effectiveSession && !isFirstPrompt) {
           // Resume existing session
           console.log('[usePromptExecution] Resuming session:', effectiveSession.id);
           try {
-            await api.resumeClaudeCode(projectPath, effectiveSession.id, processedPrompt, model, isPlanMode, maxThinkingTokens);
+            await api.resumeClaudeCode(projectPath, effectiveSession.id, processedPrompt, model, currentPlanMode, maxThinkingTokens);
           } catch (resumeError) {
             console.warn('[usePromptExecution] Resume failed, falling back to continue mode:', resumeError);
             // Fallback to continue mode if resume fails
-            await api.continueClaudeCode(projectPath, processedPrompt, model, isPlanMode, maxThinkingTokens);
+            await api.continueClaudeCode(projectPath, processedPrompt, model, currentPlanMode, maxThinkingTokens);
           }
         } else {
           // Start new session
           console.log('[usePromptExecution] Starting new session');
           setIsFirstPrompt(false);
-          await api.executeClaudeCode(projectPath, processedPrompt, model, isPlanMode, maxThinkingTokens);
+          await api.executeClaudeCode(projectPath, processedPrompt, model, currentPlanMode, maxThinkingTokens);
         }
       }
 
