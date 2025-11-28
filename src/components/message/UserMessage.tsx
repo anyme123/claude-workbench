@@ -234,17 +234,17 @@ export const UserMessage: React.FC<UserMessageProps> = ({
       id={promptIndex !== undefined ? `prompt-${promptIndex}` : undefined}
       className={cn("group relative", className)}
     >
-      {/* 🆕 图片附件子气泡 - 放在左侧 */}
-      {images.length > 0 && (
-        <div className="flex justify-start mb-1.5">
+      {/* 使用 flex 布局：图片子气泡在左，主气泡在右 */}
+      <div className="flex items-end justify-end gap-2">
+        {/* 图片附件子气泡 - 吸附在主气泡左边 */}
+        {images.length > 0 && (
           <MessageImagePreview
             images={images}
             compact
           />
-        </div>
-      )}
+        )}
 
-      <MessageBubble variant="user" bubbleClassName="bg-gradient-to-br from-blue-50/80 to-indigo-50/80 dark:from-blue-600 dark:to-indigo-600 dark:text-white border border-blue-100/50 dark:border-blue-500/50 shadow-sm">
+        <MessageBubble variant="user" bubbleClassName="bg-gradient-to-br from-blue-50/80 to-indigo-50/80 dark:from-blue-600 dark:to-indigo-600 dark:text-white border border-blue-100/50 dark:border-blue-500/50 shadow-sm">
           <div className="relative">
         {/* 消息头部 */}
         <MessageHeader
@@ -339,6 +339,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
         </div>
         </div>
       </MessageBubble>
+      </div>
     </div>
 
       {/* 撤回确认对话框 - 三模式选择 */}
