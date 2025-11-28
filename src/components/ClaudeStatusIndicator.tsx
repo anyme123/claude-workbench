@@ -458,8 +458,8 @@ export const ClaudeStatusIndicator: React.FC<ClaudeStatusIndicatorProps> = ({
               )}
             </div>
           }
-          side={compact ? "right" : "bottom"}
-          align={compact ? "start" : "end"}
+          side="right"
+          align="start"
           className="w-80 p-4"
         />
 
