@@ -199,22 +199,34 @@ export const SessionWindow: React.FC = () => {
     }
   };
 
+  // Drag region style for window dragging (Tauri 2.0 requires both data-tauri-drag-region and CSS)
+  const dragRegionStyle: React.CSSProperties = {
+    WebkitAppRegion: 'drag',
+  } as React.CSSProperties;
+
+  // No-drag style for interactive elements within drag region
+  const noDragStyle: React.CSSProperties = {
+    WebkitAppRegion: 'no-drag',
+  } as React.CSSProperties;
+
   // Simple title bar for loading/error states (frameless window needs this for drag & close)
   const SimpleTitleBar = () => (
     <div
       className="flex-shrink-0 h-10 flex items-center justify-between px-3 border-b border-border bg-muted/30"
       data-tauri-drag-region
+      style={dragRegionStyle}
     >
-      <div className="flex items-center gap-2" data-tauri-drag-region>
+      <div className="flex items-center gap-2" data-tauri-drag-region style={dragRegionStyle}>
         <Copy className="h-4 w-4 text-muted-foreground" />
         <span className="text-sm font-medium">Session Window</span>
       </div>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1" style={noDragStyle}>
         <Button
           variant="ghost"
           size="icon"
           className="h-7 w-7"
           onClick={handleMinimizeWindow}
+          style={noDragStyle}
         >
           <Minimize2 className="h-3.5 w-3.5" />
         </Button>
@@ -223,6 +235,7 @@ export const SessionWindow: React.FC = () => {
           size="icon"
           className="h-7 w-7"
           onClick={handleMaximizeWindow}
+          style={noDragStyle}
         >
           <Square className="h-3.5 w-3.5" />
         </Button>
@@ -231,6 +244,7 @@ export const SessionWindow: React.FC = () => {
           size="icon"
           className="h-7 w-7 hover:bg-destructive hover:text-destructive-foreground"
           onClick={handleCloseWindow}
+          style={noDragStyle}
         >
           <X className="h-3.5 w-3.5" />
         </Button>
@@ -294,9 +308,10 @@ export const SessionWindow: React.FC = () => {
       <div
         className="flex-shrink-0 h-10 flex items-center justify-between px-3 border-b border-border bg-muted/30"
         data-tauri-drag-region
+        style={dragRegionStyle}
       >
         {/* Left: Window title */}
-        <div className="flex items-center gap-2" data-tauri-drag-region>
+        <div className="flex items-center gap-2" data-tauri-drag-region style={dragRegionStyle}>
           <Copy className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-medium truncate max-w-[300px]">
             {state.session?.id ? `Session: ${state.session.id.slice(0, 8)}...` : 'New Session'}
@@ -310,7 +325,7 @@ export const SessionWindow: React.FC = () => {
 
         {/* Right: Window controls */}
         <TooltipProvider>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1" style={noDragStyle}>
             {/* Merge to main window button */}
             <Tooltip>
               <TooltipTrigger asChild>
@@ -319,6 +334,7 @@ export const SessionWindow: React.FC = () => {
                   size="icon"
                   className="h-7 w-7"
                   onClick={handleMergeToMainWindow}
+                  style={noDragStyle}
                 >
                   <Merge className="h-3.5 w-3.5" />
                 </Button>
@@ -335,6 +351,7 @@ export const SessionWindow: React.FC = () => {
               size="icon"
               className="h-7 w-7"
               onClick={handleMinimizeWindow}
+              style={noDragStyle}
             >
               <Minimize2 className="h-3.5 w-3.5" />
             </Button>
@@ -343,6 +360,7 @@ export const SessionWindow: React.FC = () => {
               size="icon"
               className="h-7 w-7"
               onClick={handleMaximizeWindow}
+              style={noDragStyle}
             >
               <Square className="h-3.5 w-3.5" />
             </Button>
@@ -351,6 +369,7 @@ export const SessionWindow: React.FC = () => {
               size="icon"
               className="h-7 w-7 hover:bg-destructive hover:text-destructive-foreground"
               onClick={handleCloseWindow}
+              style={noDragStyle}
             >
               <X className="h-3.5 w-3.5" />
             </Button>
