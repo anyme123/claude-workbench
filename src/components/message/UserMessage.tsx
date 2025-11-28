@@ -288,8 +288,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
             {images.length > 0 && (
               <MessageImagePreview
                 images={images}
-                thumbnailSize={120}
-                className="border-blue-200/50 dark:border-blue-400/30"
+                compact
               />
             )}
           </div>

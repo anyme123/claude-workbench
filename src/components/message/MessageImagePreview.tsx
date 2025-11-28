@@ -24,6 +24,8 @@ interface MessageImagePreviewProps {
   className?: string;
   /** 缩略图尺寸 */
   thumbnailSize?: number;
+  /** 紧凑模式（用于消息气泡内） */
+  compact?: boolean;
 }
 
 /**
@@ -291,6 +293,7 @@ export const MessageImagePreview: React.FC<MessageImagePreviewProps> = ({
   images,
   className,
   thumbnailSize = 150,
+  compact = false,
 }) => {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
@@ -312,45 +315,31 @@ export const MessageImagePreview: React.FC<MessageImagePreviewProps> = ({
     setImageErrors((prev) => new Set(prev).add(index));
   };
 
-  // 计算缩略图布局
-  const gridCols = images.length === 1 ? 1 : images.length === 2 ? 2 : 3;
+  // 紧凑模式的尺寸
+  const compactSize = 56;
+  const actualSize = compact ? compactSize : thumbnailSize;
 
   return (
     <>
-      <div
-        className={cn(
-          "grid gap-2 mt-2",
-          gridCols === 1 && "grid-cols-1",
-          gridCols === 2 && "grid-cols-2",
-          gridCols === 3 && "grid-cols-3"
-        )}
-        style={{ maxWidth: thumbnailSize * gridCols + (gridCols - 1) * 8 }}
-      >
-        <AnimatePresence>
+      {/* 紧凑模式：横向排列的小缩略图 */}
+      {compact ? (
+        <div className={cn("flex items-center gap-1.5 mt-2", className)}>
           {images.map((image, index) => (
             <motion.div
               key={index}
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.2, delay: index * 0.05 }}
-              className="relative group"
+              transition={{ duration: 0.15 }}
+              className="relative group flex-shrink-0"
             >
               <div
-                className={cn(
-                  "relative rounded-lg overflow-hidden border border-border/50 cursor-pointer",
-                  "hover:border-primary/50 hover:shadow-md transition-all duration-200",
-                  className
-                )}
-                style={{
-                  width: images.length === 1 ? thumbnailSize * 1.5 : thumbnailSize,
-                  height: images.length === 1 ? thumbnailSize : thumbnailSize * 0.75,
-                }}
+                className="relative rounded-md overflow-hidden cursor-pointer ring-1 ring-white/20 hover:ring-white/40 transition-all"
+                style={{ width: compactSize, height: compactSize }}
                 onClick={() => setSelectedIndex(index)}
               >
                 {imageErrors.has(index) ? (
-                  <div className="w-full h-full bg-muted flex items-center justify-center">
-                    <span className="text-xs text-muted-foreground">加载失败</span>
+                  <div className="w-full h-full bg-black/20 flex items-center justify-center">
+                    <span className="text-[10px] text-white/60">错误</span>
                   </div>
                 ) : (
                   <img
@@ -361,16 +350,77 @@ export const MessageImagePreview: React.FC<MessageImagePreviewProps> = ({
                     loading="lazy"
                   />
                 )}
-
-                {/* 悬停遮罩 */}
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                  <ZoomIn className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                {/* 悬停放大图标 */}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                  <ZoomIn className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               </div>
             </motion.div>
           ))}
-        </AnimatePresence>
-      </div>
+          {/* 图片数量提示 */}
+          {images.length > 1 && (
+            <span className="text-[10px] text-current opacity-60 ml-0.5">
+              {images.length}张
+            </span>
+          )}
+        </div>
+      ) : (
+        /* 标准模式：网格布局 */
+        <div
+          className={cn(
+            "grid gap-2 mt-2",
+            images.length === 1 && "grid-cols-1",
+            images.length === 2 && "grid-cols-2",
+            images.length >= 3 && "grid-cols-3"
+          )}
+          style={{ maxWidth: actualSize * Math.min(images.length, 3) + (Math.min(images.length, 3) - 1) * 8 }}
+        >
+          <AnimatePresence>
+            {images.map((image, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ duration: 0.2, delay: index * 0.05 }}
+                className="relative group"
+              >
+                <div
+                  className={cn(
+                    "relative rounded-lg overflow-hidden border border-border/50 cursor-pointer",
+                    "hover:border-primary/50 hover:shadow-md transition-all duration-200",
+                    className
+                  )}
+                  style={{
+                    width: images.length === 1 ? actualSize * 1.5 : actualSize,
+                    height: images.length === 1 ? actualSize : actualSize * 0.75,
+                  }}
+                  onClick={() => setSelectedIndex(index)}
+                >
+                  {imageErrors.has(index) ? (
+                    <div className="w-full h-full bg-muted flex items-center justify-center">
+                      <span className="text-xs text-muted-foreground">加载失败</span>
+                    </div>
+                  ) : (
+                    <img
+                      src={getImageSrc(image)}
+                      alt={`图片 ${index + 1}`}
+                      className="w-full h-full object-cover"
+                      onError={() => handleImageError(index)}
+                      loading="lazy"
+                    />
+                  )}
+
+                  {/* 悬停遮罩 */}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                    <ZoomIn className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
 
       {/* Lightbox 模态框 */}
       <AnimatePresence>
