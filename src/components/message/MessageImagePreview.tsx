@@ -495,7 +495,7 @@ export const extractImagePathsFromText = (text: string): { images: MessageImage[
     }
   }
 
-  // 模式3: "path" 格式（Codex 格式，检查是否是图片路径）
+  // 模式3: "path" 格式（Codex 格式，带引号但无 @ 前缀）
   // 只匹配看起来像文件路径的带引号字符串
   const quotedPathPattern = /"([A-Za-z]:\\[^"]+|\/[^"]+)"/g;
 
@@ -510,6 +510,25 @@ export const extractImagePathsFromText = (text: string): { images: MessageImage[
           data: path,
         });
         cleanText = cleanText.replace(fullMatch, '');
+      }
+    }
+  }
+
+  // 模式4: 直接路径格式（Codex 格式，无引号无 @ 前缀）
+  // 匹配 Windows 路径 C:\...\image.png 或 Unix 路径 /path/to/image.png
+  // 注意：这个模式要在最后，因为它比较宽松
+  const directPathPattern = /(?:^|\s)([A-Za-z]:\\[^\s"]+|\/(?:[^\s"]+\/)+[^\s"]+)(?=\s|$)/g;
+
+  while ((match = directPathPattern.exec(text)) !== null) {
+    const path = match[1];
+    if (isImagePath(path)) {
+      // 检查是否已经被其他模式匹配过
+      if (cleanText.includes(path)) {
+        images.push({
+          sourceType: "file",
+          data: path,
+        });
+        cleanText = cleanText.replace(path, '');
       }
     }
   }
