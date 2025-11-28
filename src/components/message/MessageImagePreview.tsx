@@ -321,9 +321,14 @@ export const MessageImagePreview: React.FC<MessageImagePreviewProps> = ({
 
   return (
     <>
-      {/* 紧凑模式：横向排列的小缩略图 */}
+      {/* 紧凑模式：独立子气泡样式 */}
       {compact ? (
-        <div className={cn("flex items-center gap-1.5 mt-2", className)}>
+        <div className={cn(
+          "inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg",
+          "bg-gradient-to-br from-slate-100/90 to-slate-200/90 dark:from-slate-700/90 dark:to-slate-800/90",
+          "border border-slate-200/50 dark:border-slate-600/50 shadow-sm",
+          className
+        )}>
           {images.map((image, index) => (
             <motion.div
               key={index}
@@ -333,13 +338,13 @@ export const MessageImagePreview: React.FC<MessageImagePreviewProps> = ({
               className="relative group flex-shrink-0"
             >
               <div
-                className="relative rounded-md overflow-hidden cursor-pointer ring-1 ring-white/20 hover:ring-white/40 transition-all"
+                className="relative rounded overflow-hidden cursor-pointer ring-1 ring-black/10 dark:ring-white/10 hover:ring-blue-400/50 transition-all"
                 style={{ width: compactSize, height: compactSize }}
                 onClick={() => setSelectedIndex(index)}
               >
                 {imageErrors.has(index) ? (
-                  <div className="w-full h-full bg-black/20 flex items-center justify-center">
-                    <span className="text-[10px] text-white/60">错误</span>
+                  <div className="w-full h-full bg-slate-300 dark:bg-slate-600 flex items-center justify-center">
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">错误</span>
                   </div>
                 ) : (
                   <img
@@ -352,14 +357,14 @@ export const MessageImagePreview: React.FC<MessageImagePreviewProps> = ({
                 )}
                 {/* 悬停放大图标 */}
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
-                  <ZoomIn className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <ZoomIn className="h-3.5 w-3.5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               </div>
             </motion.div>
           ))}
           {/* 图片数量提示 */}
           {images.length > 1 && (
-            <span className="text-[10px] text-current opacity-60 ml-0.5">
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 ml-0.5">
               {images.length}张
             </span>
           )}

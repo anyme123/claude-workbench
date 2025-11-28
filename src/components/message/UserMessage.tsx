@@ -234,6 +234,18 @@ export const UserMessage: React.FC<UserMessageProps> = ({
       id={promptIndex !== undefined ? `prompt-${promptIndex}` : undefined}
       className={cn("group relative", className)}
     >
+      {/* 🆕 图片附件子气泡 - 吸附在主气泡左上角 */}
+      {images.length > 0 && (
+        <div className="flex justify-end mb-1.5">
+          <div className="mr-1">
+            <MessageImagePreview
+              images={images}
+              compact
+            />
+          </div>
+        </div>
+      )}
+
       <MessageBubble variant="user" bubbleClassName="bg-gradient-to-br from-blue-50/80 to-indigo-50/80 dark:from-blue-600 dark:to-indigo-600 dark:text-white border border-blue-100/50 dark:border-blue-500/50 shadow-sm">
           <div className="relative">
         {/* 消息头部 */}
@@ -255,14 +267,14 @@ export const UserMessage: React.FC<UserMessageProps> = ({
                   className={cn(
                     "text-sm leading-relaxed",
                     isSkills ? "" : "whitespace-pre-wrap",
-                    // 🆕 折叠样式：未展开时限制为 5 行
+                    // 折叠样式：未展开时限制为 5 行
                     shouldCollapse && !isExpanded && "line-clamp-5 overflow-hidden"
                   )}
                 >
                   {displayContent}
                 </div>
 
-                {/* 🆕 展开/收起按钮 */}
+                {/* 展开/收起按钮 */}
                 {shouldCollapse && (
                   <button
                     onClick={() => setIsExpanded(!isExpanded)}
@@ -282,14 +294,6 @@ export const UserMessage: React.FC<UserMessageProps> = ({
                   </button>
                 )}
               </>
-            )}
-
-            {/* 🆕 图片缩略图预览 */}
-            {images.length > 0 && (
-              <MessageImagePreview
-                images={images}
-                compact
-              />
             )}
           </div>
 
