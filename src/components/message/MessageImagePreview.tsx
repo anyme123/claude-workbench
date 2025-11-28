@@ -588,8 +588,11 @@ export const extractImagePathsFromText = (text: string): { images: MessageImage[
     }
   }
 
-  // 清理多余的空格
-  cleanText = cleanText.replace(/\s+/g, ' ').trim();
+  // 清理多余的空格（保留换行符）
+  cleanText = cleanText
+    .replace(/[^\S\n]+/g, ' ')  // 只替换非换行的空白字符为单个空格
+    .replace(/ *\n */g, '\n')   // 清理换行符两边的空格
+    .trim();
 
   return { images, cleanText };
 };
