@@ -13,6 +13,8 @@ interface MessageBubbleProps {
   bubbleClassName?: string;
   /** 是否正在流式输出 */
   isStreaming?: boolean;
+  /** 气泡侧边内容 (显示在气泡外侧，用户消息在左侧，AI消息在右侧) */
+  sideContent?: React.ReactNode;
 }
 
 /**
@@ -26,7 +28,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   children,
   className,
   bubbleClassName,
-  isStreaming = false
+  isStreaming = false,
+  sideContent
 }) => {
   const isUser = variant === "user";
 
@@ -47,16 +50,19 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
       {isUser ? (
         // User Message: Modern Bubble
         <div className="flex flex-col items-end max-w-[85%] sm:max-w-[70%]">
-          <div
-            className={cn(
-              "rounded-2xl rounded-tr-sm px-5 py-3", // Asymmetric rounding
-              "bg-primary text-primary-foreground",
-              "shadow-md shadow-primary/10",
-              "break-words text-sm leading-relaxed",
-              bubbleClassName
-            )}
-          >
-            {children}
+          <div className="flex items-center gap-1.5 justify-end w-full">
+            {sideContent}
+            <div
+              className={cn(
+                "rounded-2xl rounded-tr-sm px-5 py-3", // Asymmetric rounding
+                "bg-primary text-primary-foreground",
+                "shadow-md shadow-primary/10",
+                "break-words text-sm leading-relaxed",
+                bubbleClassName
+              )}
+            >
+              {children}
+            </div>
           </div>
         </div>
       ) : (
