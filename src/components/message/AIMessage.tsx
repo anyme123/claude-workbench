@@ -1,8 +1,7 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { Bot, Clock } from "lucide-react";
 import { MessageBubble } from "./MessageBubble";
 import { MessageContent } from "./MessageContent";
-import { MessageImagePreview, extractImagesFromContent } from "./MessageImagePreview";
 import { ToolCallsGroup } from "./ToolCallsGroup";
 import { cn } from "@/lib/utils";
 import { tokenExtractor } from "@/lib/tokenExtractor";
@@ -99,15 +98,8 @@ export const AIMessage: React.FC<AIMessageProps> = ({
   const hasThinking = hasThinkingBlock(message);
   const thinkingContent = hasThinking ? extractThinkingContent(message) : '';
 
-  // 🆕 提取消息中的图片
-  const images = useMemo(() => {
-    const content = message.message?.content;
-    if (!content || !Array.isArray(content)) return [];
-    return extractImagesFromContent(content);
-  }, [message]);
-
-  // 如果既没有文本又没有工具调用又没有思考块又没有图片，不渲染
-  if (!text && !hasTools && !hasThinking && images.length === 0) return null;
+  // 如果既没有文本又没有工具调用又没有思考块，不渲染
+  if (!text && !hasTools && !hasThinking) return null;
 
   // 提取 tokens 统计
   const tokenStats = message.message?.usage ? (() => {
@@ -167,16 +159,6 @@ export const AIMessage: React.FC<AIMessageProps> = ({
             <MessageContent
               content={text}
               isStreaming={isStreaming && !hasTools && !hasThinking}
-            />
-          </div>
-        )}
-
-        {/* 🆕 图片预览 */}
-        {images.length > 0 && (
-          <div className="px-4 pb-4">
-            <MessageImagePreview
-              images={images}
-              thumbnailSize={150}
             />
           </div>
         )}

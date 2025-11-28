@@ -3,14 +3,15 @@ import { X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from "lucide-react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { convertFileSrc } from "@tauri-apps/api/core";
 
 /**
  * 图片数据结构（从消息内容中提取）
  */
 export interface MessageImage {
-  /** 图片类型: base64 或 url */
-  sourceType: "base64" | "url";
-  /** base64 数据或 URL */
+  /** 图片类型: base64, url 或 file（本地文件路径） */
+  sourceType: "base64" | "url" | "file";
+  /** base64 数据、URL 或文件路径 */
   data: string;
   /** 媒体类型，如 image/png, image/jpeg */
   mediaType?: string;
@@ -52,6 +53,9 @@ const ImageLightbox: React.FC<ImageLightboxProps> = ({
   const getImageSrc = (image: MessageImage): string => {
     if (image.sourceType === "base64") {
       return `data:${image.mediaType || "image/png"};base64,${image.data}`;
+    }
+    if (image.sourceType === "file") {
+      return convertFileSrc(image.data);
     }
     return image.data;
   };
@@ -298,6 +302,9 @@ export const MessageImagePreview: React.FC<MessageImagePreviewProps> = ({
     if (image.sourceType === "base64") {
       return `data:${image.mediaType || "image/png"};base64,${image.data}`;
     }
+    if (image.sourceType === "file") {
+      return convertFileSrc(image.data);
+    }
     return image.data;
   };
 
@@ -417,4 +424,98 @@ export const extractImagesFromContent = (content: any[]): MessageImage[] => {
   }
 
   return images;
+};
+
+/**
+ * 图片文件扩展名列表
+ */
+const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'];
+
+/**
+ * 检查路径是否是图片文件
+ */
+const isImagePath = (path: string): boolean => {
+  const lowerPath = path.toLowerCase();
+  return IMAGE_EXTENSIONS.some(ext => lowerPath.endsWith(ext));
+};
+
+/**
+ * 从消息文本中提取图片路径（@path 格式）
+ * 支持以下格式:
+ * - @C:\path\to\image.png
+ * - @"C:\path with spaces\image.png"
+ * - @/path/to/image.png
+ * - "C:\path\to\image.png" (Codex 格式，无 @ 前缀)
+ *
+ * @param text 消息文本
+ * @returns { images: 图片数组, cleanText: 移除图片路径后的文本 }
+ */
+export const extractImagePathsFromText = (text: string): { images: MessageImage[]; cleanText: string } => {
+  if (!text) return { images: [], cleanText: text };
+
+  const images: MessageImage[] = [];
+  let cleanText = text;
+
+  // 正则匹配模式:
+  // 1. @"path with spaces" - 带引号的路径（有 @ 前缀）
+  // 2. @path - 不带引号的路径（有 @ 前缀）
+  // 3. "path" - 带引号的路径（无 @ 前缀，Codex 格式）
+
+  // 模式1: @"..." 格式
+  const quotedAtPattern = /@"([^"]+)"/g;
+  let match;
+
+  while ((match = quotedAtPattern.exec(text)) !== null) {
+    const path = match[1];
+    if (isImagePath(path)) {
+      images.push({
+        sourceType: "file",
+        data: path,
+      });
+      cleanText = cleanText.replace(match[0], '');
+    }
+  }
+
+  // 模式2: @path 格式（不带引号）
+  // 匹配 @ 后面的路径，直到空格或字符串结束
+  const unquotedAtPattern = /@([^\s"]+)/g;
+
+  while ((match = unquotedAtPattern.exec(text)) !== null) {
+    const path = match[1];
+    if (isImagePath(path)) {
+      // 检查是否已经被引号模式匹配过
+      const fullMatch = match[0];
+      if (cleanText.includes(fullMatch)) {
+        images.push({
+          sourceType: "file",
+          data: path,
+        });
+        cleanText = cleanText.replace(fullMatch, '');
+      }
+    }
+  }
+
+  // 模式3: "path" 格式（Codex 格式，检查是否是图片路径）
+  // 只匹配看起来像文件路径的带引号字符串
+  const quotedPathPattern = /"([A-Za-z]:\\[^"]+|\/[^"]+)"/g;
+
+  while ((match = quotedPathPattern.exec(text)) !== null) {
+    const path = match[1];
+    if (isImagePath(path)) {
+      // 检查是否已经被其他模式匹配过
+      const fullMatch = match[0];
+      if (cleanText.includes(fullMatch)) {
+        images.push({
+          sourceType: "file",
+          data: path,
+        });
+        cleanText = cleanText.replace(fullMatch, '');
+      }
+    }
+  }
+
+  // 清理多余的空格
+  cleanText = cleanText.replace(/\s+/g, ' ').trim();
+
+  return { images, cleanText };
 };

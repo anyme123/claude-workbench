@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { RotateCcw, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { MessageBubble } from "./MessageBubble";
 import { MessageHeader } from "./MessageHeader";
-import { MessageImagePreview, extractImagesFromContent } from "./MessageImagePreview";
+import { MessageImagePreview, extractImagesFromContent, extractImagePathsFromText } from "./MessageImagePreview";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -144,29 +144,41 @@ export const UserMessage: React.FC<UserMessageProps> = ({
   const [shouldCollapse, setShouldCollapse] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // 🆕 提取消息中的图片
-  const images = useMemo(() => {
+  // 🆕 从 content 数组提取图片（base64 格式）
+  const contentImages = useMemo(() => {
     const content = message.message?.content;
     if (!content || !Array.isArray(content)) return [];
     return extractImagesFromContent(content);
   }, [message]);
+
+  // 🆕 从文本中提取图片路径（@path 格式）
+  const { images: textImages, cleanText } = useMemo(() => {
+    return extractImagePathsFromText(text);
+  }, [text]);
+
+  // 合并所有图片
+  const images = useMemo(() => {
+    return [...contentImages, ...textImages];
+  }, [contentImages, textImages]);
 
   // 如果没有文本内容且没有图片，不渲染
   if (!text && images.length === 0) return null;
 
   // ⚡ 检查是否是 Skills 消息
   const isSkills = isSkillsMessage(text);
-  const displayContent = isSkills ? formatSkillsMessage(text) : text;
+  // 使用清理后的文本（移除图片路径），但 Skills 消息保持原样
+  const displayContent = isSkills ? formatSkillsMessage(text) : (cleanText || text);
 
   // 🆕 计算是否需要折叠（超过 5 行）
   useEffect(() => {
-    if (!contentRef.current || isSkills) {
+    if (!contentRef.current || isSkills || !displayContent) {
       setShouldCollapse(false);
       return;
     }
 
-    // 计算行数：将文本按换行符分割
-    const lines = text.split('\n').length;
+    // 计算行数：使用清理后的文本
+    const textToCheck = typeof displayContent === 'string' ? displayContent : text;
+    const lines = textToCheck.split('\n').length;
 
     // 如果超过 5 行，需要折叠
     if (lines > 5) {
@@ -174,7 +186,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
     } else {
       setShouldCollapse(false);
     }
-  }, [text, isSkills]);
+  }, [text, isSkills, displayContent]);
 
   // 检测撤回能力
   useEffect(() => {
@@ -235,36 +247,41 @@ export const UserMessage: React.FC<UserMessageProps> = ({
         <div className="flex items-start gap-2">
         {/* 消息内容 */}
           <div className="flex-1 space-y-1">
-            <div
-              ref={contentRef}
-              className={cn(
-                "text-sm leading-relaxed",
-                isSkills ? "" : "whitespace-pre-wrap",
-                // 🆕 折叠样式：未展开时限制为 5 行
-                shouldCollapse && !isExpanded && "line-clamp-5 overflow-hidden"
-              )}
-            >
-              {displayContent}
-            </div>
+            {/* 文本内容（只在有文本时显示） */}
+            {displayContent && (
+              <>
+                <div
+                  ref={contentRef}
+                  className={cn(
+                    "text-sm leading-relaxed",
+                    isSkills ? "" : "whitespace-pre-wrap",
+                    // 🆕 折叠样式：未展开时限制为 5 行
+                    shouldCollapse && !isExpanded && "line-clamp-5 overflow-hidden"
+                  )}
+                >
+                  {displayContent}
+                </div>
 
-            {/* 🆕 展开/收起按钮 */}
-            {shouldCollapse && (
-              <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="flex items-center gap-1 text-xs text-primary-foreground/70 hover:text-primary-foreground transition-colors mt-1"
-              >
-                {isExpanded ? (
-                  <>
-                    <ChevronUp className="h-3 w-3" />
-                    <span>收起</span>
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="h-3 w-3" />
-                    <span>展开</span>
-                  </>
+                {/* 🆕 展开/收起按钮 */}
+                {shouldCollapse && (
+                  <button
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="flex items-center gap-1 text-xs text-primary-foreground/70 hover:text-primary-foreground transition-colors mt-1"
+                  >
+                    {isExpanded ? (
+                      <>
+                        <ChevronUp className="h-3 w-3" />
+                        <span>收起</span>
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="h-3 w-3" />
+                        <span>展开</span>
+                      </>
+                    )}
+                  </button>
                 )}
-              </button>
+              </>
             )}
 
             {/* 🆕 图片缩略图预览 */}
