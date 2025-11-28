@@ -790,7 +790,10 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
     />
   );
 
-  const projectPathInput = !session && (
+  // Show project path input only when:
+  // 1. No initial session prop AND
+  // 2. No extracted session info (from successful first response)
+  const projectPathInput = !effectiveSession && (
     <SessionHeader
       projectPath={projectPath}
       setProjectPath={(path) => {
