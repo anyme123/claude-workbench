@@ -23,6 +23,9 @@ interface InputAreaProps {
   onExpand: () => void;
   onFileSelect: (file: any) => void;
   onFilePickerClose: () => void;
+  // 🔧 Mac 输入法兼容：composition 事件
+  onCompositionStart?: () => void;
+  onCompositionEnd?: () => void;
 }
 
 export const InputArea = forwardRef<HTMLTextAreaElement, InputAreaProps>(({
@@ -42,6 +45,8 @@ export const InputArea = forwardRef<HTMLTextAreaElement, InputAreaProps>(({
   onExpand,
   onFileSelect,
   onFilePickerClose,
+  onCompositionStart,
+  onCompositionEnd,
 }, ref) => {
   return (
     <div className="relative">
@@ -51,6 +56,9 @@ export const InputArea = forwardRef<HTMLTextAreaElement, InputAreaProps>(({
         onChange={onTextChange}
         onKeyDown={onKeyDown}
         onPaste={onPaste}
+        // 🔧 Mac 输入法兼容：监听 composition 事件
+        onCompositionStart={onCompositionStart}
+        onCompositionEnd={onCompositionEnd}
         placeholder={dragActive ? "拖放图片到这里..." : "向 Claude 提问..."}
         disabled={disabled}
         className={cn(

@@ -99,6 +99,9 @@ const FloatingPromptInputInner = (
   // Dynamic model list
   const [availableModels, setAvailableModels] = useState<ModelConfig[]>(MODELS);
 
+  // 🔧 Mac 输入法兼容：追踪 IME 组合输入状态
+  const [isComposing, setIsComposing] = useState(false);
+
   // Refs
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const expandedTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -336,9 +339,13 @@ const FloatingPromptInputInner = (
       setFilePickerQuery("");
       return;
     }
+    // 🔧 Mac 输入法兼容：组合输入时忽略 Enter 键
+    // 双重检查：isComposing 状态 + 原生事件属性
     if (e.key === "Enter" && !e.shiftKey && !state.isExpanded && !showFilePicker) {
-      e.preventDefault();
-      handleSend();
+      if (!isComposing && !e.nativeEvent.isComposing) {
+        e.preventDefault();
+        handleSend();
+      }
     }
   };
 
@@ -416,6 +423,9 @@ const FloatingPromptInputInner = (
             onExpand={() => dispatch({ type: "SET_EXPANDED", payload: true })}
             onFileSelect={handleFileSelect}
             onFilePickerClose={handleFilePickerClose}
+            // 🔧 Mac 输入法兼容
+            onCompositionStart={() => setIsComposing(true)}
+            onCompositionEnd={() => setIsComposing(false)}
           />
 
           <ControlBar
