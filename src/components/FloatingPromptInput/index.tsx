@@ -101,6 +101,8 @@ const FloatingPromptInputInner = (
 
   // 🔧 Mac 输入法兼容：追踪 IME 组合输入状态
   const [isComposing, setIsComposing] = useState(false);
+  // 记录 compositionend 时间戳，用于冷却期检测
+  const compositionEndTimeRef = useRef(0);
 
   // Refs
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -340,9 +342,15 @@ const FloatingPromptInputInner = (
       return;
     }
     // 🔧 Mac 输入法兼容：组合输入时忽略 Enter 键
-    // 双重检查：isComposing 状态 + 原生事件属性
     if (e.key === "Enter" && !e.shiftKey && !state.isExpanded && !showFilePicker) {
-      if (!isComposing && !e.nativeEvent.isComposing) {
+      // 三重检查：
+      // 1. isComposing 状态
+      // 2. 原生事件属性
+      // 3. compositionend 后的冷却期（Mac 原生输入法需要）
+      const timeSinceCompositionEnd = Date.now() - compositionEndTimeRef.current;
+      const inCooldown = timeSinceCompositionEnd < 100; // 100ms 冷却期
+
+      if (!isComposing && !e.nativeEvent.isComposing && !inCooldown) {
         e.preventDefault();
         handleSend();
       }
@@ -425,7 +433,10 @@ const FloatingPromptInputInner = (
             onFilePickerClose={handleFilePickerClose}
             // 🔧 Mac 输入法兼容
             onCompositionStart={() => setIsComposing(true)}
-            onCompositionEnd={() => setIsComposing(false)}
+            onCompositionEnd={() => {
+              setIsComposing(false);
+              compositionEndTimeRef.current = Date.now(); // 记录时间戳用于冷却期
+            }}
           />
 
           <ControlBar
