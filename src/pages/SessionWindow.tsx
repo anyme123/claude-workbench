@@ -14,7 +14,7 @@ import type { Session } from '@/lib/api';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
-import { X, Minimize2, Square, Copy, PanelLeftClose } from 'lucide-react';
+import { X, Minus, Square, Copy, PanelLeftClose } from 'lucide-react';
 
 interface SessionWindowState {
   isLoading: boolean;
@@ -228,7 +228,7 @@ export const SessionWindow: React.FC = () => {
           onClick={handleMinimizeWindow}
           style={noDragStyle}
         >
-          <Minimize2 className="h-3.5 w-3.5" />
+          <Minus className="h-3.5 w-3.5" />
         </Button>
         <Button
           variant="ghost"
@@ -353,7 +353,7 @@ export const SessionWindow: React.FC = () => {
               onClick={handleMinimizeWindow}
               style={noDragStyle}
             >
-              <Minimize2 className="h-3.5 w-3.5" />
+              <Minus className="h-3.5 w-3.5" />
             </Button>
             <Button
               variant="ghost"
