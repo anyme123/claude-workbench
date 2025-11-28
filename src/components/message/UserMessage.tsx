@@ -232,18 +232,17 @@ export const UserMessage: React.FC<UserMessageProps> = ({
     <>
     <div
       id={promptIndex !== undefined ? `prompt-${promptIndex}` : undefined}
-      className={cn("group relative", className)}
+      className={cn("group relative flex items-center justify-end gap-1.5", className)}
     >
+      {/* 图片附件子气泡 - 放在气泡左边 */}
+      {images.length > 0 && (
+        <MessageImagePreview
+          images={images}
+          compact
+        />
+      )}
+
       <MessageBubble variant="user" bubbleClassName="bg-gradient-to-br from-blue-50/80 to-indigo-50/80 dark:from-blue-600 dark:to-indigo-600 dark:text-white border border-blue-100/50 dark:border-blue-500/50 shadow-sm">
-        {/* 图片附件子气泡 - 绝对定位在气泡左边 */}
-        {images.length > 0 && (
-          <div className="absolute right-full top-1/2 -translate-y-1/2 mr-1.5">
-            <MessageImagePreview
-              images={images}
-              compact
-            />
-          </div>
-        )}
           <div className="relative">
         {/* 消息头部 */}
         <MessageHeader
