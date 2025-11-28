@@ -234,15 +234,13 @@ export const UserMessage: React.FC<UserMessageProps> = ({
       id={promptIndex !== undefined ? `prompt-${promptIndex}` : undefined}
       className={cn("group relative", className)}
     >
-      {/* 🆕 图片附件子气泡 - 吸附在主气泡左上角 */}
+      {/* 🆕 图片附件子气泡 - 放在左侧 */}
       {images.length > 0 && (
-        <div className="flex justify-end mb-1.5">
-          <div className="mr-1">
-            <MessageImagePreview
-              images={images}
-              compact
-            />
-          </div>
+        <div className="flex justify-start mb-1.5">
+          <MessageImagePreview
+            images={images}
+            compact
+          />
         </div>
       )}
 
