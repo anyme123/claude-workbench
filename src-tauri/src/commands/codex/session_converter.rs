@@ -18,7 +18,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
-use std::path::PathBuf;
 use once_cell::sync::Lazy;
 
 // ================================
@@ -348,11 +347,11 @@ impl ClaudeToCodexConverter {
 
     /// 读取 Claude session 文件
     fn read_claude_session(&self) -> Result<Vec<ClaudeMessage>, String> {
-        let claude_dir = super::super::claude::paths::get_claude_dir()
+        let claude_dir = super::super::claude::get_claude_dir()
             .map_err(|e| format!("Failed to get Claude directory: {}", e))?;
 
         let project_id =
-            super::super::claude::paths::encode_project_path(&self.project_path);
+            super::super::claude::encode_project_path(&self.project_path);
         let session_path = claude_dir
             .join("projects")
             .join(&project_id)
@@ -990,11 +989,11 @@ impl CodexToClaudeConverter {
 
     /// 写入 Claude session 文件
     fn write_claude_session(&self, messages: &[ClaudeMessage]) -> Result<String, String> {
-        let claude_dir = super::super::claude::paths::get_claude_dir()
+        let claude_dir = super::super::claude::get_claude_dir()
             .map_err(|e| format!("Failed to get Claude directory: {}", e))?;
 
         let project_id =
-            super::super::claude::paths::encode_project_path(&self.project_path);
+            super::super::claude::encode_project_path(&self.project_path);
         let project_dir = claude_dir.join("projects").join(&project_id);
 
         std::fs::create_dir_all(&project_dir)
