@@ -13,6 +13,7 @@
 pub mod config;
 pub mod git_ops;
 pub mod session;
+pub mod session_converter;
 
 // ============================================================================
 // Re-export Types (allow unused for API compatibility)
@@ -43,6 +44,13 @@ pub use config::{
     CodexModeInfo,
     CodexProviderConfig,
     CurrentCodexConfig,
+};
+
+// Session converter types
+#[allow(unused_imports)]
+pub use session_converter::{
+    ConversionSource,
+    ConversionResult,
 };
 
 // ============================================================================
@@ -97,6 +105,16 @@ pub use config::{
     delete_codex_provider_config,
     clear_codex_provider_config,
     test_codex_provider_connection,
+};
+
+// ============================================================================
+// Re-export Tauri Commands - Session Conversion
+// ============================================================================
+
+pub use session_converter::{
+    convert_session,
+    convert_claude_to_codex,
+    convert_codex_to_claude,
 };
 
 // ============================================================================

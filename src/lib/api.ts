@@ -59,6 +59,40 @@ export interface Session {
 }
 
 /**
+ * Session conversion source information
+ */
+export interface ConversionSource {
+  /** Source engine type: "claude" | "codex" */
+  engine: string;
+  /** Source session ID */
+  sessionId: string;
+  /** Conversion timestamp (ISO 8601) */
+  convertedAt: string;
+  /** Source project path */
+  sourceProjectPath: string;
+}
+
+/**
+ * Session conversion result
+ */
+export interface ConversionResult {
+  /** Whether conversion succeeded */
+  success: boolean;
+  /** New generated session ID */
+  newSessionId: string;
+  /** Target engine type */
+  targetEngine: string;
+  /** Number of messages converted */
+  messageCount: number;
+  /** Conversion source information */
+  source: ConversionSource;
+  /** Target file path */
+  targetPath: string;
+  /** Error message if conversion failed */
+  error?: string;
+}
+
+/**
  * Represents the settings from ~/.claude/settings.json
  */
 export interface ClaudeSettings {
@@ -2937,6 +2971,76 @@ export const api = {
       return await invoke<string>("test_codex_provider_connection", { baseUrl, apiKey });
     } catch (error) {
       console.error("Failed to test Codex provider connection:", error);
+      throw error;
+    }
+  },
+
+  // ============================================================================
+  // Session Conversion (Claude ↔ Codex)
+  // ============================================================================
+
+  /**
+   * Convert a session between Claude and Codex formats
+   * @param sessionId - The source session ID
+   * @param targetEngine - The target engine ('claude' | 'codex')
+   * @param projectPath - The project path
+   * @returns Promise resolving to conversion result
+   */
+  async convertSession(
+    sessionId: string,
+    targetEngine: 'claude' | 'codex',
+    projectPath: string
+  ): Promise<ConversionResult> {
+    try {
+      return await invoke<ConversionResult>("convert_session", {
+        sessionId,
+        targetEngine,
+        projectPath,
+      });
+    } catch (error) {
+      console.error("Failed to convert session:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Convert a Claude session to Codex format
+   * @param sessionId - The Claude session ID (UUID format)
+   * @param projectPath - The project path
+   * @returns Promise resolving to conversion result
+   */
+  async convertClaudeToCodex(
+    sessionId: string,
+    projectPath: string
+  ): Promise<ConversionResult> {
+    try {
+      return await invoke<ConversionResult>("convert_claude_to_codex", {
+        sessionId,
+        projectPath,
+      });
+    } catch (error) {
+      console.error("Failed to convert Claude to Codex:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Convert a Codex session to Claude format
+   * @param sessionId - The Codex session ID (rollout-* format)
+   * @param projectPath - The project path
+   * @returns Promise resolving to conversion result
+   */
+  async convertCodexToClaude(
+    sessionId: string,
+    projectPath: string
+  ): Promise<ConversionResult> {
+    try {
+      return await invoke<ConversionResult>("convert_codex_to_claude", {
+        sessionId,
+        projectPath,
+      });
+    } catch (error) {
+      console.error("Failed to convert Codex to Claude:", error);
       throw error;
     }
   },
