@@ -1582,22 +1582,43 @@ async fn execute_codex_process(
     });
 
     // Spawn task to wait for process completion
+    // 🔧 FIX: Use polling with try_wait() instead of removing process before wait()
+    // This ensures the process stays in the HashMap while running, allowing cancel_codex to find and kill it
     tokio::spawn(async move {
         let state: tauri::State<'_, CodexProcessState> = app_handle_complete.state();
 
-        // Wait for process to complete
-        {
+        // Poll for process completion without removing it from the HashMap
+        // This allows cancel_codex to find and kill the process at any time
+        let exit_status: Option<std::process::ExitStatus> = loop {
             let mut processes = state.processes.lock().await;
-            if let Some(mut child) = processes.remove(&session_id_complete) {
-                match child.wait().await {
-                    Ok(status) => {
-                        log::info!("Codex process exited with status: {}", status);
+
+            if let Some(child) = processes.get_mut(&session_id_complete) {
+                match child.try_wait() {
+                    Ok(Some(status)) => {
+                        // Process has completed, now remove it from HashMap
+                        processes.remove(&session_id_complete);
+                        break Some(status);
+                    }
+                    Ok(None) => {
+                        // Process still running, release lock and wait before polling again
+                        drop(processes);
+                        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
                     }
                     Err(e) => {
-                        log::error!("Error waiting for process: {}", e);
+                        log::error!("Error checking process status: {}", e);
+                        processes.remove(&session_id_complete);
+                        break None;
                     }
                 }
+            } else {
+                // Process was removed by cancel_codex, stop polling
+                log::info!("Process {} was cancelled, stopping wait task", session_id_complete);
+                break None;
             }
+        };
+
+        if let Some(status) = exit_status {
+            log::info!("Codex process exited with status: {}", status);
         }
 
         // Emit completion event
