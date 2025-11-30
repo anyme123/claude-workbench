@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, Clock, Plus, Trash2, CheckSquare, Square, FilePenLine, Loader2, Zap, Bot } from "lucide-react";
+import { ArrowLeft, Clock, Plus, Trash2, CheckSquare, Square, FilePenLine, Loader2, Zap, Bot, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -51,6 +51,10 @@ interface SessionListProps {
    */
   onNewSession?: (projectPath: string) => void;
   /**
+   * Callback when a session should be converted
+   */
+  onSessionConvert?: (sessionId: string, targetEngine: 'claude' | 'codex', projectPath: string) => Promise<void>;
+  /**
    * Optional className for styling
    */
   className?: string;
@@ -83,6 +87,7 @@ export const SessionList: React.FC<SessionListProps> = ({
   onSessionsBatchDelete,
   onEditClaudeFile,
   onNewSession,
+  onSessionConvert,
   className,
 }) => {
   const { t } = useTranslation();
@@ -92,6 +97,11 @@ export const SessionList: React.FC<SessionListProps> = ({
   const [claudeMdFiles, setClaudeMdFiles] = useState<ClaudeMdFile[]>([]);
   const [loadingClaudeMd, setLoadingClaudeMd] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Conversion dialog state
+  const [convertDialogOpen, setConvertDialogOpen] = useState(false);
+  const [sessionToConvert, setSessionToConvert] = useState<Session | null>(null);
+  const [isConverting, setIsConverting] = useState(false);
 
   // Multi-selection mode
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -267,6 +277,36 @@ export const SessionList: React.FC<SessionListProps> = ({
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  // Handle convert button click
+  const handleConvertClick = (e: React.MouseEvent, session: Session) => {
+    e.stopPropagation();
+    setSessionToConvert(session);
+    setConvertDialogOpen(true);
+  };
+
+  // Confirm conversion
+  const confirmConvert = async () => {
+    if (!sessionToConvert || !onSessionConvert) return;
+
+    try {
+      setIsConverting(true);
+      const targetEngine = sessionToConvert.engine === 'codex' ? 'claude' : 'codex';
+      await onSessionConvert(sessionToConvert.id, targetEngine, projectPath);
+      setConvertDialogOpen(false);
+      setSessionToConvert(null);
+    } catch (error) {
+      console.error("Failed to convert session:", error);
+    } finally {
+      setIsConverting(false);
+    }
+  };
+
+  // Cancel conversion
+  const cancelConvert = () => {
+    setConvertDialogOpen(false);
+    setSessionToConvert(null);
   };
 
   return (
@@ -512,6 +552,18 @@ export const SessionList: React.FC<SessionListProps> = ({
               </div>
             </button>
 
+            {/* Convert button - shown on hover (hidden in selection mode) */}
+            {!isSelectionMode && onSessionConvert && (
+              <button
+                onClick={(e) => handleConvertClick(e, session)}
+                className="px-3 py-2.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity hover:bg-primary/10 text-primary"
+                aria-label={`转换会话到 ${session.engine === 'codex' ? 'Claude' : 'Codex'}`}
+                title={`转换到 ${session.engine === 'codex' ? 'Claude' : 'Codex'}`}
+              >
+                <RefreshCw className="h-4 w-4" aria-hidden="true" />
+              </button>
+            )}
+
             {/* Delete button - shown on hover (hidden in selection mode) */}
             {!isSelectionMode && onSessionDelete && (
               <button
@@ -570,6 +622,96 @@ export const SessionList: React.FC<SessionListProps> = ({
               disabled={isDeleting}
             >
               {isDeleting ? "删除中..." : "确认删除"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Convert confirmation dialog */}
+      <Dialog open={convertDialogOpen} onOpenChange={setConvertDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>转换会话引擎</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              确定要将此会话转换到 <strong>{sessionToConvert?.engine === 'codex' ? 'Claude' : 'Codex'}</strong> 引擎吗？
+            </p>
+            <div className="space-y-3">
+              {sessionToConvert && (
+                <div className="p-3 bg-muted rounded-md">
+                  <div className="flex items-center gap-2 mb-2">
+                    {sessionToConvert.engine === 'codex' ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                        <Bot className="h-3 w-3" />
+                        Codex
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                        <Zap className="h-3 w-3" />
+                        Claude
+                      </span>
+                    )}
+                    <RefreshCw className="h-4 w-4 text-muted-foreground" />
+                    {sessionToConvert.engine === 'codex' ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                        <Zap className="h-3 w-3" />
+                        Claude
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                        <Bot className="h-3 w-3" />
+                        Codex
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm font-medium text-foreground">
+                    {sessionToConvert.first_message
+                      ? truncateText(getFirstLine(sessionToConvert.first_message), 60)
+                      : sessionToConvert.id}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1 font-mono">
+                    {sessionToConvert.id}
+                  </p>
+                </div>
+              )}
+              <div className="p-3 bg-blue-500/5 border border-blue-500/20 rounded-md">
+                <p className="text-sm text-blue-600 dark:text-blue-400">
+                  ℹ️ 转换说明：
+                </p>
+                <ul className="text-xs text-muted-foreground mt-2 space-y-1 list-disc list-inside">
+                  <li>将生成新的 Session ID</li>
+                  <li>原 Session 不会被修改或删除</li>
+                  <li>工具调用会自动映射转换</li>
+                  <li>仅支持已完成的 Session</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={cancelConvert}
+              disabled={isConverting}
+            >
+              取消
+            </Button>
+            <Button
+              onClick={confirmConvert}
+              disabled={isConverting}
+              className="bg-primary"
+            >
+              {isConverting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  转换中...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  确认转换
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

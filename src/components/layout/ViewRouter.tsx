@@ -189,6 +189,25 @@ export const ViewRouter: React.FC = () => {
     }
   };
 
+  const handleSessionConvert = async (sessionId: string, targetEngine: 'claude' | 'codex', projectPath: string) => {
+    try {
+      const result = await api.convertSession(sessionId, targetEngine, projectPath);
+
+      if (result.success) {
+        refreshSessions();
+        setToast({
+          message: `会话已成功转换到 ${targetEngine === 'claude' ? 'Claude' : 'Codex'}！新会话 ID: ${result.newSessionId.substring(0, 8)}...`,
+          type: "success"
+        });
+      } else {
+        setToast({ message: `转换失败: ${result.error || '未知错误'}`, type: "error" });
+      }
+    } catch (err) {
+      console.error("Failed to convert session:", err);
+      setToast({ message: `转换会话失败: ${err}`, type: "error" });
+    }
+  };
+
   const handleProjectDeleteWrapper = async (project: Project) => {
     try {
       await deleteProject(project);
@@ -303,6 +322,7 @@ export const ViewRouter: React.FC = () => {
                         onEditClaudeFile={(file) => navigateTo("claude-file-editor", { file })}
                         onSessionDelete={handleSessionDelete}
                         onSessionsBatchDelete={handleSessionsBatchDelete}
+                        onSessionConvert={handleSessionConvert}
                         onSessionClick={(session) => {
                           const result = openSessionInBackground(session);
                           switchToTab(result.tabId);
