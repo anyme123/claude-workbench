@@ -967,108 +967,112 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
 
           {/* Enhanced scroll controls with smart indicators */}
           {displayableMessages.length > 5 && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              transition={{ delay: 0.5 }}
-              className="absolute right-6 z-40"
-              style={{
-                bottom: 'calc(145px + env(safe-area-inset-bottom))', // 确保在输入区域上方且有足够间距
-              }}
-            >
-              <div className="flex flex-col gap-1.5">
-                {/* Prompt Navigator Button */}
-                {!showPromptNavigator && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="flex flex-col items-center gap-1 bg-background/60 backdrop-blur-md border border-border/50 rounded-xl px-1.5 py-2 cursor-pointer hover:bg-accent/80 shadow-sm"
-                    onClick={() => setShowPromptNavigator(true)}
-                    title="提示词导航 - 快速跳转到任意提示词"
-                  >
-                    <List className="h-4 w-4" />
-                    <div className="flex flex-col items-center text-[10px] leading-tight tracking-wider">
-                      <span>提</span>
-                      <span>示</span>
-                      <span>词</span>
+            <div className="absolute inset-x-0 bottom-0 pointer-events-none z-40 flex justify-center">
+              <div className="w-full max-w-5xl lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[85%] px-4 relative h-full">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ delay: 0.5 }}
+                  className="absolute right-4 pointer-events-auto"
+                  style={{
+                    bottom: 'calc(145px + env(safe-area-inset-bottom))', // 确保在输入区域上方且有足够间距
+                  }}
+                >
+                  <div className="flex flex-col gap-1.5">
+                    {/* Prompt Navigator Button */}
+                    {!showPromptNavigator && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="flex flex-col items-center gap-1 bg-background/60 backdrop-blur-md border border-border/50 rounded-xl px-1.5 py-2 cursor-pointer hover:bg-accent/80 shadow-sm"
+                        onClick={() => setShowPromptNavigator(true)}
+                        title="提示词导航 - 快速跳转到任意提示词"
+                      >
+                        <List className="h-4 w-4" />
+                        <div className="flex flex-col items-center text-[10px] leading-tight tracking-wider">
+                          <span>提</span>
+                          <span>示</span>
+                          <span>词</span>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {/* New message indicator - only show when user scrolled away */}
+                    <AnimatePresence>
+                      {userScrolled && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 20, scale: 0.8 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 20, scale: 0.8 }}
+                          className="flex flex-col items-center gap-1 bg-background/60 backdrop-blur-md border border-border/50 rounded-xl px-1.5 py-2 cursor-pointer hover:bg-accent/80 shadow-sm"
+                          onClick={() => {
+                            setUserScrolled(false);
+                            setShouldAutoScroll(true);
+                            if (parentRef.current) {
+                              parentRef.current.scrollTo({
+                                top: parentRef.current.scrollHeight,
+                                behavior: 'smooth'
+                              });
+                            }
+                          }}
+                          title="新消息 - 点击滚动到底部"
+                        >
+                          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
+                          <div className="flex flex-col items-center text-[10px] leading-tight tracking-wider">
+                            <span>新</span>
+                            <span>消</span>
+                            <span>息</span>
+                          </div>
+                          <ChevronDown className="h-3 w-3" />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Traditional scroll controls */}
+                    <div className="flex flex-col bg-background/60 backdrop-blur-md border border-border/50 rounded-xl overflow-hidden shadow-sm">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setUserScrolled(true);
+                          setShouldAutoScroll(false);
+                          if (parentRef.current) {
+                            parentRef.current.scrollTo({
+                              top: 0,
+                              behavior: 'smooth'
+                            });
+                          }
+                        }}
+                        className="px-1.5 py-1.5 hover:bg-accent/80 rounded-none h-auto min-h-0"
+                        title="滚动到顶部"
+                      >
+                        <ChevronUp className="h-3.5 w-3.5" />
+                      </Button>
+                      <div className="h-px w-full bg-border/50" />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setUserScrolled(false);
+                          setShouldAutoScroll(true);
+                          if (parentRef.current) {
+                            parentRef.current.scrollTo({
+                              top: parentRef.current.scrollHeight,
+                              behavior: 'smooth'
+                            });
+                          }
+                        }}
+                        className="px-1.5 py-1.5 hover:bg-accent/80 rounded-none h-auto min-h-0"
+                        title="滚动到底部"
+                      >
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
-                  </motion.div>
-                )}
-
-                {/* New message indicator - only show when user scrolled away */}
-                <AnimatePresence>
-                  {userScrolled && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 20, scale: 0.8 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 20, scale: 0.8 }}
-                      className="flex flex-col items-center gap-1 bg-background/60 backdrop-blur-md border border-border/50 rounded-xl px-1.5 py-2 cursor-pointer hover:bg-accent/80 shadow-sm"
-                      onClick={() => {
-                        setUserScrolled(false);
-                        setShouldAutoScroll(true);
-                        if (parentRef.current) {
-                          parentRef.current.scrollTo({
-                            top: parentRef.current.scrollHeight,
-                            behavior: 'smooth'
-                          });
-                        }
-                      }}
-                      title="新消息 - 点击滚动到底部"
-                    >
-                      <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
-                      <div className="flex flex-col items-center text-[10px] leading-tight tracking-wider">
-                        <span>新</span>
-                        <span>消</span>
-                        <span>息</span>
-                      </div>
-                      <ChevronDown className="h-3 w-3" />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Traditional scroll controls */}
-                <div className="flex flex-col bg-background/60 backdrop-blur-md border border-border/50 rounded-xl overflow-hidden shadow-sm">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setUserScrolled(true);
-                      setShouldAutoScroll(false);
-                      if (parentRef.current) {
-                        parentRef.current.scrollTo({
-                          top: 0,
-                          behavior: 'smooth'
-                        });
-                      }
-                    }}
-                    className="px-1.5 py-1.5 hover:bg-accent/80 rounded-none h-auto min-h-0"
-                    title="滚动到顶部"
-                  >
-                    <ChevronUp className="h-3.5 w-3.5" />
-                  </Button>
-                  <div className="h-px w-full bg-border/50" />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setUserScrolled(false);
-                      setShouldAutoScroll(true);
-                      if (parentRef.current) {
-                        parentRef.current.scrollTo({
-                          top: parentRef.current.scrollHeight,
-                          behavior: 'smooth'
-                        });
-                      }
-                    }}
-                    className="px-1.5 py-1.5 hover:bg-accent/80 rounded-none h-auto min-h-0"
-                    title="滚动到底部"
-                  >
-                    <ChevronDown className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
+                  </div>
+                </motion.div>
               </div>
-            </motion.div>
+            </div>
           )}
 
           <div className={cn(
