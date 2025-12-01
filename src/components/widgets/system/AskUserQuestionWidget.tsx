@@ -39,7 +39,28 @@ export interface AskUserQuestionWidgetProps {
 }
 
 /**
- * 检查选项是否被选中
+ * 规范化文本（用于匹配）
+ * 去除多余空格、统一标点符号
+ */
+function normalizeText(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/\s+/g, ' ') // 多个空格替换为单个
+    .replace(/[，。！？：；""''（）【】]/g, (char) => {
+      // 中文标点转英文标点
+      const map: Record<string, string> = {
+        '，': ',', '。': '.', '！': '!', '？': '?',
+        '：': ':', '；': ';', '"': '"', '"': '"',
+        ''': "'", ''': "'", '（': '(', '）': ')',
+        '【': '[', '】': ']'
+      };
+      return map[char] || char;
+    })
+    .trim();
+}
+
+/**
+ * 检查选项是否被选中（改进版）
  */
 function isOptionSelected(
   optionLabel: string,
@@ -47,16 +68,22 @@ function isOptionSelected(
 ): boolean {
   if (!answer) return false;
 
+  const normalizedOption = normalizeText(optionLabel);
+
   if (Array.isArray(answer)) {
     // 多选：检查是否在数组中
-    return answer.some(a =>
-      optionLabel.toLowerCase().includes(a.toLowerCase()) ||
-      a.toLowerCase().includes(optionLabel.toLowerCase())
-    );
+    return answer.some(a => {
+      const normalizedAnswer = normalizeText(a);
+      return normalizedOption.includes(normalizedAnswer) ||
+             normalizedAnswer.includes(normalizedOption) ||
+             normalizedOption === normalizedAnswer;
+    });
   } else {
-    // 单选：检查是否匹配
-    return optionLabel.toLowerCase().includes(answer.toLowerCase()) ||
-           answer.toLowerCase().includes(optionLabel.toLowerCase());
+    // 单选：规范化后匹配
+    const normalizedAnswer = normalizeText(answer);
+    return normalizedOption.includes(normalizedAnswer) ||
+           normalizedAnswer.includes(normalizedOption) ||
+           normalizedOption === normalizedAnswer;
   }
 }
 
@@ -97,36 +124,39 @@ export const AskUserQuestionWidget: React.FC<AskUserQuestionWidgetProps> = ({
     const map = new Map<string, string | string[]>();
 
     questions.forEach((q) => {
-      // 尝试多种方式匹配答案
-      const possibleKeys = [
-        q.header,                    // 使用header作为key
-        q.question,                  // 使用完整问题文本作为key
-        q.question.replace(/\?$/, ''), // 去掉问号
-      ].filter(Boolean);
+      // 尝试完全匹配
+      if (answers[q.question]) {
+        map.set(q.header || q.question, answers[q.question]);
+        console.log(`[AskUserQuestion] ✓ Exact match: "${q.question}" -> "${answers[q.question]}"`);
+        return;
+      }
 
-      for (const key of possibleKeys) {
-        if (key && answers[key]) {
-          map.set(q.header || q.question, answers[key]);
-          console.log(`[AskUserQuestion] Matched: "${key}" -> "${answers[key]}"`);
-          break;
+      // 尝试规范化匹配（处理标点符号差异）
+      const normalizedQuestion = normalizeText(q.question);
+      for (const [answerKey, answerValue] of Object.entries(answers)) {
+        const normalizedKey = normalizeText(answerKey);
+
+        // 完全匹配或高相似度匹配
+        if (normalizedQuestion === normalizedKey ||
+            normalizedQuestion.includes(normalizedKey) ||
+            normalizedKey.includes(normalizedQuestion)) {
+          map.set(q.header || q.question, answerValue);
+          console.log(`[AskUserQuestion] ✓ Normalized match: "${answerKey}" -> "${answerValue}"`);
+          return;
         }
+      }
+
+      // 如果还是没匹配到，尝试header匹配
+      if (q.header && answers[q.header]) {
+        map.set(q.header || q.question, answers[q.header]);
+        console.log(`[AskUserQuestion] ✓ Header match: "${q.header}" -> "${answers[q.header]}"`);
       }
     });
 
-    // 如果没有匹配到，尝试部分匹配
     if (map.size === 0 && hasAnswers) {
-      console.log('[AskUserQuestion] No exact match, trying partial matching...');
-      questions.forEach((q) => {
-        const questionText = q.question.toLowerCase();
-        for (const [answerKey, answerValue] of Object.entries(answers)) {
-          const keyLower = answerKey.toLowerCase();
-          if (questionText.includes(keyLower) || keyLower.includes(questionText.substring(0, 20))) {
-            map.set(q.header || q.question, answerValue);
-            console.log(`[AskUserQuestion] Partial matched: "${answerKey}" -> "${answerValue}"`);
-            break;
-          }
-        }
-      });
+      console.warn('[AskUserQuestion] ⚠️ No matches found!');
+      console.log('[AskUserQuestion] Available answer keys:', Object.keys(answers));
+      console.log('[AskUserQuestion] Question texts:', questions.map(q => q.question));
     }
 
     return map;
