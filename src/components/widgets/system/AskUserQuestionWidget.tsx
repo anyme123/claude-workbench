@@ -81,6 +81,17 @@ export const AskUserQuestionWidget: React.FC<AskUserQuestionWidgetProps> = ({
     setIsCollapsed(!isCollapsed);
   };
 
+  // 🐛 调试：打印answers数据结构
+  React.useEffect(() => {
+    if (hasAnswers) {
+      console.log('[AskUserQuestion] Answers:', answers);
+      console.log('[AskUserQuestion] Questions:', questions.map(q => ({
+        header: q.header,
+        question: q.question,
+      })));
+    }
+  }, [answers, questions, hasAnswers]);
+
   // 构建问题到答案的映射
   const questionAnswerMap = useMemo(() => {
     const map = new Map<string, string | string[]>();
@@ -88,20 +99,38 @@ export const AskUserQuestionWidget: React.FC<AskUserQuestionWidgetProps> = ({
     questions.forEach((q) => {
       // 尝试多种方式匹配答案
       const possibleKeys = [
-        q.header, // 使用header作为key
-        q.question, // 使用问题文本作为key
+        q.header,                    // 使用header作为key
+        q.question,                  // 使用完整问题文本作为key
+        q.question.replace(/\?$/, ''), // 去掉问号
       ].filter(Boolean);
 
       for (const key of possibleKeys) {
         if (key && answers[key]) {
           map.set(q.header || q.question, answers[key]);
+          console.log(`[AskUserQuestion] Matched: "${key}" -> "${answers[key]}"`);
           break;
         }
       }
     });
 
+    // 如果没有匹配到，尝试部分匹配
+    if (map.size === 0 && hasAnswers) {
+      console.log('[AskUserQuestion] No exact match, trying partial matching...');
+      questions.forEach((q) => {
+        const questionText = q.question.toLowerCase();
+        for (const [answerKey, answerValue] of Object.entries(answers)) {
+          const keyLower = answerKey.toLowerCase();
+          if (questionText.includes(keyLower) || keyLower.includes(questionText.substring(0, 20))) {
+            map.set(q.header || q.question, answerValue);
+            console.log(`[AskUserQuestion] Partial matched: "${answerKey}" -> "${answerValue}"`);
+            break;
+          }
+        }
+      });
+    }
+
     return map;
-  }, [questions, answers]);
+  }, [questions, answers, hasAnswers]);
 
   return (
     <div
