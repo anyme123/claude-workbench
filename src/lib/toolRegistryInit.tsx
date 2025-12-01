@@ -373,6 +373,20 @@ export function initializeToolRegistry(): void {
       description: 'Bash 命令执行工具',
     },
 
+    // KillShell - 终止 Shell 进程
+    {
+      name: 'killshell',
+      render: createToolAdapter(BashWidget, (props) => {
+        const id = props.input?.id || '';
+        return {
+          command: `kill ${id}`,
+          description: '终止后台进程',
+          result: props.result,
+        };
+      }),
+      description: '终止 Shell 进程工具',
+    },
+
     // Grep - 搜索内容
     {
       name: 'grep',
