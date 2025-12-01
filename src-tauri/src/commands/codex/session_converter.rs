@@ -1146,7 +1146,19 @@ impl CodexToClaudeConverter {
         let mut file = std::fs::File::create(&file_path)
             .map_err(|e| format!("Failed to create session file: {}", e))?;
 
-        for msg in messages {
+        // 建立 parentUuid 消息链
+        let mut prev_uuid: Option<String> = None;
+        let mut linked_messages = messages.to_vec();
+
+        for msg in &mut linked_messages {
+            // 设置 parent_uuid 指向前一条消息
+            msg.parent_uuid = prev_uuid.clone();
+            // 更新 prev_uuid 为当前消息的 uuid
+            prev_uuid = msg.uuid.clone();
+        }
+
+        // 写入文件
+        for msg in &linked_messages {
             let line = serde_json::to_string(msg)
                 .map_err(|e| format!("Failed to serialize message: {}", e))?;
             writeln!(file, "{}", line)
