@@ -63,36 +63,29 @@ pub struct ConversionResult {
 // ================================
 
 /// Claude JSONL 消息条目
+/// 字段顺序严格按照原生 Claude session 格式排列
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClaudeMessage {
-    /// 消息类型: "user" | "assistant" | "system" | "result"
-    #[serde(rename = "type")]
-    pub message_type: String,
-
-    /// 消息内容
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub message: Option<ClaudeMessageContent>,
-
-    /// 时间戳 (ISO 8601)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub timestamp: Option<String>,
-
-    /// 消息唯一标识 (UUID)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub uuid: Option<String>,
-
-    /// 父消息 UUID（构建消息链）
+    /// 父消息 UUID（必须在最前面！）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_uuid: Option<String>,
 
-    /// Session ID
+    /// 是否为侧链
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub session_id: Option<String>,
+    pub is_sidechain: Option<bool>,
+
+    /// 用户类型
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_type: Option<String>,
 
     /// 工作目录
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cwd: Option<String>,
+
+    /// Session ID
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
 
     /// CLI 版本
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -102,13 +95,21 @@ pub struct ClaudeMessage {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub git_branch: Option<String>,
 
-    /// 用户类型
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub user_type: Option<String>,
+    /// 消息类型: "user" | "assistant" | "system" | "result"
+    #[serde(rename = "type")]
+    pub message_type: String,
 
-    /// 是否为侧链
+    /// 消息内容
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub is_sidechain: Option<bool>,
+    pub message: Option<ClaudeMessageContent>,
+
+    /// 消息唯一标识 (UUID)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+
+    /// 时间戳 (ISO 8601)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timestamp: Option<String>,
 
     /// 子类型 (可选)
     #[serde(skip_serializing_if = "Option::is_none")]
