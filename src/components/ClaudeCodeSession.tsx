@@ -28,6 +28,7 @@ import { usePromptExecution } from '@/hooks/usePromptExecution';
 import { MessagesProvider, useMessagesContext } from '@/contexts/MessagesContext';
 import { PlanModeProvider, usePlanMode } from '@/contexts/PlanModeContext';
 import { PlanApprovalDialog } from '@/components/dialogs/PlanApprovalDialog';
+import { PlanModeStatusBar } from '@/components/widgets/system/PlanModeStatusBar';
 import { codexConverter } from '@/lib/codexConverter';
 import { SessionHeader } from "./session/SessionHeader";
 import { SessionMessages, type SessionMessagesRef } from "./session/SessionMessages";
@@ -843,6 +844,7 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
               left={
                 <div className="h-full flex flex-col">
                   {projectPathInput}
+                  <PlanModeStatusBar isPlanMode={isPlanMode} />
                   {messagesList}
                 </div>
               }
@@ -865,6 +867,7 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
             // Original layout when no preview
             <div className="h-full flex flex-col max-w-5xl lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[85%] mx-auto">
               {projectPathInput}
+              <PlanModeStatusBar isPlanMode={isPlanMode} />
               {messagesList}
 
               {isLoading && messages.length === 0 && (

@@ -3,9 +3,13 @@
  *
  * 当 Claude 调用 ExitPlanMode 工具时显示此对话框
  * 让用户审批计划，确认后关闭 Plan 模式开始执行
+ *
+ * V2 改进：
+ * - 支持 Markdown 渲染计划内容
+ * - 添加计划分析统计
  */
 
-import { XCircle, FileText, Play } from "lucide-react";
+import { XCircle, FileText, Play, ListChecks } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +20,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import ReactMarkdown from 'react-markdown';
+import { useMemo } from 'react';
 
 export interface PlanApprovalDialogProps {
   /** 是否显示对话框 */
@@ -50,6 +56,21 @@ export function PlanApprovalDialog({
     onClose();
   };
 
+  // 分析计划内容
+  const planStats = useMemo(() => {
+    if (!plan) return null;
+
+    // 计算步骤数（根据编号列表）
+    const stepMatches = plan.match(/^\d+\./gm);
+    const steps = stepMatches ? stepMatches.length : 0;
+
+    // 计算字符数和行数
+    const chars = plan.length;
+    const lines = plan.split('\n').length;
+
+    return { steps, chars, lines };
+  }, [plan]);
+
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
@@ -67,15 +88,35 @@ export function PlanApprovalDialog({
           </div>
         </DialogHeader>
 
+        {/* 计划统计 */}
+        {planStats && planStats.steps > 0 && (
+          <div className="flex items-center gap-4 p-3 rounded-lg bg-blue-500/5 border border-blue-500/20">
+            <ListChecks className="h-5 w-5 text-blue-500 flex-shrink-0" />
+            <div className="flex-1 flex items-center gap-4 text-xs">
+              <div>
+                <span className="text-muted-foreground">步骤数：</span>
+                <span className="font-medium ml-1">{planStats.steps}</span>
+              </div>
+              <div className="h-4 w-px bg-border" />
+              <div>
+                <span className="text-muted-foreground">内容：</span>
+                <span className="font-medium ml-1">{planStats.lines} 行</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 计划内容 */}
         <div className="flex-1 min-h-0 my-4">
           <div className="text-sm font-medium text-muted-foreground mb-2">
             计划内容：
           </div>
           <ScrollArea className="h-[300px] rounded-lg border bg-muted/30 p-4">
-            <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed">
-              {plan || "（无计划内容）"}
-            </pre>
+            <div className="prose prose-sm dark:prose-invert max-w-none">
+              <ReactMarkdown>
+                {plan || "（无计划内容）"}
+              </ReactMarkdown>
+            </div>
           </ScrollArea>
         </div>
 

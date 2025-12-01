@@ -4,17 +4,19 @@
  * 用于渲染 ExitPlanMode 和 EnterPlanMode 工具调用
  * Claude Code 官方 Plan 模式：AI 可动态进入/退出规划模式
  *
- * 方案 B-1 改进实现：
- * - ExitPlanMode 时显示计划内容和"审批计划"按钮
+ * V2 改进实现：
+ * - EnterPlanMode: 显示工具限制说明和最佳实践提示
+ * - ExitPlanMode: 显示计划内容（支持Markdown）和审批按钮
  * - 使用 PlanModeContext 触发审批对话框
  * - 追踪已审批/已拒绝的计划，显示对应状态
  * - 避免重复弹窗
  */
 
 import { useEffect, useRef, useMemo } from "react";
-import { Search, LogOut, CheckCircle, AlertCircle, Play, RefreshCw } from "lucide-react";
+import { Search, LogOut, CheckCircle, AlertCircle, Play, RefreshCw, Info, Lightbulb, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePlanMode, getPlanId, type PlanStatus } from "@/contexts/PlanModeContext";
+import ReactMarkdown from 'react-markdown';
 
 export interface PlanModeWidgetProps {
   /** 操作类型：进入或退出 Plan 模式 */
@@ -181,16 +183,57 @@ export const PlanModeWidget: React.FC<PlanModeWidgetProps> = ({
             {description}
           </p>
 
+          {/* EnterPlanMode: 显示工具限制和最佳实践 */}
+          {isEnter && !isError && (
+            <div className="mt-3 space-y-2">
+              {/* 工具限制说明 */}
+              <div className="flex items-start gap-2 p-2.5 rounded-md bg-blue-500/5 border border-blue-500/20">
+                <Shield className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 text-xs space-y-1">
+                  <div className="font-medium text-blue-700 dark:text-blue-300">
+                    只读模式 - 工具限制
+                  </div>
+                  <div className="text-muted-foreground space-y-0.5">
+                    <div className="text-green-600 dark:text-green-400">
+                      ✓ 允许：Read, Grep, Glob, WebFetch, WebSearch
+                    </div>
+                    <div className="text-red-600 dark:text-red-400">
+                      ✗ 禁止：Write, Edit, Bash执行、Git操作
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 最佳实践提示 */}
+              <div className="flex items-start gap-2 p-2.5 rounded-md bg-amber-500/5 border border-amber-500/20">
+                <Lightbulb className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 text-xs space-y-1">
+                  <div className="font-medium text-amber-700 dark:text-amber-300">
+                    Plan 模式最佳实践
+                  </div>
+                  <ul className="text-muted-foreground space-y-0.5 list-disc list-inside">
+                    <li>保持计划范围小（30分钟内可完成）</li>
+                    <li>先探索代码库，理解现有架构</li>
+                    <li>制定具体的实施步骤和边缘情况处理</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ExitPlanMode: 显示计划内容预览 */}
           {isExit && plan && (
-            <div className="mt-2 space-y-2">
+            <div className="mt-3 space-y-2">
               <div className="p-3 rounded-md bg-background/50 border border-border/50">
-                <div className="text-xs font-medium text-muted-foreground mb-1">
-                  计划内容：
+                <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-2">
+                  <Info className="h-3.5 w-3.5" />
+                  <span>计划内容预览</span>
                 </div>
-                <pre className="text-xs text-foreground whitespace-pre-wrap font-sans leading-relaxed max-h-32 overflow-y-auto">
-                  {plan.length > 500 ? plan.substring(0, 500) + "..." : plan}
-                </pre>
+                <div className="text-xs text-foreground prose prose-sm dark:prose-invert max-w-none max-h-32 overflow-y-auto">
+                  <ReactMarkdown>
+                    {plan.length > 500 ? plan.substring(0, 500) + "\n\n..." : plan}
+                  </ReactMarkdown>
+                </div>
               </div>
 
               {/* 根据状态显示不同内容 */}
