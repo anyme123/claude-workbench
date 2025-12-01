@@ -789,7 +789,9 @@ impl CodexToClaudeConverter {
                 let blocks: Vec<ClaudeContentBlock> = content
                     .iter()
                     .filter_map(|item| {
-                        if item.get("type")?.as_str()? == "text" {
+                        let item_type = item.get("type")?.as_str()?;
+                        // Codex 使用 input_text 和 output_text
+                        if item_type == "text" || item_type == "input_text" || item_type == "output_text" {
                             Some(ClaudeContentBlock::Text {
                                 text: item.get("text")?.as_str()?.to_string(),
                             })
