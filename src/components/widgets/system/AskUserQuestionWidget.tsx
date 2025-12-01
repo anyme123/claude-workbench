@@ -39,28 +39,7 @@ export interface AskUserQuestionWidgetProps {
 }
 
 /**
- * 规范化文本（用于匹配）
- * 去除多余空格、统一标点符号
- */
-function normalizeText(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/\s+/g, ' ') // 多个空格替换为单个
-    .replace(/[，。！？：；""''（）【】]/g, (char) => {
-      // 中文标点转英文标点
-      const map: Record<string, string> = {
-        '，': ',', '。': '.', '！': '!', '？': '?',
-        '：': ':', '；': ';', '"': '"', '"': '"',
-        ''': "'", ''': "'", '（': '(', '）': ')',
-        '【': '[', '】': ']'
-      };
-      return map[char] || char;
-    })
-    .trim();
-}
-
-/**
- * 检查选项是否被选中（改进版）
+ * 检查选项是否被选中
  */
 function isOptionSelected(
   optionLabel: string,
@@ -68,22 +47,16 @@ function isOptionSelected(
 ): boolean {
   if (!answer) return false;
 
-  const normalizedOption = normalizeText(optionLabel);
-
   if (Array.isArray(answer)) {
     // 多选：检查是否在数组中
-    return answer.some(a => {
-      const normalizedAnswer = normalizeText(a);
-      return normalizedOption.includes(normalizedAnswer) ||
-             normalizedAnswer.includes(normalizedOption) ||
-             normalizedOption === normalizedAnswer;
-    });
+    return answer.some(a =>
+      optionLabel.toLowerCase().includes(a.toLowerCase()) ||
+      a.toLowerCase().includes(optionLabel.toLowerCase())
+    );
   } else {
-    // 单选：规范化后匹配
-    const normalizedAnswer = normalizeText(answer);
-    return normalizedOption.includes(normalizedAnswer) ||
-           normalizedAnswer.includes(normalizedOption) ||
-           normalizedOption === normalizedAnswer;
+    // 单选：检查是否匹配
+    return optionLabel.toLowerCase().includes(answer.toLowerCase()) ||
+           answer.toLowerCase().includes(optionLabel.toLowerCase());
   }
 }
 
@@ -108,59 +81,90 @@ export const AskUserQuestionWidget: React.FC<AskUserQuestionWidgetProps> = ({
     setIsCollapsed(!isCollapsed);
   };
 
-  // 🐛 调试：打印answers数据结构
+  // 🐛 调试：打印所有数据
   React.useEffect(() => {
-    if (hasAnswers) {
-      console.log('[AskUserQuestion] Answers:', answers);
-      console.log('[AskUserQuestion] Questions:', questions.map(q => ({
-        header: q.header,
-        question: q.question,
-      })));
+    console.log('[AskUserQuestion] Raw Data:', {
+      answers,
+      result,
+      questions: questions.map(q => ({ header: q.header, question: q.question })),
+    });
+  }, [answers, questions, result]);
+
+  // 解析answers - 可能在result.content中以字符串格式存储
+  const parsedAnswers = useMemo(() => {
+    // 如果answers不为空，直接使用
+    if (Object.keys(answers).length > 0) {
+      return answers;
     }
-  }, [answers, questions, hasAnswers]);
+
+    // 尝试从result.content解析
+    if (result?.content) {
+      const content = result.content;
+
+      // 如果content是字符串，尝试解析 "问题? =答案" 格式
+      if (typeof content === 'string') {
+        const parsed: Record<string, string> = {};
+
+        // 匹配格式: "问题? =答案"
+        const matches = content.matchAll(/"([^"]+\?[^=]+)=([^"]+)"/g);
+        for (const match of matches) {
+          const question = match[1].trim();
+          const answer = match[2].trim();
+          parsed[question] = answer;
+        }
+
+        console.log('[AskUserQuestion] Parsed from string:', parsed);
+        return parsed;
+      }
+
+      // 如果content.answers存在
+      if (content.answers) {
+        return content.answers;
+      }
+    }
+
+    return {};
+  }, [answers, result]);
 
   // 构建问题到答案的映射
   const questionAnswerMap = useMemo(() => {
     const map = new Map<string, string | string[]>();
 
     questions.forEach((q) => {
-      // 尝试完全匹配
-      if (answers[q.question]) {
-        map.set(q.header || q.question, answers[q.question]);
-        console.log(`[AskUserQuestion] ✓ Exact match: "${q.question}" -> "${answers[q.question]}"`);
-        return;
-      }
+      // 尝试多种方式匹配答案
+      const possibleKeys = [
+        q.question,                    // 使用完整问题文本作为key（最常见）
+        q.question.replace(/\?$/, ''), // 去掉问号
+        q.question.replace(/\s+/g, ' ').trim(), // 标准化空格
+        q.header,                      // 使用header作为key
+      ].filter(Boolean);
 
-      // 尝试规范化匹配（处理标点符号差异）
-      const normalizedQuestion = normalizeText(q.question);
-      for (const [answerKey, answerValue] of Object.entries(answers)) {
-        const normalizedKey = normalizeText(answerKey);
-
-        // 完全匹配或高相似度匹配
-        if (normalizedQuestion === normalizedKey ||
-            normalizedQuestion.includes(normalizedKey) ||
-            normalizedKey.includes(normalizedQuestion)) {
-          map.set(q.header || q.question, answerValue);
-          console.log(`[AskUserQuestion] ✓ Normalized match: "${answerKey}" -> "${answerValue}"`);
-          return;
+      for (const key of possibleKeys) {
+        if (key && parsedAnswers[key]) {
+          map.set(q.header || q.question, parsedAnswers[key]);
+          console.log(`[AskUserQuestion] ✓ Matched: "${key}" -> "${parsedAnswers[key]}"`);
+          break;
         }
       }
 
-      // 如果还是没匹配到，尝试header匹配
-      if (q.header && answers[q.header]) {
-        map.set(q.header || q.question, answers[q.header]);
-        console.log(`[AskUserQuestion] ✓ Header match: "${q.header}" -> "${answers[q.header]}"`);
+      // 如果仍然没匹配到，尝试模糊匹配
+      if (!map.has(q.header || q.question)) {
+        const questionText = q.question.toLowerCase();
+        for (const [answerKey, answerValue] of Object.entries(parsedAnswers)) {
+          const keyLower = answerKey.toLowerCase();
+          // 检查问题文本的前30个字符是否匹配
+          if (questionText.substring(0, 30) === keyLower.substring(0, 30)) {
+            map.set(q.header || q.question, answerValue);
+            console.log(`[AskUserQuestion] ≈ Fuzzy matched: "${answerKey}" -> "${answerValue}"`);
+            break;
+          }
+        }
       }
     });
 
-    if (map.size === 0 && hasAnswers) {
-      console.warn('[AskUserQuestion] ⚠️ No matches found!');
-      console.log('[AskUserQuestion] Available answer keys:', Object.keys(answers));
-      console.log('[AskUserQuestion] Question texts:', questions.map(q => q.question));
-    }
-
+    console.log('[AskUserQuestion] Final mapping:', Array.from(map.entries()));
     return map;
-  }, [questions, answers, hasAnswers]);
+  }, [questions, parsedAnswers]);
 
   return (
     <div
