@@ -1,13 +1,17 @@
 /**
  * AskUserQuestion Widget - 用户问题询问展示
  *
- * 用于展示 Claude 向用户提问的交互式对话框
- * 显示问题列表和用户的回答
+ * V2 改进版本：
+ * - 添加折叠/展开功能
+ * - 优化UI布局，更紧凑的设计
+ * - 改进答案显示效果
+ * - 添加问题统计信息
  */
 
-import React from "react";
-import { HelpCircle, CheckCircle, MessageCircle } from "lucide-react";
+import React, { useState } from "react";
+import { HelpCircle, CheckCircle, MessageCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 export interface AskUserQuestionWidgetProps {
   /** 问题列表 */
@@ -34,9 +38,10 @@ export interface AskUserQuestionWidgetProps {
 }
 
 /**
- * AskUserQuestion Widget
+ * AskUserQuestion Widget V2
  *
  * 展示 Claude 向用户提问的内容和用户的回答
+ * 支持折叠/展开功能，优化大量内容的显示
  */
 export const AskUserQuestionWidget: React.FC<AskUserQuestionWidgetProps> = ({
   questions = [],
@@ -45,6 +50,13 @@ export const AskUserQuestionWidget: React.FC<AskUserQuestionWidgetProps> = ({
 }) => {
   const isError = result?.is_error;
   const hasAnswers = Object.keys(answers).length > 0;
+
+  // 折叠状态：已回答时默认折叠，未回答时默认展开
+  const [isCollapsed, setIsCollapsed] = useState(hasAnswers);
+
+  const toggleCollapse = () => {
+    setIsCollapsed(!isCollapsed);
+  };
 
   return (
     <div
@@ -57,7 +69,11 @@ export const AskUserQuestionWidget: React.FC<AskUserQuestionWidgetProps> = ({
             : "border-blue-500/20 bg-blue-500/5"
       )}
     >
-      <div className="px-4 py-3 flex items-start gap-3">
+      {/* 头部：可点击折叠/展开 */}
+      <div
+        className="px-4 py-3 flex items-start gap-3 cursor-pointer hover:bg-background/30 transition-colors"
+        onClick={toggleCollapse}
+      >
         {/* 图标 */}
         <div className="mt-0.5">
           <div
@@ -83,27 +99,65 @@ export const AskUserQuestionWidget: React.FC<AskUserQuestionWidgetProps> = ({
           </div>
         </div>
 
-        {/* 内容 */}
-        <div className="flex-1 space-y-3">
-          {/* 标题 */}
-          <div className="flex items-center gap-2">
-            <span
-              className={cn(
-                "text-xs font-medium",
-                isError
-                  ? "text-destructive"
-                  : hasAnswers
-                    ? "text-green-600"
-                    : "text-blue-500"
+        {/* 标题和摘要 */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span
+                className={cn(
+                  "text-xs font-medium",
+                  isError
+                    ? "text-destructive"
+                    : hasAnswers
+                      ? "text-green-600"
+                      : "text-blue-500"
+                )}
+              >
+                {hasAnswers ? "用户已回答问题" : "Claude 正在询问用户"}
+              </span>
+              {questions.length > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  ({questions.length} 个问题)
+                </span>
               )}
+            </div>
+
+            {/* 折叠按钮 */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleCollapse();
+              }}
             >
-              {hasAnswers ? "用户已回答问题" : "Claude 正在询问用户"}
-            </span>
+              {isCollapsed ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronUp className="h-4 w-4" />
+              )}
+            </Button>
           </div>
 
+          {/* 折叠时显示的简要信息 */}
+          {isCollapsed && hasAnswers && (
+            <div className="mt-1 text-xs text-muted-foreground truncate">
+              {Object.entries(answers).map(([key, value]) => {
+                const displayValue = Array.isArray(value) ? value.join(", ") : value;
+                return `${key}: ${displayValue}`;
+              }).join(" | ")}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 展开的内容 */}
+      {!isCollapsed && (
+        <div className="px-4 pb-3 space-y-3 border-t border-border/30">
           {/* 问题列表 */}
           {questions.length > 0 && (
-            <div className="space-y-3">
+            <div className="space-y-2 pt-3">
               {questions.map((q, index) => (
                 <div
                   key={index}
@@ -128,7 +182,7 @@ export const AskUserQuestionWidget: React.FC<AskUserQuestionWidgetProps> = ({
                       {q.options.map((option, optIndex) => (
                         <div
                           key={optIndex}
-                          className="text-xs p-2 rounded bg-muted/30"
+                          className="text-xs p-2 rounded bg-muted/30 hover:bg-muted/50 transition-colors"
                         >
                           <div className="font-medium text-foreground">
                             {option.label}
@@ -141,8 +195,9 @@ export const AskUserQuestionWidget: React.FC<AskUserQuestionWidgetProps> = ({
                         </div>
                       ))}
                       {q.multiSelect && (
-                        <div className="text-xs text-muted-foreground mt-1">
-                          ℹ️ 可以选择多个选项
+                        <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                          <span className="text-blue-500">ℹ️</span>
+                          <span>可以选择多个选项</span>
                         </div>
                       )}
                     </div>
@@ -155,10 +210,13 @@ export const AskUserQuestionWidget: React.FC<AskUserQuestionWidgetProps> = ({
           {/* 用户答案 */}
           {hasAnswers && (
             <div className="p-3 rounded-md bg-green-500/10 border border-green-500/20">
-              <div className="text-xs font-medium text-green-700 dark:text-green-300 mb-2">
-                用户回答：
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <div className="text-xs font-medium text-green-700 dark:text-green-300">
+                  用户回答
+                </div>
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 pl-6">
                 {Object.entries(answers).map(([key, value], index) => (
                   <div key={index} className="text-sm">
                     <span className="font-medium text-green-700 dark:text-green-300">
@@ -182,12 +240,14 @@ export const AskUserQuestionWidget: React.FC<AskUserQuestionWidgetProps> = ({
             </div>
           )}
 
-          {/* 结果消息 */}
-          {!isError && result?.content && typeof result.content === "string" && (
-            <div className="text-xs text-muted-foreground">{result.content}</div>
+          {/* 结果消息（隐藏默认的result.content文本，因为它已经在answers中显示） */}
+          {!isError && result?.content && typeof result.content === "string" && !hasAnswers && (
+            <div className="text-xs text-muted-foreground italic">
+              {result.content}
+            </div>
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 };
