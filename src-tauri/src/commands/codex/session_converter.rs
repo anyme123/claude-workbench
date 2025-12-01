@@ -808,7 +808,7 @@ impl CodexToClaudeConverter {
             parent_uuid: None,
             session_id: Some(self.new_session_id.clone()),
             cwd: Some(self.project_path.clone()),
-            version: Some("converted".to_string()),
+            version: Some("2.0.55".to_string()), // 使用真实版本号，避免被识别为特殊模式
             git_branch: None,
             user_type: if role == "user" { Some("external".to_string()) } else { None },
             is_sidechain: Some(false),
@@ -937,7 +937,7 @@ impl CodexToClaudeConverter {
             parent_uuid: None,
             session_id: Some(self.new_session_id.clone()),
             cwd: Some(self.project_path.clone()),
-            version: Some("converted".to_string()),
+            version: Some("2.0.55".to_string()), // 使用真实版本号
             git_branch: payload.get("git")
                 .and_then(|g| g.get("branch"))
                 .and_then(|b| b.as_str())
@@ -1083,7 +1083,7 @@ impl CodexToClaudeConverter {
                     parent_uuid: None,
                     session_id: Some(self.new_session_id.clone()),
                     cwd: Some(self.project_path.clone()),
-                    version: Some("converted".to_string()),
+                    version: Some("2.0.55".to_string()), // 使用真实版本号
                     git_branch: None,
                     user_type: None,
                     is_sidechain: Some(false),
