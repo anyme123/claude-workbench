@@ -559,7 +559,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                 onClick={(e) => handleConvertClick(e, session)}
                 className="px-3 py-2.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity hover:bg-primary/10 text-primary"
                 aria-label={`转换会话到 ${session.engine === 'codex' ? 'Claude' : 'Codex'}`}
-                title={`转换到 ${session.engine === 'codex' ? 'Claude' : 'Codex'}`}
+                title={`⚠️ 实验性功能：转换到 ${session.engine === 'codex' ? 'Claude' : 'Codex'}`}
               >
                 <RefreshCw className="h-4 w-4" aria-hidden="true" />
               </button>
@@ -638,6 +638,21 @@ export const SessionList: React.FC<SessionListProps> = ({
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
+            {/* 实验性功能警告 */}
+            <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-md">
+              <div className="flex items-start gap-2">
+                <span className="text-yellow-600 dark:text-yellow-400 text-lg shrink-0">⚠️</span>
+                <div>
+                  <p className="text-sm font-semibold text-yellow-700 dark:text-yellow-300">
+                    实验性功能
+                  </p>
+                  <p className="text-xs text-yellow-600/90 dark:text-yellow-400/90 mt-1">
+                    此功能正在测试中，稳定性未知。转换后的会话可能存在格式兼容性问题。建议在非关键项目中测试使用。
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <p className="text-sm text-muted-foreground mb-4">
               确定要将此会话转换到 <strong>{sessionToConvert?.engine === 'codex' ? 'Claude' : 'Codex'}</strong> 引擎吗？
             </p>
