@@ -101,19 +101,23 @@ export const AskUserQuestionWidget: React.FC<AskUserQuestionWidgetProps> = ({
     if (result?.content) {
       const content = result.content;
 
-      // 如果content是字符串，尝试解析 "问题? =答案" 格式
+      // 如果content是字符串，尝试解析 "问题? "="答案" 格式
       if (typeof content === 'string') {
         const parsed: Record<string, string> = {};
 
-        // 匹配格式: "问题? =答案"
-        const matches = content.matchAll(/"([^"]+\?[^=]+)=([^"]+)"/g);
+        // 修复后的正则：匹配格式 "问题? "="答案"
+        // 注意：问号后有空格和引号，然后是 "="
+        const regex = /"([^"]+\?)(\s*")?=(")?([^"]+)"/g;
+        const matches = content.matchAll(regex);
+
         for (const match of matches) {
-          const question = match[1].trim();
-          const answer = match[2].trim();
+          const question = match[1].trim(); // 问题部分（包含问号）
+          const answer = match[4].trim();   // 答案部分
           parsed[question] = answer;
+          console.log(`[AskUserQuestion] ✓ Parsed: "${question}" -> "${answer}"`);
         }
 
-        console.log('[AskUserQuestion] Parsed from string:', parsed);
+        console.log('[AskUserQuestion] Total parsed:', Object.keys(parsed).length, 'answers');
         return parsed;
       }
 
