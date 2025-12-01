@@ -29,6 +29,8 @@ import { MessagesProvider, useMessagesContext } from '@/contexts/MessagesContext
 import { PlanModeProvider, usePlanMode } from '@/contexts/PlanModeContext';
 import { PlanApprovalDialog } from '@/components/dialogs/PlanApprovalDialog';
 import { PlanModeStatusBar } from '@/components/widgets/system/PlanModeStatusBar';
+import { UserQuestionProvider, useUserQuestion } from '@/contexts/UserQuestionContext';
+import { AskUserQuestionDialog } from '@/components/dialogs/AskUserQuestionDialog';
 import { codexConverter } from '@/lib/codexConverter';
 import { SessionHeader } from "./session/SessionHeader";
 import { SessionMessages, type SessionMessagesRef } from "./session/SessionMessages";
@@ -107,6 +109,15 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
     closeApprovalDialog,
     setSendPromptCallback,
   } = usePlanMode();
+
+  // 🆕 UserQuestion Context - 用户问答交互
+  const {
+    pendingQuestion,
+    showQuestionDialog,
+    submitAnswers,
+    closeQuestionDialog,
+    setSendMessageCallback,
+  } = useUserQuestion();
 
   // 🆕 Execution Engine Config (Codex integration)
   // Load from localStorage to remember user's settings
@@ -331,6 +342,19 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
       setSendPromptCallback(null);
     };
   }, [handleSendPrompt, setSendPromptCallback]);
+
+  // 🆕 设置 UserQuestion 的发送消息回调，用于答案提交后自动发送
+  useEffect(() => {
+    const simpleSendMessage = (message: string) => {
+      handleSendPrompt(message, 'sonnet'); // 使用默认模型
+    };
+    setSendMessageCallback(simpleSendMessage);
+
+    // 清理时移除回调
+    return () => {
+      setSendMessageCallback(null);
+    };
+  }, [handleSendPrompt, setSendMessageCallback]);
 
   // Debug logging
   useEffect(() => {
@@ -1095,6 +1119,14 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
           onApprove={approvePlan}
           onReject={rejectPlan}
         />
+
+        {/* 🆕 User Question Dialog - AskUserQuestion 自动触发 */}
+        <AskUserQuestionDialog
+          open={showQuestionDialog}
+          questions={pendingQuestion?.questions || []}
+          onClose={closeQuestionDialog}
+          onSubmit={submitAnswers}
+        />
       </div>
 
       {/* Prompt Navigator - Quick navigation to any user prompt */}
@@ -1113,7 +1145,9 @@ export const ClaudeCodeSession: React.FC<ClaudeCodeSessionProps> = (props) => {
   return (
     <MessagesProvider initialFilterConfig={{ hideWarmupMessages: true }}>
       <PlanModeProvider>
-        <ClaudeCodeSessionInner {...props} />
+        <UserQuestionProvider>
+          <ClaudeCodeSessionInner {...props} />
+        </UserQuestionProvider>
       </PlanModeProvider>
     </MessagesProvider>
   );

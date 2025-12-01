@@ -1,18 +1,20 @@
 /**
  * AskUserQuestion Widget - 用户问题询问展示
  *
- * V3 改进版本：
+ * V4 改进版本：
  * - 添加折叠/展开功能
  * - 优化UI布局，更紧凑的设计
  * - 在选项上直接显示用户的选择（高亮）
  * - 完全隐藏底部的result.content冗余信息
  * - 添加问题统计信息
+ * - 🆕 自动触发交互式对话框（未回答时）
  */
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { HelpCircle, CheckCircle, MessageCircle, ChevronDown, ChevronUp, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useUserQuestion, getQuestionId } from "@/contexts/UserQuestionContext";
 
 export interface AskUserQuestionWidgetProps {
   /** 问题列表 */
@@ -76,10 +78,50 @@ export const AskUserQuestionWidget: React.FC<AskUserQuestionWidgetProps> = ({
 
   // 折叠状态：已回答时默认折叠，未回答时默认展开
   const [isCollapsed, setIsCollapsed] = useState(hasAnswers);
+  const hasTriggered = useRef(false);
 
   const toggleCollapse = () => {
     setIsCollapsed(!isCollapsed);
   };
+
+  // 🆕 尝试获取 UserQuestion Context
+  let triggerQuestionDialog: ((questions: any[]) => void) | undefined;
+  let isQuestionAnswered: ((questionId: string) => boolean) | undefined;
+
+  try {
+    const userQuestionContext = useUserQuestion();
+    triggerQuestionDialog = userQuestionContext.triggerQuestionDialog;
+    isQuestionAnswered = userQuestionContext.isQuestionAnswered;
+  } catch {
+    // Context 不可用时忽略（组件可能在 Provider 外部渲染）
+  }
+
+  // 计算问题 ID
+  const questionId = useMemo(() => {
+    return questions.length > 0 ? getQuestionId(questions) : null;
+  }, [questions]);
+
+  // 检查是否已回答
+  const answered = questionId && isQuestionAnswered ? isQuestionAnswered(questionId) : false;
+
+  // 🆕 自动触发问答对话框（仅在有问题且未回答时）
+  useEffect(() => {
+    if (
+      questions.length > 0 &&
+      !hasAnswers &&
+      !answered &&
+      triggerQuestionDialog &&
+      !hasTriggered.current &&
+      !isError
+    ) {
+      hasTriggered.current = true;
+      // 延迟触发，确保 UI 已渲染
+      const timer = setTimeout(() => {
+        triggerQuestionDialog(questions);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [questions, hasAnswers, answered, triggerQuestionDialog, isError]);
 
   // 解析answers - 可能在result.content中以字符串格式存储
   const parsedAnswers = useMemo(() => {
