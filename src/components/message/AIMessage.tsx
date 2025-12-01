@@ -127,7 +127,12 @@ export const AIMessage: React.FC<AIMessageProps> = ({
         <div className="flex gap-4 items-start">
           {/* Left Column: Avatar */}
           <div className="flex-shrink-0 mt-0.5 select-none">
-            <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400 dark:bg-orange-500/20">
+            <div className={cn(
+              "flex items-center justify-center w-7 h-7 rounded-lg",
+              isCodexMessage 
+                ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 dark:bg-blue-500/20"
+                : "bg-orange-500/10 text-orange-600 dark:text-orange-400 dark:bg-orange-500/20"
+            )}>
               <Bot className="w-4 h-4" />
             </div>
           </div>
