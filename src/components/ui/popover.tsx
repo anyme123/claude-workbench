@@ -146,7 +146,7 @@ export const Popover: React.FC<PopoverProps> = ({
             exit={{ opacity: 0, scale: 0.95, ...animation?.exit }}
             transition={{ duration: 0.15 }}
             className={cn(
-              "absolute z-50 min-w-[200px] rounded-xl border border-[var(--glass-border)] bg-[var(--glass-bg)] backdrop-blur-xl p-4 text-popover-foreground shadow-[var(--glass-shadow)]",
+              "absolute z-50 min-w-[200px] rounded-xl border border-border bg-popover p-4 text-popover-foreground shadow-md",
               sideClass,
               alignClass,
               className
