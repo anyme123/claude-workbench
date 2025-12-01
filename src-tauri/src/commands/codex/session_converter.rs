@@ -273,15 +273,17 @@ pub fn map_claude_to_codex_tool(claude_name: &str) -> String {
 /// Claude Session → Codex Session 转换器
 pub struct ClaudeToCodexConverter {
     source_session_id: String,
-    project_path: String,
-    new_session_id: String, // 格式: rollout-{uuid}
+    project_id: String,      // 实际的目录名（如 C--Users-...）
+    project_path: String,    // 原始项目路径
+    new_session_id: String,  // 格式: rollout-{uuid}
 }
 
 impl ClaudeToCodexConverter {
-    pub fn new(source_session_id: String, project_path: String) -> Self {
+    pub fn new(source_session_id: String, project_id: String, project_path: String) -> Self {
         let new_session_id = format!("rollout-{}", uuid::Uuid::new_v4());
         Self {
             source_session_id,
+            project_id,
             project_path,
             new_session_id,
         }
@@ -350,11 +352,10 @@ impl ClaudeToCodexConverter {
         let claude_dir = super::super::claude::get_claude_dir()
             .map_err(|e| format!("Failed to get Claude directory: {}", e))?;
 
-        let project_id =
-            super::super::claude::encode_project_path(&self.project_path);
+        // 直接使用 project_id（实际的目录名）
         let session_path = claude_dir
             .join("projects")
-            .join(&project_id)
+            .join(&self.project_id)
             .join(format!("{}.jsonl", self.source_session_id));
 
         if !session_path.exists() {
@@ -619,15 +620,17 @@ impl ClaudeToCodexConverter {
 /// Codex Session → Claude Session 转换器
 pub struct CodexToClaudeConverter {
     source_session_id: String,
-    project_path: String,
-    new_session_id: String, // UUID 格式
+    project_id: String,      // 实际的目录名（如 C--Users-...）
+    project_path: String,    // 原始项目路径
+    new_session_id: String,  // UUID 格式
 }
 
 impl CodexToClaudeConverter {
-    pub fn new(source_session_id: String, project_path: String) -> Self {
+    pub fn new(source_session_id: String, project_id: String, project_path: String) -> Self {
         let new_session_id = uuid::Uuid::new_v4().to_string();
         Self {
             source_session_id,
+            project_id,
             project_path,
             new_session_id,
         }
@@ -992,9 +995,8 @@ impl CodexToClaudeConverter {
         let claude_dir = super::super::claude::get_claude_dir()
             .map_err(|e| format!("Failed to get Claude directory: {}", e))?;
 
-        let project_id =
-            super::super::claude::encode_project_path(&self.project_path);
-        let project_dir = claude_dir.join("projects").join(&project_id);
+        // 直接使用 project_id（实际的目录名）
+        let project_dir = claude_dir.join("projects").join(&self.project_id);
 
         std::fs::create_dir_all(&project_dir)
             .map_err(|e| format!("Failed to create project directory: {}", e))?;
@@ -1024,12 +1026,14 @@ impl CodexToClaudeConverter {
 pub async fn convert_session(
     session_id: String,
     target_engine: String,
+    project_id: String,
     project_path: String,
 ) -> Result<ConversionResult, String> {
     log::info!(
-        "Converting session {} to engine: {}, project: {}",
+        "Converting session {} to engine: {}, project_id: {}, project_path: {}",
         session_id,
         target_engine,
+        project_id,
         project_path
     );
 
@@ -1049,11 +1053,11 @@ pub async fn convert_session(
 
     match target_engine.as_str() {
         "codex" => {
-            let converter = ClaudeToCodexConverter::new(session_id, project_path);
+            let converter = ClaudeToCodexConverter::new(session_id, project_id, project_path);
             converter.convert()
         }
         "claude" => {
-            let converter = CodexToClaudeConverter::new(session_id, project_path);
+            let converter = CodexToClaudeConverter::new(session_id, project_id, project_path);
             converter.convert()
         }
         _ => Err(format!("Unknown target engine: {}", target_engine)),
@@ -1064,16 +1068,18 @@ pub async fn convert_session(
 #[tauri::command]
 pub async fn convert_claude_to_codex(
     session_id: String,
+    project_id: String,
     project_path: String,
 ) -> Result<ConversionResult, String> {
-    convert_session(session_id, "codex".to_string(), project_path).await
+    convert_session(session_id, "codex".to_string(), project_id, project_path).await
 }
 
 /// 便捷接口：Codex → Claude
 #[tauri::command]
 pub async fn convert_codex_to_claude(
     session_id: String,
+    project_id: String,
     project_path: String,
 ) -> Result<ConversionResult, String> {
-    convert_session(session_id, "claude".to_string(), project_path).await
+    convert_session(session_id, "claude".to_string(), project_id, project_path).await
 }

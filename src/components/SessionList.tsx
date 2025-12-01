@@ -7,6 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -53,7 +54,7 @@ interface SessionListProps {
   /**
    * Callback when a session should be converted
    */
-  onSessionConvert?: (sessionId: string, targetEngine: 'claude' | 'codex', projectPath: string) => Promise<void>;
+  onSessionConvert?: (sessionId: string, targetEngine: 'claude' | 'codex', projectId: string, projectPath: string) => Promise<void>;
   /**
    * Optional className for styling
    */
@@ -293,7 +294,7 @@ export const SessionList: React.FC<SessionListProps> = ({
     try {
       setIsConverting(true);
       const targetEngine = sessionToConvert.engine === 'codex' ? 'claude' : 'codex';
-      await onSessionConvert(sessionToConvert.id, targetEngine, projectPath);
+      await onSessionConvert(sessionToConvert.id, targetEngine, sessionToConvert.project_id, projectPath);
       setConvertDialogOpen(false);
       setSessionToConvert(null);
     } catch (error) {
@@ -632,6 +633,9 @@ export const SessionList: React.FC<SessionListProps> = ({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>转换会话引擎</DialogTitle>
+            <DialogDescription>
+              将当前会话转换到其他引擎，生成新的 Session ID
+            </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <p className="text-sm text-muted-foreground mb-4">

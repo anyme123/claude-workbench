@@ -2983,18 +2983,21 @@ export const api = {
    * Convert a session between Claude and Codex formats
    * @param sessionId - The source session ID
    * @param targetEngine - The target engine ('claude' | 'codex')
+   * @param projectId - The project ID (directory name)
    * @param projectPath - The project path
    * @returns Promise resolving to conversion result
    */
   async convertSession(
     sessionId: string,
     targetEngine: 'claude' | 'codex',
+    projectId: string,
     projectPath: string
   ): Promise<ConversionResult> {
     try {
       return await invoke<ConversionResult>("convert_session", {
         sessionId,
         targetEngine,
+        projectId,
         projectPath,
       });
     } catch (error) {
@@ -3006,16 +3009,19 @@ export const api = {
   /**
    * Convert a Claude session to Codex format
    * @param sessionId - The Claude session ID (UUID format)
+   * @param projectId - The project ID (directory name)
    * @param projectPath - The project path
    * @returns Promise resolving to conversion result
    */
   async convertClaudeToCodex(
     sessionId: string,
+    projectId: string,
     projectPath: string
   ): Promise<ConversionResult> {
     try {
       return await invoke<ConversionResult>("convert_claude_to_codex", {
         sessionId,
+        projectId,
         projectPath,
       });
     } catch (error) {
@@ -3027,16 +3033,19 @@ export const api = {
   /**
    * Convert a Codex session to Claude format
    * @param sessionId - The Codex session ID (rollout-* format)
+   * @param projectId - The project ID (directory name)
    * @param projectPath - The project path
    * @returns Promise resolving to conversion result
    */
   async convertCodexToClaude(
     sessionId: string,
+    projectId: string,
     projectPath: string
   ): Promise<ConversionResult> {
     try {
       return await invoke<ConversionResult>("convert_codex_to_claude", {
         sessionId,
+        projectId,
         projectPath,
       });
     } catch (error) {

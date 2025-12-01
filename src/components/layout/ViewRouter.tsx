@@ -189,9 +189,9 @@ export const ViewRouter: React.FC = () => {
     }
   };
 
-  const handleSessionConvert = async (sessionId: string, targetEngine: 'claude' | 'codex', projectPath: string) => {
+  const handleSessionConvert = async (sessionId: string, targetEngine: 'claude' | 'codex', projectId: string, projectPath: string) => {
     try {
-      const result = await api.convertSession(sessionId, targetEngine, projectPath);
+      const result = await api.convertSession(sessionId, targetEngine, projectId, projectPath);
 
       if (result.success) {
         refreshSessions();
