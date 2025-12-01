@@ -249,10 +249,10 @@ export const UserMessage: React.FC<UserMessageProps> = ({
         {/* 消息头部 (Removed) */}
         {/* MessageHeader removed to save space */}
 
-        {/* 消息内容和撤回按钮 - 同一行显示 */}
-        <div className="flex items-start gap-2">
-        {/* 消息内容 */}
-          <div className="flex-1 space-y-1">
+        {/* 消息内容和撤回按钮 - 优化布局，按钮悬浮在右下角 */}
+        <div className="relative min-w-0">
+          {/* 消息内容 */}
+          <div className="w-full min-w-0">
             {/* 文本内容（只在有文本时显示） */}
             {displayContent && (
               <>
@@ -266,6 +266,10 @@ export const UserMessage: React.FC<UserMessageProps> = ({
                   )}
                 >
                   {displayContent}
+                  {/* 占位符，确保文字不遮挡绝对定位的按钮 */}
+                  {showRevertButton && !isSkills && (
+                    <span className="inline-block w-8 h-4 align-middle select-none" aria-hidden="true" />
+                  )}
                 </div>
 
                 {/* 展开/收起按钮 */}
@@ -292,15 +296,15 @@ export const UserMessage: React.FC<UserMessageProps> = ({
           </div>
 
           {/* 撤回按钮和警告图标 - Skills 消息不显示撤回按钮 */}
-            {showRevertButton && !isSkills && (
-            <div className="flex-shrink-0 flex items-center gap-1">
+          {showRevertButton && !isSkills && (
+            <div className="absolute bottom-0 right-0 flex items-center justify-end gap-1">
               {/* CLI 提示词警告图标 */}
               {hasWarning && (
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="flex items-center justify-center h-7 w-7">
-                        <AlertTriangle className="h-4 w-4 text-orange-500" />
+                      <div className="flex items-center justify-center h-6 w-6">
+                        <AlertTriangle className="h-3.5 w-3.5 text-orange-500" />
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs">
@@ -313,25 +317,25 @@ export const UserMessage: React.FC<UserMessageProps> = ({
               )}
 
               {/* 撤回按钮 */}
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                      variant="outline"
-                        size="sm"
-                      className="h-7 w-7 p-0 rounded-full border-primary-foreground/20 text-primary-foreground/60 hover:text-primary-foreground hover:bg-primary-foreground/10 hover:border-primary-foreground/40 transition-all"
-                        onClick={handleRevertClick}
-                      >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      </Button>
-                    </TooltipTrigger>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 rounded-full text-muted-foreground/40 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-all"
+                      onClick={handleRevertClick}
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                    </Button>
+                  </TooltipTrigger>
                   <TooltipContent side="top">
                     撤回到此消息
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-            )}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          )}
         </div>
         </div>
       </MessageBubble>
