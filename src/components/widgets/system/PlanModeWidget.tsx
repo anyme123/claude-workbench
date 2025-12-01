@@ -74,7 +74,7 @@ export const PlanModeWidget: React.FC<PlanModeWidgetProps> = ({
 
   // 自动触发审批对话框（仅在 ExitPlanMode 且有计划内容且未决策时）
   useEffect(() => {
-    if (isExit && plan && triggerPlanApproval && !hasTriggered.current && !hasDecision) {
+    if (isExit && plan && triggerPlanApproval && !hasTriggered.current && !hasDecision && !result) {
       hasTriggered.current = true;
       // 延迟触发，确保 UI 已渲染
       const timer = setTimeout(() => {
@@ -82,7 +82,7 @@ export const PlanModeWidget: React.FC<PlanModeWidgetProps> = ({
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [isExit, plan, triggerPlanApproval, hasDecision]);
+  }, [isExit, plan, triggerPlanApproval, hasDecision, result]);
 
   // 根据操作类型和审批状态选择样式
   const Icon = isEnter ? Search : LogOut;

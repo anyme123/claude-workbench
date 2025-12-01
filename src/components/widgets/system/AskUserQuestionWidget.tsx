@@ -112,7 +112,8 @@ export const AskUserQuestionWidget: React.FC<AskUserQuestionWidgetProps> = ({
       !answered &&
       triggerQuestionDialog &&
       !hasTriggered.current &&
-      !isError
+      !isError &&
+      !result // 如果已有结果，不再触发
     ) {
       hasTriggered.current = true;
       // 延迟触发，确保 UI 已渲染
@@ -121,7 +122,7 @@ export const AskUserQuestionWidget: React.FC<AskUserQuestionWidgetProps> = ({
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [questions, hasAnswers, answered, triggerQuestionDialog, isError]);
+  }, [questions, hasAnswers, answered, triggerQuestionDialog, isError, result]);
 
   // 解析answers - 可能在result.content中以字符串格式存储
   const parsedAnswers = useMemo(() => {
