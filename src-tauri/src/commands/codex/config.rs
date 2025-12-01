@@ -958,6 +958,9 @@ pub async fn switch_codex_provider(config: CodexProviderConfig) -> Result<String
     };
 
     // Merge auth.json - preserve existing OAuth tokens and other credentials
+    // API key related fields that should be cleared when switching to official auth
+    let api_key_fields = ["OPENAI_API_KEY", "OPENAI_KEY", "API_KEY"];
+
     let final_auth = if auth_path.exists() {
         let existing_content = fs::read_to_string(&auth_path)
             .map_err(|e| format!("Failed to read existing auth.json: {}", e))?;
@@ -967,6 +970,22 @@ pub async fn switch_codex_provider(config: CodexProviderConfig) -> Result<String
             if let serde_json::Value::Object(new_auth_map) = serde_json::to_value(&config.auth)
                 .map_err(|e| format!("Failed to convert auth: {}", e))?
             {
+                // Check if new auth has any API key set (non-empty value)
+                let new_auth_has_api_key = api_key_fields.iter().any(|key| {
+                    new_auth_map.get(*key).map_or(false, |v| {
+                        !v.is_null() && v != &serde_json::Value::String(String::new())
+                    })
+                });
+
+                // If new auth doesn't have API key (e.g., switching to official OAuth),
+                // clear existing API key fields to avoid using stale credentials
+                if !new_auth_has_api_key {
+                    for key in &api_key_fields {
+                        existing_auth.remove(*key);
+                    }
+                    log::info!("[Codex Provider] Cleared API key fields for official auth mode");
+                }
+
                 for (key, value) in new_auth_map {
                     // Only update if the new value is not empty/null
                     if !value.is_null() && value != serde_json::Value::String(String::new()) {
