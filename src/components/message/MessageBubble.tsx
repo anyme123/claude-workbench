@@ -42,7 +42,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
         ease: [0.2, 0, 0, 1] // Emphasized easing
       }}
       className={cn(
-        "flex w-full mb-8", // Increased spacing for better rhythm
+        "flex w-full mb-2", // Reduced spacing for compact layout
         isUser ? "justify-end" : "justify-start",
         className
       )}
@@ -54,10 +54,9 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             {sideContent}
             <div
               className={cn(
-                "rounded-2xl rounded-tr-sm px-5 py-3", // Asymmetric rounding
-                "bg-primary text-primary-foreground",
-                "shadow-md shadow-primary/10",
-                "break-words text-sm leading-relaxed",
+                "rounded-[20px] px-5 py-2.5", // More rounded, slightly tighter padding
+                "bg-[#F0F0F0] text-foreground dark:bg-[#303030] dark:text-foreground", // Neutral grey instead of primary color
+                "break-words text-[15px] leading-relaxed",
                 bubbleClassName
               )}
             >
@@ -66,22 +65,15 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           </div>
         </div>
       ) : (
-        // AI Message: Glassmorphism Card
+        // AI Message: Clean Document Style (No Card)
         <div className="flex flex-col w-full max-w-full">
           <div
             className={cn(
-              "rounded-xl border border-border/50",
-              "bg-card/50 backdrop-blur-sm", // Glass effect
-              "shadow-sm",
-              "overflow-hidden",
-              "p-1", // Inner padding for content separation
-              isStreaming && "ring-1 ring-primary/30 shadow-[0_0_15px_rgba(var(--primary),0.1)]",
+              "w-full pr-4", // No border, no background, just spacing
               bubbleClassName
             )}
           >
-            <div className="bg-background/50 rounded-lg p-1">
-              {children}
-            </div>
+             {children}
           </div>
         </div>
       )}

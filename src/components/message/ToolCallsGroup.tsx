@@ -281,22 +281,24 @@ const SingleToolCallComponent: React.FC<SingleToolCallProps> = ({ tool, result, 
   }
 
   return (
-    <div className={cn('tool-call-item bg-card border rounded-lg p-3', borderColor)}>
-      {/* 工具头部 */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <StatusIcon className={cn('w-4 h-4', statusColor, !hasResult && 'animate-spin')} />
-          <span className="font-mono text-sm font-medium">{tool.name}</span>
-          {index && total && (
-            <span className="text-xs text-muted-foreground">
-              ({index}/{total})
-            </span>
-          )}
+    <div className={cn('tool-call-item my-2', renderer ? '' : 'bg-card border rounded-lg p-3 border-border')}>
+      {/* 工具头部 - 仅在没有专用渲染器时显示 */}
+      {!renderer && (
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <StatusIcon className={cn('w-4 h-4', statusColor, !hasResult && 'animate-spin')} />
+            <span className="font-mono text-sm font-medium">{tool.name}</span>
+            {index && total && (
+              <span className="text-xs text-muted-foreground">
+                ({index}/{total})
+              </span>
+            )}
+          </div>
+          <span className={cn('text-xs px-2 py-0.5 rounded', statusBg, statusColor)}>
+            {hasResult ? (isError ? '失败' : '成功') : '执行中'}
+          </span>
         </div>
-        <span className={cn('text-xs px-2 py-0.5 rounded', statusBg, statusColor)}>
-          {hasResult ? (isError ? '失败' : '成功') : '执行中'}
-        </span>
-      </div>
+      )}
 
       {/* 使用注册的工具渲染器 */}
       {renderer ? (

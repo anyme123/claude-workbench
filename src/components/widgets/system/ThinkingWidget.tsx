@@ -94,17 +94,17 @@ export const ThinkingWidget: React.FC<ThinkingWidgetProps> = ({
   const displayContent = translatedThinking || trimmedThinking;
 
   return (
-    <div className="rounded-lg border border-success/20 bg-success/5 overflow-hidden">
+    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 overflow-hidden">
       <div className="p-4">
         <div className="flex items-start justify-between mb-2">
           <div className="flex items-center gap-2">
-            <Brain className="h-4 w-4 text-success" />
-            <span className="text-sm font-medium text-success">思考过程</span>
+            <Brain className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <span className="text-sm font-medium text-amber-700 dark:text-amber-300">思考过程</span>
           </div>
 
           {/* Token 使用展示 */}
           {usage && (
-            <div className="text-xs text-success/80">
+            <div className="text-xs text-amber-600/80 dark:text-amber-400/80">
               {formatThinkingTokens(usage)}
             </div>
           )}

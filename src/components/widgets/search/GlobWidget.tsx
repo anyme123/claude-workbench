@@ -94,102 +94,79 @@ export const GlobWidget: React.FC<GlobWidgetProps> = ({ pattern, result, default
   const toggleCollapse = () => setIsCollapsed((v) => !v);
 
   return (
-    <div className="space-y-2">
-      {/* 头部 */}
-      <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-        <Search className="h-4 w-4 text-primary" />
-        <span className="text-sm">正在搜索模式：</span>
-        <code className="text-sm font-mono bg-background px-2 py-0.5 rounded">
-          {pattern}
-        </code>
-        {!result && (
-          <div className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
-            <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse" />
-            <span>搜索中...</span>
+    <div className="space-y-2 w-full">
+      {/* 紧凑型头部 */}
+      <div 
+        className="flex items-center justify-between bg-muted/30 p-2.5 rounded-md border border-border/50 cursor-pointer hover:bg-muted/50 transition-colors group/header select-none"
+        onClick={() => result && fileCount > 0 && setIsCollapsed(!isCollapsed)}
+      >
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <Search className="h-4 w-4 text-blue-500 flex-shrink-0" />
+            <div className="flex items-center gap-1.5 min-w-0 text-sm">
+              <span className="text-sm font-medium text-muted-foreground">Glob</span>
+              <span className="text-muted-foreground/30">|</span>
+              <code className="font-mono text-foreground/90 font-medium truncate" title={pattern}>
+                {pattern}
+              </code>
+            </div>
           </div>
-        )}
-        {/* 文件数量统计 */}
-        {result && !isError && fileCount > 0 && (
-          <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
-            <FileText className="h-3.5 w-3.5" />
-            <span>找到 {fileCount} 个文件</span>
+
+          {!result && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="h-1.5 w-1.5 bg-blue-500 rounded-full animate-pulse" />
+              <span>搜索中...</span>
+            </div>
+          )}
+
+          {/* 状态与统计 */}
+          {result && !isError && (
+            <div className="flex items-center gap-2 text-xs flex-shrink-0">
+              <span className="text-green-600 dark:text-green-400 font-medium">
+                找到 {fileCount} 个文件
+              </span>
+            </div>
+          )}
+          
+          {result && isError && (
+            <div className="flex items-center gap-2 text-xs flex-shrink-0">
+              <span className="text-red-600 dark:text-red-400 font-medium">
+                搜索失败
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* 展开/收起按钮 */}
+        {result && fileCount > 0 && (
+          <div className="h-6 px-2 ml-2 text-muted-foreground group-hover/header:text-foreground flex items-center gap-1 transition-colors">
+            {isCollapsed ? (
+              <ChevronDown className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronUp className="h-3.5 w-3.5" />
+            )}
           </div>
         )}
       </div>
 
-      {/* 结果展示 - 支持折叠 */}
-      {result && (
+      {/* 结果展示 */}
+      {result && !isCollapsed && (
         <div className={cn(
-          "rounded-md border",
-          isError
-            ? "border-red-500/20 bg-red-500/5"
-            : "border-green-500/20 bg-green-500/5"
+          "rounded-lg border overflow-hidden bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800",
+          isError && "border-red-500/20 bg-red-500/5"
         )}>
-          {/* 折叠控制按钮 */}
-          {shouldCollapse && (
-            <button
-              onClick={toggleCollapse}
-              className={cn(
-                "flex items-center gap-2 w-full px-3 py-2 text-left text-xs",
-                "hover:bg-muted/30 transition-colors border-b",
-                isError ? "border-red-500/20" : "border-green-500/20"
-              )}
-            >
-              {isCollapsed ? (
-                <ChevronDown className="h-3.5 w-3.5" />
-              ) : (
-                <ChevronUp className="h-3.5 w-3.5" />
-              )}
-              <span className="font-medium">
-                {isCollapsed ? `展开查看全部 ${fileCount} 个文件` : "收起结果"}
-              </span>
-            </button>
-          )}
-
-          {/* 结果内容区域 */}
-          <div className="relative">
-            <div
-              ref={resultRef}
-              className={cn(
-                "p-3 text-xs font-mono whitespace-pre-wrap overflow-x-auto transition-[max-height] duration-200",
-                isError
-                  ? "text-red-600 dark:text-red-400"
-                  : "text-green-700 dark:text-green-300",
-                shouldCollapse && isCollapsed && "overflow-hidden"
-              )}
-              style={shouldCollapse && isCollapsed ? { maxHeight: `${COLLAPSE_HEIGHT}px` } : undefined}
-            >
-              {resultContent || (isError ? "搜索失败" : "No matches found")}
-            </div>
-
-            {/* 渐变遮罩 */}
-            {shouldCollapse && isCollapsed && (
-              <div className={cn(
-                "pointer-events-none absolute inset-x-0 bottom-0 h-12",
-                "bg-gradient-to-t",
-                isError
-                  ? "from-red-500/10 via-red-500/5 to-transparent"
-                  : "from-green-500/10 via-green-500/5 to-transparent"
-              )} />
+          <div
+            ref={resultRef}
+            className={cn(
+              "p-3 text-xs font-mono whitespace-pre-wrap overflow-x-auto",
+              isError
+                ? "text-red-600 dark:text-red-400"
+                : "text-foreground/80"
             )}
+            style={{ fontSize: '0.8rem', lineHeight: '1.5' }}
+          >
+            {resultContent || (isError ? "搜索失败" : "No matches found")}
           </div>
-
-          {/* 底部展开按钮（折叠状态下显示） */}
-          {shouldCollapse && isCollapsed && (
-            <button
-              onClick={toggleCollapse}
-              className={cn(
-                "flex items-center justify-center gap-1.5 w-full py-2 text-xs",
-                "hover:bg-muted/30 transition-colors border-t",
-                isError
-                  ? "border-red-500/20 text-red-400"
-                  : "border-green-500/20 text-green-400"
-              )}
-            >
-              <ChevronDown className="h-3 w-3" />
-              <span>点击展开</span>
-            </button>
-          )}
         </div>
       )}
     </div>

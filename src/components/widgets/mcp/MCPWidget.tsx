@@ -54,7 +54,7 @@ export const MCPWidget: React.FC<MCPWidgetProps> = ({
     if (resultRef.current) {
       setShouldCollapseResult(resultRef.current.scrollHeight > RESULT_COLLAPSE_HEIGHT);
     }
-  }, [result]);
+  }, [result, isExpanded]);
 
   // 解析结果内容
   const hasResult = result && result.content !== undefined;
@@ -111,139 +111,91 @@ export const MCPWidget: React.FC<MCPWidgetProps> = ({
   // 状态相关样式
   const statusIcon = hasResult
     ? isError
-      ? <XCircle className="h-4 w-4 text-red-500" />
-      : <CheckCircle2 className="h-4 w-4 text-green-500" />
-    : <Loader2 className="h-4 w-4 text-violet-500 animate-spin" />;
+      ? <XCircle className="h-3.5 w-3.5 text-red-500" />
+      : <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+    : <Loader2 className="h-3.5 w-3.5 text-violet-500 animate-spin" />;
 
   const statusText = hasResult ? (isError ? '失败' : '成功') : '执行中';
   const statusColor = hasResult ? (isError ? 'text-red-500' : 'text-green-500') : 'text-violet-500';
-  const borderColor = hasResult
-    ? isError
-      ? 'border-red-500/20'
-      : 'border-green-500/20'
-    : 'border-violet-500/20';
 
   return (
-    <div className={cn(
-      "rounded-lg border bg-gradient-to-br from-violet-500/5 to-purple-500/5 overflow-hidden",
-      borderColor
-    )}>
-      {/* 头部 */}
-      <div className={cn(
-        "px-4 py-3 bg-zinc-200/50 dark:bg-zinc-700/30 border-b",
-        borderColor
-      )}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="relative">
+    <div className="space-y-2 w-full">
+      {/* 紧凑型头部 */}
+      <div 
+        className="flex items-center justify-between bg-muted/30 p-2.5 rounded-md border border-border/50 cursor-pointer hover:bg-muted/50 transition-colors group/header select-none"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="relative flex-shrink-0">
               <Package2 className="h-4 w-4 text-violet-500" />
-              <Sparkles className="h-2.5 w-2.5 text-violet-400 absolute -top-1 -right-1" />
+              <Sparkles className="h-2 w-2 text-violet-400 absolute -top-0.5 -right-0.5" />
             </div>
-            <span className="text-sm font-medium text-violet-600 dark:text-violet-400">MCP 工具</span>
-            {/* 状态指示器 */}
-            <div className="flex items-center gap-1.5 ml-2">
-              {statusIcon}
-              <span className={cn("text-xs font-medium", statusColor)}>{statusText}</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Token 统计 */}
-            {(hasInput || hasResult) && (
-              <Badge
-                variant="outline"
-                className="text-xs border-violet-500/30 text-violet-600 dark:text-violet-400"
-              >
-                ~{inputTokens + resultTokens} 令牌
-              </Badge>
-            )}
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="text-violet-500 hover:text-violet-600 transition-colors"
-            >
-              {isExpanded ? (
-                <ChevronUp className="h-3.5 w-3.5" />
-              ) : (
-                <ChevronDown className="h-3.5 w-3.5" />
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 展开内容 */}
-      {isExpanded && (
-        <div className="px-4 py-3 space-y-3">
-          {/* 工具调用路径 */}
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-violet-500 font-medium">MCP</span>
-            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-purple-600 dark:text-purple-400 font-medium">
-              {formatNamespace(namespace)}
-            </span>
-            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-            <div className="flex items-center gap-1.5">
-              <Zap className="h-3.5 w-3.5 text-violet-500" />
-              <code className="text-sm font-mono font-semibold text-foreground">
+            
+            {/* 工具名称 */}
+            <div className="flex items-center gap-1.5 min-w-0 text-sm">
+              <span className="text-violet-600 dark:text-violet-400 font-medium truncate">
+                {formatNamespace(namespace)}
+              </span>
+              <span className="text-muted-foreground/40">/</span>
+              <code className="font-mono text-foreground/90 font-medium truncate">
                 {formatMethod(method)}
-                <span className="text-muted-foreground">()</span>
               </code>
             </div>
           </div>
 
+          {/* 状态与统计 */}
+          <div className="flex items-center gap-2 text-xs flex-shrink-0">
+            <div className="flex items-center gap-1">
+              {statusIcon}
+              <span className={cn("font-medium hidden sm:inline", statusColor)}>{statusText}</span>
+            </div>
+            
+            {(hasInput || hasResult) && (
+              <span className="text-muted-foreground/60 font-mono hidden sm:inline">
+                ~{inputTokens + resultTokens} toks
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* 展开/收起按钮 */}
+        <div className="h-6 px-2 ml-2 text-muted-foreground group-hover/header:text-foreground flex items-center gap-1 transition-colors">
+          {isExpanded ? (
+            <ChevronUp className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5" />
+          )}
+        </div>
+      </div>
+
+      {/* 展开内容区域 */}
+      {isExpanded && (
+        <div className="space-y-3 pl-1">
           {/* 输入参数 */}
           {hasInput && (
-            <div className={cn(
-              "transition-all duration-200",
-              !isParametersExpanded && isLargeInput && "max-h-[200px]"
-            )}>
-              <div className="relative">
-                <div className={cn(
-                  "rounded-lg border bg-zinc-100 dark:bg-zinc-950 border-zinc-300 dark:border-zinc-800 overflow-hidden",
-                  !isParametersExpanded && isLargeInput && "max-h-[200px]"
-                )}>
-                  <div className="px-3 py-2 border-b border-zinc-300 dark:border-zinc-800 bg-zinc-200/50 dark:bg-zinc-700/30 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Code className="h-3 w-3 text-violet-500" />
-                      <span className="text-xs font-mono text-muted-foreground">参数</span>
-                    </div>
-                    {isLargeInput && (
-                      <button
-                        onClick={() => setIsParametersExpanded(!isParametersExpanded)}
-                        className="text-violet-500 hover:text-violet-600 transition-colors"
-                      >
-                        {isParametersExpanded ? (
-                          <ChevronUp className="h-3 w-3" />
-                        ) : (
-                          <ChevronDown className="h-3 w-3" />
-                        )}
-                      </button>
-                    )}
-                  </div>
-                  <div className={cn(
-                    "overflow-auto",
-                    !isParametersExpanded && isLargeInput && "max-h-[150px]"
-                  )}>
-                    <SyntaxHighlighter
-                      language="json"
-                      style={getClaudeSyntaxTheme(theme === 'dark')}
-                      customStyle={{
-                        margin: 0,
-                        padding: '0.75rem',
-                        background: 'transparent',
-                        fontSize: '0.75rem',
-                        lineHeight: '1.5',
-                      }}
-                      wrapLongLines={false}
-                    >
-                      {inputString}
-                    </SyntaxHighlighter>
-                  </div>
+            <div className="rounded-lg border overflow-hidden bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800">
+              <div className="px-3 py-2 border-b border-border/50 bg-muted/30 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Code className="h-3.5 w-3.5 text-violet-500" />
+                  <span className="text-xs font-medium text-muted-foreground">参数</span>
                 </div>
-
-                {/* 折叠视图的渐变遮罩 */}
-                {!isParametersExpanded && isLargeInput && (
-                  <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-zinc-100/80 dark:from-zinc-950/80 to-transparent pointer-events-none" />
-                )}
+              </div>
+              <div className="overflow-auto max-h-[300px]">
+                <SyntaxHighlighter
+                  language="json"
+                  style={getClaudeSyntaxTheme(theme === 'dark')}
+                  customStyle={{
+                    margin: 0,
+                    padding: '0.75rem',
+                    background: 'transparent',
+                    fontSize: '0.8rem',
+                    lineHeight: '1.5',
+                  }}
+                  wrapLongLines={false}
+                >
+                  {inputString}
+                </SyntaxHighlighter>
               </div>
             </div>
           )}
@@ -251,131 +203,80 @@ export const MCPWidget: React.FC<MCPWidgetProps> = ({
           {/* 无参数提示 */}
           {!hasInput && (
             <div className="text-xs text-muted-foreground italic px-2">
-              不需要参数
+              (无参数)
             </div>
           )}
 
           {/* 执行结果 */}
           {hasResult && (
-            <div className="mt-3">
+            <div className="rounded-lg border overflow-hidden bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800">
               <div className={cn(
-                "rounded-lg border overflow-hidden",
+                "px-3 py-2 border-b flex items-center justify-between",
                 isError
-                  ? "border-red-500/30 bg-red-500/5"
-                  : "border-green-500/30 bg-green-500/5"
+                  ? "bg-red-500/10 border-red-500/20"
+                  : "bg-green-500/10 border-green-500/20"
               )}>
-                <div className={cn(
-                  "px-3 py-2 border-b flex items-center justify-between",
-                  isError
-                    ? "border-red-500/30 bg-red-500/10"
-                    : "border-green-500/30 bg-green-500/10"
-                )}>
-                  <div className="flex items-center gap-2">
-                    {isError ? (
-                      <XCircle className="h-3 w-3 text-red-500" />
-                    ) : (
-                      <CheckCircle2 className="h-3 w-3 text-green-500" />
-                    )}
-                    <span className={cn(
-                      "text-xs font-mono",
-                      isError ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"
-                    )}>
-                      {isError ? '执行失败' : '执行结果'}
-                    </span>
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        "text-[10px]",
-                        isError
-                          ? "border-red-500/30 text-red-600 dark:text-red-400"
-                          : "border-green-500/30 text-green-600 dark:text-green-400"
-                      )}
-                    >
-                      ~{resultTokens} 令牌
-                    </Badge>
-                  </div>
-                  {shouldCollapseResult && (
-                    <button
-                      onClick={() => setIsResultExpanded(!isResultExpanded)}
-                      className={cn(
-                        "transition-colors",
-                        isError
-                          ? "text-red-500 hover:text-red-600"
-                          : "text-green-500 hover:text-green-600"
-                      )}
-                    >
-                      {isResultExpanded ? (
-                        <ChevronUp className="h-3 w-3" />
-                      ) : (
-                        <ChevronDown className="h-3 w-3" />
-                      )}
-                    </button>
+                <div className="flex items-center gap-2">
+                  {isError ? (
+                    <XCircle className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+                  ) : (
+                    <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
                   )}
+                  <span className={cn(
+                    "text-xs font-medium",
+                    isError ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"
+                  )}>
+                    {isError ? '执行失败' : '执行结果'}
+                  </span>
                 </div>
-                <div className="relative">
-                  <div
-                    ref={resultRef}
-                    className={cn(
-                      "p-3 overflow-auto transition-[max-height]",
-                      shouldCollapseResult && !isResultExpanded && "overflow-hidden"
-                    )}
-                    style={shouldCollapseResult && !isResultExpanded ? { maxHeight: `${RESULT_COLLAPSE_HEIGHT}px` } : undefined}
-                  >
-                    <pre className="text-xs font-mono whitespace-pre-wrap break-words text-foreground/80">
-                      {resultContent}
-                    </pre>
-                  </div>
-                  {/* 折叠视图的渐变遮罩 */}
-                  {shouldCollapseResult && !isResultExpanded && (
-                    <div className={cn(
-                      "absolute bottom-0 left-0 right-0 h-12 pointer-events-none",
-                      isError
-                        ? "bg-gradient-to-t from-red-500/10 to-transparent"
-                        : "bg-gradient-to-t from-green-500/10 to-transparent"
-                    )} />
+              </div>
+              
+              <div className="relative">
+                <div
+                  ref={resultRef}
+                  className={cn(
+                    "p-3 overflow-auto transition-[max-height]",
+                    shouldCollapseResult && !isResultExpanded && "overflow-hidden"
                   )}
+                  style={shouldCollapseResult && !isResultExpanded ? { maxHeight: `${RESULT_COLLAPSE_HEIGHT}px` } : undefined}
+                >
+                  <pre className="text-xs font-mono whitespace-pre-wrap break-words text-foreground/80" style={{ fontSize: '0.8rem' }}>
+                    {resultContent}
+                  </pre>
                 </div>
+                
+                {/* 折叠遮罩和按钮 */}
+                {shouldCollapseResult && (
+                  <>
+                    {!isResultExpanded && (
+                      <div className={cn(
+                        "absolute bottom-0 left-0 right-0 h-12 pointer-events-none",
+                        isError
+                          ? "bg-gradient-to-t from-red-50/50 dark:from-red-950/50 to-transparent"
+                          : "bg-gradient-to-t from-green-50/50 dark:from-green-950/50 to-transparent"
+                      )} />
+                    )}
+                    <div className="absolute bottom-2 right-3">
+                      <button
+                        onClick={() => setIsResultExpanded(!isResultExpanded)}
+                        className="text-xs bg-background/80 backdrop-blur-sm border shadow-sm px-2 py-1 rounded hover:bg-accent transition-colors"
+                      >
+                        {isResultExpanded ? "收起结果" : "展开全部"}
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )}
 
           {/* 等待结果提示 */}
           {!hasResult && (
-            <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground italic px-2">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground italic px-2 py-2">
               <Loader2 className="h-3 w-3 animate-spin" />
               等待执行结果...
             </div>
           )}
-        </div>
-      )}
-
-      {/* 折叠时的预览 */}
-      {!isExpanded && (
-        <div className="px-4 py-2 text-sm">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <span className="text-violet-500 font-medium">MCP</span>
-              <ChevronRight className="h-3 w-3" />
-              <span className="text-purple-600 dark:text-purple-400">
-                {formatNamespace(namespace)}
-              </span>
-              <ChevronRight className="h-3 w-3" />
-              <code className="text-sm font-mono text-foreground">
-                {formatMethod(method)}()
-              </code>
-            </div>
-            {/* 折叠状态下的结果预览 */}
-            {hasResult && (
-              <div className={cn(
-                "text-xs px-2 py-0.5 rounded",
-                isError
-                  ? "bg-red-500/10 text-red-600 dark:text-red-400"
-                  : "bg-green-500/10 text-green-600 dark:text-green-400"
-              )}>
-                {isError ? '执行失败' : '执行成功'}
-              </div>
-            )}
-          </div>
         </div>
       )}
     </div>

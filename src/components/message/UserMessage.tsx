@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { RotateCcw, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { MessageBubble } from "./MessageBubble";
-import { MessageHeader } from "./MessageHeader";
 import { MessageImagePreview, extractImagesFromContent, extractImagePathsFromText } from "./MessageImagePreview";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -10,6 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import type { ClaudeStreamMessage } from '@/types/claude';
 import type { RewindCapabilities, RewindMode } from '@/lib/api';
+import { formatTimestamp } from "@/lib/messageUtils";
 import { api } from '@/lib/api';
 
 interface UserMessageProps {
@@ -238,7 +238,6 @@ export const UserMessage: React.FC<UserMessageProps> = ({
         <div className="relative">
           <MessageBubble
             variant="user"
-            bubbleClassName="bg-gradient-to-br from-blue-50/80 to-indigo-50/80 dark:from-blue-600 dark:to-indigo-600 dark:text-white border border-blue-100/50 dark:border-blue-500/50 shadow-sm"
             sideContent={images.length > 0 && (
               <MessageImagePreview
                 images={images}
@@ -247,12 +246,8 @@ export const UserMessage: React.FC<UserMessageProps> = ({
             )}
           >
             <div className="relative">
-        {/* 消息头部 */}
-        <MessageHeader
-          variant="user"
-          timestamp={(message as any).sentAt || (message as any).timestamp}
-          showAvatar={false}
-        />
+        {/* 消息头部 (Removed) */}
+        {/* MessageHeader removed to save space */}
 
         {/* 消息内容和撤回按钮 - 同一行显示 */}
         <div className="flex items-start gap-2">
@@ -340,6 +335,11 @@ export const UserMessage: React.FC<UserMessageProps> = ({
         </div>
         </div>
       </MessageBubble>
+      
+      {/* Footer: Timestamp (Hover Only) */}
+      <div className="absolute -bottom-5 right-1 text-[10px] text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 select-none pointer-events-none">
+        {(message as any).sentAt || (message as any).timestamp ? formatTimestamp((message as any).sentAt || (message as any).timestamp) : ""}
+      </div>
         </div>
       </div>
     </div>

@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from "react";
-import { FileText, ChevronRight } from "lucide-react";
+import { FileText, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { getClaudeSyntaxTheme } from "@/lib/claudeSyntaxTheme";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -93,16 +93,31 @@ export const ReadResultWidget: React.FC<ReadResultWidgetProps> = ({ content, fil
   const isLargeFile = lineCount > 20;
 
   return (
-    <div className="rounded-lg overflow-hidden border w-full bg-zinc-100 dark:bg-zinc-950 border-zinc-300 dark:border-zinc-800">
-      {/* 头部 */}
-      <div className="px-4 py-2 border-b flex items-center justify-between bg-zinc-200/50 dark:bg-zinc-700/30 border-zinc-300 dark:border-zinc-800">
-        <div className="flex items-center gap-2">
-          <FileText className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
-          <span className="text-xs font-mono text-zinc-700 dark:text-zinc-200">
-            {filePath || "File content"}
-          </span>
+    <div className="w-full">
+      {/* 头部 - Detached Header Style */}
+      <div 
+        className={cn(
+          "flex items-center justify-between bg-muted/30 p-2.5 rounded-md border border-border/50 mb-2 group/header select-none transition-colors",
+          isLargeFile && "cursor-pointer hover:bg-muted/50"
+        )}
+        onClick={() => isLargeFile && setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <FileText className="h-4 w-4 text-blue-500 flex-shrink-0" />
+            <span className="text-sm font-medium text-muted-foreground">Read</span>
+            <span className="text-muted-foreground/30">|</span>
+            <span className="text-sm font-mono text-foreground/90 font-medium truncate" title={filePath}>
+              {filePath ? filePath.split(/[/\\]/).pop() : "File content"}
+            </span>
+            {filePath && (
+              <span className="text-xs text-muted-foreground truncate hidden sm:inline-block max-w-[200px] opacity-70">
+                {filePath}
+              </span>
+            )}
+          </div>
           {isLargeFile && (
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+            <span className="text-xs text-muted-foreground ml-1 flex-shrink-0 font-mono">
               ({lineCount} lines)
             </span>
           )}
@@ -110,44 +125,46 @@ export const ReadResultWidget: React.FC<ReadResultWidgetProps> = ({ content, fil
 
         {/* 大文件折叠按钮 */}
         {isLargeFile && (
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-1 text-xs transition-colors text-zinc-600 hover:text-zinc-800 dark:text-zinc-300 dark:hover:text-zinc-100"
-          >
-            <ChevronRight className={cn("h-3 w-3 transition-transform", isExpanded && "rotate-90")} />
-            {isExpanded ? "收起" : "展开"}
-          </button>
+          <div className="h-6 px-2 ml-2 text-muted-foreground group-hover/header:text-foreground flex items-center gap-1 transition-colors">
+            {isExpanded ? (
+              <ChevronUp className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronDown className="h-3.5 w-3.5" />
+            )}
+          </div>
         )}
       </div>
 
-      {/* 代码内容 */}
+      {/* 代码内容 - Separated Box */}
       {(!isLargeFile || isExpanded) && (
-        <div className="relative overflow-x-auto">
-          <SyntaxHighlighter
-            language={language}
-            style={getClaudeSyntaxTheme(theme === 'dark')}
-            showLineNumbers
-            startingLineNumber={startLineNumber}
-            wrapLongLines={false}
-            customStyle={{
-              margin: 0,
-              background: 'transparent',
-              lineHeight: '1.6'
-            }}
-            codeTagProps={{
-              style: {
-                fontSize: '0.75rem'
-              }
-            }}
-            lineNumberStyle={{
-              minWidth: "3.5rem",
-              paddingRight: "1rem",
-              textAlign: "right",
-              opacity: 0.5,
-            }}
-          >
-            {codeContent}
-          </SyntaxHighlighter>
+        <div className="rounded-lg border overflow-hidden bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800">
+          <div className="relative overflow-x-auto">
+            <SyntaxHighlighter
+              language={language}
+              style={getClaudeSyntaxTheme(theme === 'dark')}
+              showLineNumbers
+              startingLineNumber={startLineNumber}
+              wrapLongLines={false}
+              customStyle={{
+                margin: 0,
+                background: 'transparent',
+                lineHeight: '1.6'
+              }}
+              codeTagProps={{
+                style: {
+                  fontSize: '0.8rem'
+                }
+              }}
+              lineNumberStyle={{
+                minWidth: "3.5rem",
+                paddingRight: "1rem",
+                textAlign: "right",
+                opacity: 0.5,
+              }}
+            >
+              {codeContent}
+            </SyntaxHighlighter>
+          </div>
         </div>
       )}
     </div>

@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from "react";
-import { Bot, ChevronDown, ChevronRight, Sparkles } from "lucide-react";
+import { Bot, ChevronDown, ChevronRight, Sparkles, ChevronUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { AIMessage } from "./AIMessage";
@@ -75,12 +75,12 @@ export const SubagentMessageGroup: React.FC<SubagentMessageGroupProps> = ({
   }
 
   return (
-    <div className={cn("relative my-4", className)}>
-      {/* 子代理组容器 */}
-      <div className="rounded-lg border-2 border-purple-500/30 bg-purple-500/5 overflow-hidden">
+    <div className={cn("relative my-2", className)}>
+      {/* 子代理组容器 - Modern Clean Style */}
+      <div className="rounded-lg border border-border/50 bg-muted/10 overflow-hidden">
 
         {/* Task 工具调用（固定显示） */}
-        <div className="border-b border-purple-500/20">
+        <div className="border-b border-border/30">
           <AIMessage
             message={group.taskMessage}
             isStreaming={false}
@@ -89,37 +89,36 @@ export const SubagentMessageGroup: React.FC<SubagentMessageGroupProps> = ({
           />
         </div>
 
-        {/* 折叠控制按钮 */}
-        <div className="px-4 py-2 bg-purple-500/10 border-b border-purple-500/20">
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-2 text-sm font-medium text-purple-700 dark:text-purple-300 hover:text-purple-900 dark:hover:text-purple-100 transition-colors w-full"
-          >
-            <div className="flex items-center gap-1.5">
-              <Bot className="h-4 w-4" />
-              <Sparkles className="h-3 w-3" />
+        {/* 折叠控制按钮 - Compact Header */}
+        <div 
+          className="px-3 py-2 bg-muted/30 hover:bg-muted/50 border-b border-border/30 cursor-pointer transition-colors select-none flex items-center justify-between group/header"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="flex items-center justify-center w-5 h-5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400">
+              <Bot className="h-3.5 w-3.5" />
             </div>
-            <span>
-              {group.subagentType ? (
-                <>
-                  <span className="text-purple-600 dark:text-purple-400 font-semibold">
-                    [{getSubagentTypeLabel(group.subagentType)}]
-                  </span>
-                  {' '}执行过程
-                </>
+            <span className="text-sm font-medium text-foreground/80 truncate">
+              {group.subagentType ? getSubagentTypeLabel(group.subagentType) : '子代理'}
+            </span>
+            <div className="h-3 w-px bg-border/50 mx-1" />
+            <span className="text-xs text-muted-foreground truncate">
+              执行过程
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground/60">
+              {messageCount} 条消息
+            </span>
+            <div className="text-muted-foreground group-hover/header:text-foreground transition-colors">
+              {isExpanded ? (
+                <ChevronUp className="h-3.5 w-3.5" />
               ) : (
-                '子代理执行过程'
+                <ChevronDown className="h-3.5 w-3.5" />
               )}
-            </span>
-            <span className="text-xs text-purple-600/70 dark:text-purple-400/70">
-              ({messageCount} 条消息)
-            </span>
-            {isExpanded ? (
-              <ChevronDown className="h-4 w-4 ml-auto" />
-            ) : (
-              <ChevronRight className="h-4 w-4 ml-auto" />
-            )}
-          </button>
+            </div>
+          </div>
         </div>
 
         {/* 子代理消息列表（可折叠） */}
@@ -132,38 +131,24 @@ export const SubagentMessageGroup: React.FC<SubagentMessageGroupProps> = ({
               transition={{ duration: 0.2 }}
               className="overflow-hidden"
             >
-              <div className="pl-4 pr-2 py-3 space-y-2 bg-purple-500/5">
-                {/* 子代理消息说明 */}
-                <div className="text-xs text-muted-foreground mb-2 px-2">
-                  <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400">
-                    <div className="h-px flex-1 bg-purple-500/20" />
-                    <span>子代理内部对话</span>
-                    <div className="h-px flex-1 bg-purple-500/20" />
-                  </div>
-                </div>
-
+              <div className="p-2 space-y-2 bg-background/30">
                 {/* 渲染子代理消息 */}
                 {subagentMessages.length > 0 ? (
                   subagentMessages.map((message, index) => {
                     // 🛡️ 跳过 null/undefined 消息
-                    if (!message) {
-                      if (process.env.NODE_ENV !== 'production') {
-                        console.warn('[SubagentMessageGroup] Skipping null/undefined message at index:', index);
-                      }
-                      return null;
-                    }
+                    if (!message) return null;
 
                     const role = getSubagentMessageRole(message);
 
                     // 根据修正后的角色渲染消息
                     if (role === 'assistant' || message.type === 'assistant') {
                       return (
-                        <div key={`msg-${index}-${message.timestamp || index}`} className="pl-2">
+                        <div key={`msg-${index}-${message.timestamp || index}`} className="pl-2 pr-1">
                           <AIMessage
                             message={message}
                             isStreaming={false}
                             onLinkDetected={onLinkDetected}
-                            className="shadow-sm"
+                            className="shadow-none"
                           />
                         </div>
                       );
@@ -174,16 +159,15 @@ export const SubagentMessageGroup: React.FC<SubagentMessageGroupProps> = ({
                         message.message.content.some((item: any) => item?.type === 'text');
 
                       return (
-                        <div key={`msg-${index}-${message.timestamp || index}`} className="pl-2">
+                        <div key={`msg-${index}-${message.timestamp || index}`} className="pl-2 pr-1">
                           {isPromptToSubagent && (
-                            <div className="text-xs text-purple-600 dark:text-purple-400 mb-1 px-2 flex items-center gap-1">
-                              <Bot className="h-3 w-3" />
-                              <span>主代理 → 子代理任务</span>
+                            <div className="text-[10px] text-muted-foreground mb-1 px-2 flex items-center gap-1 opacity-60">
+                              <span className="uppercase tracking-wider font-medium">Task Input</span>
                             </div>
                           )}
                           <UserMessage
                             message={message}
-                            className="shadow-sm"
+                            className="shadow-none"
                           />
                         </div>
                       );
@@ -192,21 +176,8 @@ export const SubagentMessageGroup: React.FC<SubagentMessageGroupProps> = ({
                     return null;
                   })
                 ) : (
-                  <div className="text-xs text-muted-foreground px-2 py-4 text-center">
+                  <div className="text-xs text-muted-foreground px-2 py-4 text-center italic">
                     暂无子代理消息
-                  </div>
-                )}
-
-                {/* 统计信息 */}
-                {messageCount > 0 && (
-                  <div className="text-xs text-muted-foreground mt-3 px-2 pt-2 border-t border-purple-500/20">
-                    <div className="flex items-center gap-4">
-                      <span>交互轮次: {Math.ceil(messageCount / 2)}</span>
-                      <span>•</span>
-                      <span>子代理回复: {assistantMessages}</span>
-                      <span>•</span>
-                      <span>任务消息: {userMessages}</span>
-                    </div>
                   </div>
                 )}
               </div>
@@ -214,9 +185,6 @@ export const SubagentMessageGroup: React.FC<SubagentMessageGroupProps> = ({
           )}
         </AnimatePresence>
       </div>
-
-      {/* 左侧指示线 */}
-      <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-500/50 via-purple-500/30 to-purple-500/50 rounded-l-lg" />
     </div>
   );
 };

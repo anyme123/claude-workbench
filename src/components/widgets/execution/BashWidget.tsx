@@ -6,8 +6,7 @@
  */
 
 import React, { useState } from "react";
-import { Terminal, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Terminal, ChevronRight, ChevronUp, ChevronDown, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface BashWidgetProps {
@@ -52,68 +51,83 @@ export const BashWidget: React.FC<BashWidgetProps> = ({
     }
   }
 
-  return (
-    <div className="rounded-lg border overflow-hidden bg-zinc-100 dark:bg-zinc-950 border-zinc-300 dark:border-zinc-800">
-      {/* 头部 */}
-      <div className="px-4 py-2 flex items-center gap-2 border-b bg-zinc-200/50 dark:bg-zinc-700/30 border-zinc-300 dark:border-zinc-800">
-        <Terminal className="h-3.5 w-3.5 text-green-500" />
-        <span className="text-xs font-mono text-zinc-600 dark:text-zinc-300">终端</span>
-        {description && (
-          <>
-            <ChevronRight className="h-3 w-3 text-zinc-500 dark:text-zinc-400" />
-            <span className="text-xs text-zinc-600 dark:text-zinc-300">{description}</span>
-          </>
-        )}
+  const statusIcon = result
+    ? isError
+      ? <XCircle className="h-3.5 w-3.5 text-red-500" />
+      : <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+    : <Loader2 className="h-3.5 w-3.5 text-blue-500 animate-spin" />;
 
-        {/* 加载指示器 */}
-        {!result && (
-          <div className="ml-auto flex items-center gap-1 text-xs text-zinc-600 dark:text-zinc-300">
-            <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
-            <span>正在运行...</span>
+  const statusText = result ? (isError ? '失败' : '完成') : '运行中';
+  const statusColor = result ? (isError ? 'text-red-500' : 'text-green-500') : 'text-blue-500';
+
+  return (
+    <div className="space-y-2 w-full">
+      {/* 紧凑型头部 */}
+      <div 
+        className="flex items-center justify-between bg-muted/30 p-2.5 rounded-md border border-border/50 cursor-pointer hover:bg-muted/50 transition-colors group/header select-none"
+        onClick={() => result && setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <Terminal className="h-4 w-4 text-blue-500 flex-shrink-0" />
+            <span className="text-sm font-medium text-muted-foreground">Terminal</span>
+            <span className="text-muted-foreground/30">|</span>
+            <div className="flex items-center gap-1.5 min-w-0 text-sm">
+              <code className="font-mono text-foreground/90 font-medium truncate" title={command}>
+                {command}
+              </code>
+            </div>
           </div>
-        )}
+
+          {/* 状态与描述 */}
+          <div className="flex items-center gap-2 text-xs flex-shrink-0">
+            <div className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded-md", 
+              result ? (isError ? "bg-red-500/10" : "bg-green-500/10") : "bg-blue-500/10"
+            )}>
+              {statusIcon}
+              <span className={cn("font-medium hidden sm:inline", statusColor)}>{statusText}</span>
+            </div>
+            {description && (
+              <span className="text-muted-foreground/60 truncate hidden sm:inline max-w-[150px]">
+                {description}
+              </span>
+            )}
+          </div>
+        </div>
 
         {/* 展开/收起按钮 */}
-        {result && resultContent && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="ml-auto h-6 px-2"
-          >
+        {result && (
+          <div className="h-6 px-2 ml-2 text-muted-foreground group-hover/header:text-foreground flex items-center gap-1 transition-colors">
             {isExpanded ? (
-              <>
-                <ChevronUp className="h-3 w-3 mr-1" />
-                <span className="text-xs">收起</span>
-              </>
+              <ChevronUp className="h-3.5 w-3.5" />
             ) : (
-              <>
-                <ChevronDown className="h-3 w-3 mr-1" />
-                <span className="text-xs">展开</span>
-              </>
+              <ChevronDown className="h-3.5 w-3.5" />
             )}
-          </Button>
-        )}
-      </div>
-
-      {/* 命令和结果 */}
-      <div className="p-4 space-y-3">
-        <code className="text-xs font-mono block text-green-600 dark:text-green-400">
-          $ {command}
-        </code>
-
-        {/* 结果展示（可折叠） */}
-        {result && isExpanded && (
-          <div className={cn(
-            "mt-3 p-3 rounded-md border text-xs font-mono whitespace-pre-wrap overflow-x-auto",
-            isError
-              ? "border-destructive/20 bg-destructive/5 text-destructive"
-              : "border-success/20 bg-success/5 text-success"
-          )}>
-            {resultContent || (isError ? "命令失败" : "命令完成")}
           </div>
         )}
       </div>
+
+      {/* 展开内容 */}
+      {isExpanded && (
+        <div className="rounded-lg border overflow-hidden bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800">
+          <div className="p-3 space-y-2">
+            {/* 完整命令 */}
+            <div className="text-xs font-mono text-muted-foreground border-b border-border/50 pb-2 mb-2 break-all">
+              $ {command}
+            </div>
+
+            {/* 结果输出 */}
+            <div className={cn(
+              "text-xs font-mono whitespace-pre-wrap overflow-x-auto max-h-[300px]",
+              isError
+                ? "text-red-600 dark:text-red-400"
+                : "text-foreground/80"
+            )} style={{ fontSize: '0.8rem', lineHeight: '1.5' }}>
+              {resultContent || (isError ? "命令执行失败" : "命令执行完成，无输出")}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

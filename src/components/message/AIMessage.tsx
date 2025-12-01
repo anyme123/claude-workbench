@@ -122,74 +122,83 @@ export const AIMessage: React.FC<AIMessageProps> = ({
   const assistantName = isCodexMessage ? 'Codex' : 'Claude';
 
   return (
-    <div className={cn("relative", className)}>
+    <div className={cn("relative group", className)}>
       <MessageBubble variant="assistant" isStreaming={isStreaming}>
-        {/* 消息头部：整合标头和tokens统计 */}
-        <div className="px-4 pt-4 pb-2">
-          <div className="flex items-center justify-between gap-4 text-xs text-muted-foreground">
-            {/* 左侧：头像 + 名称 + 时间 */}
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-500/10 flex-shrink-0">
-                <Bot className="w-4 h-4 text-blue-500" />
-              </div>
+        <div className="flex gap-4 items-start">
+          {/* Left Column: Avatar */}
+          <div className="flex-shrink-0 mt-0.5 select-none">
+            <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400 dark:bg-orange-500/20">
+              <Bot className="w-4 h-4" />
+            </div>
+          </div>
+
+          {/* Right Column: Content */}
+          <div className="flex-1 min-w-0 space-y-1">
+            
+            {/* Main Content */}
+            <div className="space-y-3">
+              {text && (
+                <div className="prose prose-neutral dark:prose-invert max-w-none leading-relaxed text-[15px]">
+                  <MessageContent
+                    content={text}
+                    isStreaming={isStreaming && !hasTools && !hasThinking}
+                  />
+                </div>
+              )}
+
+              {/* Thinking Block */}
+              {hasThinking && thinkingContent && (
+                <div className="border-l-2 border-amber-500/30 bg-amber-500/5 rounded-md overflow-hidden my-2">
+                  <details className="group">
+                    <summary className="cursor-pointer px-3 py-2 text-xs text-amber-700 dark:text-amber-300 font-medium hover:bg-amber-500/10 transition-colors select-none flex items-center gap-2 outline-none">
+                      <span className="inline-block transition-transform duration-200 group-open:rotate-90 text-[10px]">▶</span>
+                      <span>Thinking Process</span>
+                      <span className="ml-auto text-[10px] opacity-60">
+                        {thinkingContent.length} chars
+                      </span>
+                    </summary>
+                    <div className="px-3 pb-3 pt-1">
+                      <div className="text-xs text-muted-foreground/80 whitespace-pre-wrap font-mono leading-relaxed">
+                        {thinkingContent}
+                      </div>
+                    </div>
+                  </details>
+                </div>
+              )}
+
+              {/* Tool Calls */}
+              {hasTools && (
+                <div className="mt-2">
+                  <ToolCallsGroup
+                    message={message}
+                    onLinkDetected={onLinkDetected}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Footer: Meta Info (Hover Only) */}
+            <div className="flex items-center justify-end gap-2 pt-1 text-[10px] text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 select-none">
               <span className="font-medium">{assistantName}</span>
               {formatTimestamp((message as any).receivedAt ?? (message as any).timestamp) && (
                 <>
-                  <span className="text-muted-foreground/50">•</span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
+                  <span>•</span>
+                  <span>
                     {formatTimestamp((message as any).receivedAt ?? (message as any).timestamp)}
                   </span>
                 </>
               )}
+              {tokenStats && (
+                <>
+                  <span>•</span>
+                  <span className="font-mono opacity-80">
+                    {tokenStats}
+                  </span>
+                </>
+              )}
             </div>
-            
-            {/* 右侧：tokens统计 */}
-            {tokenStats && (
-              <div className="text-foreground/60 font-mono flex-shrink-0">
-                Tokens: {tokenStats}
-              </div>
-            )}
           </div>
         </div>
-
-        {/* 消息内容 */}
-        {text && (
-          <div className="px-4 pb-4">
-            <MessageContent
-              content={text}
-              isStreaming={isStreaming && !hasTools && !hasThinking}
-            />
-          </div>
-        )}
-
-        {/* 思考块区域 */}
-        {hasThinking && thinkingContent && (
-          <div className="mx-4 mb-3 border-l-2 border-purple-500/30 bg-purple-500/5 rounded">
-            <details className="group">
-              <summary className="cursor-pointer px-3 py-2 text-xs text-purple-700 dark:text-purple-300 font-medium hover:bg-purple-500/10 transition-colors select-none flex items-center gap-2">
-                <span className="inline-block transition-transform group-open:rotate-90">▶</span>
-                <span>思考过程</span>
-                <span className="ml-auto text-[10px] text-muted-foreground">
-                  {thinkingContent.length} 字符
-                </span>
-              </summary>
-              <div className="px-3 pb-3 pt-1">
-                <div className="text-xs text-muted-foreground whitespace-pre-wrap font-mono">
-                  {thinkingContent}
-                </div>
-              </div>
-            </details>
-          </div>
-        )}
-
-        {/* 工具调用区域 */}
-        {hasTools && (
-          <ToolCallsGroup
-            message={message}
-            onLinkDetected={onLinkDetected}
-          />
-        )}
       </MessageBubble>
     </div>
   );
