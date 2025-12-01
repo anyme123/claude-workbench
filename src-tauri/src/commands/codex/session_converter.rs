@@ -139,7 +139,8 @@ pub struct ClaudeMessage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClaudeMessageContent {
     pub role: String,
-    pub content: Vec<ClaudeContentBlock>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<Value>, // 支持字符串或数组格式
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usage: Option<TokenUsage>,
 }
@@ -326,6 +327,68 @@ impl ClaudeToCodexConverter {
         }
     }
 
+    /// 解析 content（支持字符串或数组格式）为 ClaudeContentBlock 数组
+    fn parse_content_blocks(&self, content: &Option<Value>) -> Vec<ClaudeContentBlock> {
+        let mut blocks = Vec::new();
+
+        if let Some(content_value) = content {
+            if let Some(text) = content_value.as_str() {
+                // 字符串格式 - 直接转为文本块
+                blocks.push(ClaudeContentBlock::Text { text: text.to_string() });
+            } else if let Some(array) = content_value.as_array() {
+                // 数组格式 - 解析每个块
+                for item in array {
+                    if let Some(block_type) = item.get("type").and_then(|t| t.as_str()) {
+                        match block_type {
+                            "text" => {
+                                if let Some(text) = item.get("text").and_then(|t| t.as_str()) {
+                                    blocks.push(ClaudeContentBlock::Text {
+                                        text: text.to_string(),
+                                    });
+                                }
+                            }
+                            "tool_use" => {
+                                if let (Some(id), Some(name), Some(input)) = (
+                                    item.get("id").and_then(|i| i.as_str()),
+                                    item.get("name").and_then(|n| n.as_str()),
+                                    item.get("input"),
+                                ) {
+                                    blocks.push(ClaudeContentBlock::ToolUse {
+                                        id: id.to_string(),
+                                        name: name.to_string(),
+                                        input: input.clone(),
+                                    });
+                                }
+                            }
+                            "tool_result" => {
+                                if let (Some(tool_use_id), Some(content)) = (
+                                    item.get("tool_use_id").and_then(|t| t.as_str()),
+                                    item.get("content"),
+                                ) {
+                                    blocks.push(ClaudeContentBlock::ToolResult {
+                                        tool_use_id: tool_use_id.to_string(),
+                                        content: content.clone(),
+                                        is_error: item.get("is_error").and_then(|e| e.as_bool()),
+                                    });
+                                }
+                            }
+                            "thinking" => {
+                                if let Some(thinking) = item.get("thinking").and_then(|t| t.as_str()) {
+                                    blocks.push(ClaudeContentBlock::Thinking {
+                                        thinking: thinking.to_string(),
+                                    });
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+
+        blocks
+    }
+
     pub fn convert(&self) -> Result<ConversionResult, String> {
         log::info!(
             "Converting Claude session {} to Codex",
@@ -482,14 +545,16 @@ impl ClaudeToCodexConverter {
 
         match msg.message_type.as_str() {
             "user" => {
-                if let Some(ref content) = msg.message {
-                    events.push(self.create_user_response_item(&content.content, &timestamp));
+                if let Some(ref message) = msg.message {
+                    let blocks = self.parse_content_blocks(&message.content);
+                    events.push(self.create_user_response_item(&blocks, &timestamp));
                 }
             }
             "assistant" => {
-                if let Some(ref content) = msg.message {
+                if let Some(ref message) = msg.message {
+                    let blocks = self.parse_content_blocks(&message.content);
                     // 拆分多内容块为多个事件
-                    events.extend(self.convert_assistant_content(&content.content, &timestamp));
+                    events.extend(self.convert_assistant_content(&blocks, &timestamp));
                 }
             }
             _ => {
@@ -675,6 +740,50 @@ impl CodexToClaudeConverter {
         }
     }
 
+    /// 简化 content 格式：单纯文本转为字符串，复杂内容保持数组
+    fn simplify_content(&self, content: Vec<ClaudeContentBlock>) -> Option<Value> {
+        if content.is_empty() {
+            return None;
+        }
+
+        // 如果只有一个纯文本块，使用字符串格式
+        if content.len() == 1 {
+            if let ClaudeContentBlock::Text { text } = &content[0] {
+                return Some(Value::String(text.clone()));
+            }
+        }
+
+        // 否则使用数组格式（包含工具调用等）
+        let array: Vec<Value> = content.iter().filter_map(|block| {
+            match block {
+                ClaudeContentBlock::Text { text } => {
+                    Some(serde_json::json!({"type": "text", "text": text}))
+                }
+                ClaudeContentBlock::ToolUse { id, name, input } => {
+                    Some(serde_json::json!({
+                        "type": "tool_use",
+                        "id": id,
+                        "name": name,
+                        "input": input
+                    }))
+                }
+                ClaudeContentBlock::ToolResult { tool_use_id, content, is_error } => {
+                    Some(serde_json::json!({
+                        "type": "tool_result",
+                        "tool_use_id": tool_use_id,
+                        "content": content,
+                        "is_error": is_error
+                    }))
+                }
+                ClaudeContentBlock::Thinking { thinking } => {
+                    Some(serde_json::json!({"type": "thinking", "thinking": thinking}))
+                }
+            }
+        }).collect();
+
+        Some(Value::Array(array))
+    }
+
     /// 创建标准 Claude 消息的辅助函数
     fn create_claude_message(
         &self,
@@ -684,11 +793,14 @@ impl CodexToClaudeConverter {
         timestamp: &str,
         model: Option<String>,
     ) -> ClaudeMessage {
+        // 将 content 数组转换为简化格式
+        let simplified_content = self.simplify_content(content);
+
         ClaudeMessage {
             message_type: message_type.to_string(),
             message: Some(ClaudeMessageContent {
                 role: role.to_string(),
-                content,
+                content: simplified_content,
                 usage: None,
             }),
             timestamp: Some(timestamp.to_string()),
@@ -958,14 +1070,12 @@ impl CodexToClaudeConverter {
                 ))
             }
             "todo_list" | "file_change" | "mcp_tool_call" => {
-                // 转换为 system 消息（特殊处理，不使用辅助函数）
+                // 转换为 system 消息（特殊处理，使用字符串格式）
                 Some(ClaudeMessage {
                     message_type: "system".to_string(),
                     message: Some(ClaudeMessageContent {
                         role: "system".to_string(),
-                        content: vec![ClaudeContentBlock::Text {
-                            text: format!("[Codex {}]: {}", item_type, item.to_string()),
-                        }],
+                        content: Some(Value::String(format!("[Codex {}]: {}", item_type, item.to_string()))),
                         usage: None,
                     }),
                     timestamp: Some(timestamp.to_string()),
