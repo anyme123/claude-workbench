@@ -323,7 +323,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-6 w-6 p-0 rounded-full text-muted-foreground/40 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-all"
+                      className="h-6 w-6 p-0 rounded-md text-muted-foreground/40 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-all"
                       onClick={handleRevertClick}
                     >
                       <CornerDownLeft className="h-3 w-3" />
