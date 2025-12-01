@@ -1032,6 +1032,29 @@ impl CodexToClaudeConverter {
 // Tauri Commands
 // ================================
 
+/// 根据文件存在性判断 session 的源引擎类型
+fn detect_session_engine(session_id: &str, project_id: &str) -> Result<String, String> {
+    // 1. 检查是否为 Codex session（查找 sessions 目录）
+    if let Ok(sessions_dir) = super::config::get_codex_sessions_dir() {
+        if super::session::find_session_file(&sessions_dir, session_id).is_some() {
+            return Ok("codex".to_string());
+        }
+    }
+
+    // 2. 检查是否为 Claude session（查找 projects 目录）
+    if let Ok(claude_dir) = super::super::claude::get_claude_dir() {
+        let session_path = claude_dir
+            .join("projects")
+            .join(project_id)
+            .join(format!("{}.jsonl", session_id));
+        if session_path.exists() {
+            return Ok("claude".to_string());
+        }
+    }
+
+    Err(format!("Session {} not found in either Claude or Codex directories", session_id))
+}
+
 /// 统一转换接口
 #[tauri::command]
 pub async fn convert_session(
@@ -1048,12 +1071,8 @@ pub async fn convert_session(
         project_path
     );
 
-    // 根据 session_id 格式判断源引擎
-    let source_engine = if session_id.starts_with("rollout-") {
-        "codex"
-    } else {
-        "claude"
-    };
+    // 根据文件存在性检测源引擎
+    let source_engine = detect_session_engine(&session_id, &project_id)?;
 
     if source_engine == target_engine {
         return Err(format!(
