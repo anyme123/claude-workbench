@@ -50,12 +50,25 @@ export function useSmartAutoScroll(config: SmartAutoScrollConfig): SmartAutoScro
   const parentRef = useRef<HTMLDivElement>(null);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastScrollPositionRef = useRef(0);
-  const shouldAutoScrollRef = useRef(shouldAutoScroll);
+  const isAutoScrollingRef = useRef(false); // 🆕 Track if scroll was initiated by code
 
-  // Keep ref in sync with state
-  useEffect(() => {
-    shouldAutoScrollRef.current = shouldAutoScroll;
-  }, [shouldAutoScroll]);
+  // Helper to perform auto-scroll safely
+  const performAutoScroll = () => {
+    if (parentRef.current) {
+      const scrollElement = parentRef.current;
+      // Check if we actually need to scroll to avoid unnecessary events
+      const { scrollTop, scrollHeight, clientHeight } = scrollElement;
+      const targetScrollTop = scrollHeight - clientHeight;
+      
+      if (Math.abs(scrollTop - targetScrollTop) > 1) { // Small tolerance
+        isAutoScrollingRef.current = true;
+        scrollElement.scrollTo({
+          top: targetScrollTop,
+          behavior: 'smooth'
+        });
+      }
+    }
+  };
 
   // Smart scroll detection - detect when user manually scrolls
   useEffect(() => {
@@ -63,56 +76,46 @@ export function useSmartAutoScroll(config: SmartAutoScrollConfig): SmartAutoScro
     if (!scrollElement) return;
 
     const handleScroll = () => {
+      // 1. Check if this scroll event was triggered by our auto-scroll
+      if (isAutoScrollingRef.current) {
+        isAutoScrollingRef.current = false;
+        // Update last position to current to prevent diff calculation errors next time
+        lastScrollPositionRef.current = scrollElement.scrollTop;
+        return;
+      }
+
       const { scrollTop, scrollHeight, clientHeight } = scrollElement;
-      const currentScrollPosition = scrollTop;
-      const isAtBottom = scrollTop + clientHeight >= scrollHeight - 50; // 50px threshold
+      
+      // 2. Calculate distance from bottom
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+      const isAtBottom = distanceFromBottom <= 50; // 50px threshold
 
-      // Detect if this was a user-initiated scroll
-      const scrollDifference = Math.abs(currentScrollPosition - lastScrollPositionRef.current);
-      if (scrollDifference > 5) { // Only count significant scroll movements
-        const wasUserScroll = !shouldAutoScrollRef.current || scrollDifference > 100;
-
-        if (wasUserScroll) {
-          setUserScrolled(!isAtBottom);
-          setShouldAutoScroll(isAtBottom);
-        }
+      // 3. Determine user intent
+      // If user is not at bottom, they are viewing history -> Stop auto scroll
+      if (!isAtBottom) {
+        setUserScrolled(true);
+        setShouldAutoScroll(false);
+      } else {
+        // User is at bottom (or scrolled back to bottom) -> Resume auto scroll
+        setUserScrolled(false);
+        setShouldAutoScroll(true);
       }
 
-      lastScrollPositionRef.current = currentScrollPosition;
-
-      // Reset user scroll state after inactivity
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-      scrollTimeoutRef.current = setTimeout(() => {
-        if (isAtBottom) {
-          setUserScrolled(false);
-          setShouldAutoScroll(true);
-        }
-      }, 2000);
+      lastScrollPositionRef.current = scrollTop;
     };
 
     scrollElement.addEventListener('scroll', handleScroll, { passive: true });
 
     return () => {
       scrollElement.removeEventListener('scroll', handleScroll);
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
     };
   }, []); // Empty deps - event listener only needs to be registered once
 
-  // Smart auto-scroll for new messages
+  // Smart auto-scroll for new messages (initial load or update)
   useEffect(() => {
     if (displayableMessages.length > 0 && shouldAutoScroll && !userScrolled) {
       const timeoutId = setTimeout(() => {
-        if (parentRef.current) {
-          const scrollElement = parentRef.current;
-          scrollElement.scrollTo({
-            top: scrollElement.scrollHeight,
-            behavior: 'smooth'
-          });
-        }
+        performAutoScroll();
       }, 100);
 
       return () => clearTimeout(timeoutId);
@@ -122,18 +125,11 @@ export function useSmartAutoScroll(config: SmartAutoScrollConfig): SmartAutoScro
   // Enhanced streaming scroll - only when user hasn't manually scrolled away
   useEffect(() => {
     if (isLoading && displayableMessages.length > 0 && shouldAutoScroll && !userScrolled) {
-      const scrollToBottom = () => {
-        if (parentRef.current) {
-          const scrollElement = parentRef.current;
-          scrollElement.scrollTo({
-            top: scrollElement.scrollHeight,
-            behavior: 'smooth'
-          });
-        }
-      };
+      // Immediate scroll on update
+      performAutoScroll();
 
-      // More frequent updates during streaming for better UX
-      const intervalId = setInterval(scrollToBottom, 300);
+      // Frequent updates during streaming
+      const intervalId = setInterval(performAutoScroll, 200);
 
       return () => clearInterval(intervalId);
     }
