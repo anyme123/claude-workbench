@@ -56,6 +56,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               className={cn(
                 "rounded-[20px] px-5 py-2.5", // More rounded, slightly tighter padding
                 "bg-secondary text-secondary-foreground", // Use semantic colors
+                "border border-border/50 shadow-sm", // Add subtle border and shadow
                 "break-words text-[15px] leading-relaxed",
                 bubbleClassName
               )}
