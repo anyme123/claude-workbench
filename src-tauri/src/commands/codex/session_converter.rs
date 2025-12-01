@@ -740,20 +740,13 @@ impl CodexToClaudeConverter {
         }
     }
 
-    /// 简化 content 格式：单纯文本转为字符串，复杂内容保持数组
+    /// 转换 content 为标准数组格式
     fn simplify_content(&self, content: Vec<ClaudeContentBlock>) -> Option<Value> {
         if content.is_empty() {
             return None;
         }
 
-        // 如果只有一个纯文本块，使用字符串格式
-        if content.len() == 1 {
-            if let ClaudeContentBlock::Text { text } = &content[0] {
-                return Some(Value::String(text.clone()));
-            }
-        }
-
-        // 否则使用数组格式（包含工具调用等）
+        // 统一使用数组格式（与原生 Claude 一致）
         let array: Vec<Value> = content.iter().filter_map(|block| {
             match block {
                 ClaudeContentBlock::Text { text } => {
@@ -1108,12 +1101,15 @@ impl CodexToClaudeConverter {
                 ))
             }
             "todo_list" | "file_change" | "mcp_tool_call" => {
-                // 转换为 system 消息（特殊处理，使用字符串格式）
+                // 转换为 system 消息（使用标准数组格式）
                 Some(ClaudeMessage {
                     message_type: "system".to_string(),
                     message: Some(ClaudeMessageContent {
                         role: "system".to_string(),
-                        content: Some(Value::String(format!("[Codex {}]: {}", item_type, item.to_string()))),
+                        content: Some(serde_json::json!([{
+                            "type": "text",
+                            "text": format!("[Codex {}]: {}", item_type, item.to_string())
+                        }])),
                         usage: None,
                     }),
                     timestamp: Some(timestamp.to_string()),
