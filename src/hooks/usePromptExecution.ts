@@ -645,12 +645,35 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
           // 🔧 FIX: Only process if this tab has an active session
           // This prevents other tabs from processing this tab's messages
           if (!hasActiveSessionRef.current) return;
-          // Always handle generic events as fallback to ensure output visibility
-          handleStreamMessage(event.payload, userInputTranslation || undefined);
+
+          // 🔒 CRITICAL FIX: Session Isolation
+          // If we already have a session ID and have attached specific listeners,
+          // we must IGNORE generic messages to prevent cross-talk/duplication.
+          // The only exception is the initial 'system:init' which might be needed to switch sessions.
+          if (currentSessionId && unlistenRefs.current.length > 0) {
+             try {
+                const msg = JSON.parse(event.payload) as ClaudeStreamMessage;
+                // Only process if it's a NEW session init
+                if (msg.type === 'system' && msg.subtype === 'init' && msg.session_id && msg.session_id !== currentSessionId) {
+                   console.log('[usePromptExecution] Detected NEW session_id from generic listener:', msg.session_id);
+                   // Fall through to processing below
+                } else {
+                   // Ignore all other messages - they are handled by session-specific listeners
+                   return;
+                }
+             } catch {
+                return;
+             }
+          }
 
           // Attempt to extract session_id on the fly (for the very first init)
           try {
             const msg = JSON.parse(event.payload) as ClaudeStreamMessage;
+            
+            // Always process the message if we haven't established a session yet
+            // Or if it is the init message
+            handleStreamMessage(event.payload, userInputTranslation || undefined);
+
             if (msg.type === 'system' && msg.subtype === 'init' && msg.session_id) {
               if (!currentSessionId || currentSessionId !== msg.session_id) {
                 console.log('[usePromptExecution] Detected new session_id from generic listener:', msg.session_id);
