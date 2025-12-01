@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { RotateCcw, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
+import { CornerDownLeft, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { MessageBubble } from "./MessageBubble";
 import { MessageImagePreview, extractImagesFromContent, extractImagePathsFromText } from "./MessageImagePreview";
 import { Button } from "@/components/ui/button";
@@ -326,7 +326,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
                       className="h-6 w-6 p-0 rounded-full text-muted-foreground/40 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-all"
                       onClick={handleRevertClick}
                     >
-                      <RotateCcw className="h-3 w-3" />
+                      <CornerDownLeft className="h-3 w-3" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="top">
