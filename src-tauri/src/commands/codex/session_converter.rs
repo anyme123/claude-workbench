@@ -836,6 +836,44 @@ impl CodexToClaudeConverter {
         // 3. 转换事件为 Claude 消息
         let mut claude_messages: Vec<ClaudeMessage> = Vec::new();
 
+        // 3a. 添加 file-history-snapshot 作为第一条消息（必需！）
+        let first_timestamp = codex_events
+            .first()
+            .and_then(|e| e.timestamp.clone())
+            .unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
+        let snapshot_uuid = uuid::Uuid::new_v4().to_string();
+
+        claude_messages.push(ClaudeMessage {
+            message_type: "file-history-snapshot".to_string(),
+            message: None,
+            timestamp: Some(first_timestamp.clone()),
+            uuid: Some(snapshot_uuid.clone()),
+            parent_uuid: None,
+            session_id: None,
+            cwd: None,
+            version: None,
+            git_branch: None,
+            user_type: None,
+            is_sidechain: None,
+            subtype: None,
+            received_at: None,
+            sent_at: None,
+            model: None,
+            conversion_source: None,
+            extra: {
+                let mut map = HashMap::new();
+                map.insert("messageId".to_string(), Value::String(snapshot_uuid.clone()));
+                map.insert("snapshot".to_string(), serde_json::json!({
+                    "messageId": snapshot_uuid,
+                    "trackedFileBackups": {},
+                    "timestamp": first_timestamp
+                }));
+                map.insert("isSnapshotUpdate".to_string(), Value::Bool(false));
+                map
+            },
+        });
+
+        // 3b. 转换 Codex 事件
         for event in &codex_events {
             if let Some(msg) = self.convert_codex_event(event) {
                 claude_messages.push(msg);
