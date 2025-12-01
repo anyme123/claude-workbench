@@ -1054,9 +1054,10 @@ impl CodexToClaudeConverter {
                 let output = payload.get("output").and_then(|v| v.as_str()).unwrap_or("");
                 let is_error = payload.get("is_error").and_then(|v| v.as_bool()).unwrap_or(false);
 
+                // tool_result 必须在 user 消息中！
                 Some(self.create_claude_message(
-                    "assistant",
-                    "assistant",
+                    "user",  // 改为 user！
+                    "user",  // 改为 user！
                     vec![ClaudeContentBlock::ToolResult {
                         tool_use_id: call_id.to_string(),
                         content: Value::String(output.to_string()),
@@ -1131,35 +1132,14 @@ impl CodexToClaudeConverter {
                 })
             }
             "command_execution" => {
-                let command = item.get("command")?.as_str()?;
-                let output = item
-                    .get("aggregated_output")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
-                let exit_code = item.get("exit_code").and_then(|v| v.as_i64()).unwrap_or(0);
-                let item_id = item
-                    .get("id")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("cmd_unknown");
-
-                Some(self.create_claude_message(
-                    "assistant",
-                    "assistant",
-                    vec![
-                        ClaudeContentBlock::ToolUse {
-                            id: item_id.to_string(),
-                            name: "bash".to_string(),
-                            input: serde_json::json!({ "command": command }),
-                        },
-                        ClaudeContentBlock::ToolResult {
-                            tool_use_id: item_id.to_string(),
-                            content: Value::String(output.to_string()),
-                            is_error: Some(exit_code != 0),
-                        },
-                    ],
-                    timestamp,
-                    None,
-                ))
+                // command_execution 需要拆分为两条消息：
+                // 1. assistant: tool_use
+                // 2. user: tool_result
+                // 但这里只能返回一条，所以只返回 tool_use
+                // tool_result 会在下一个事件中处理
+                // 实际上 Codex 的 command_execution 是已完成的命令，
+                // 应该忽略，因为对应的 function_call 和 function_call_output 已经处理了
+                None
             }
             _ => None,
         }
