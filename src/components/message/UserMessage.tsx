@@ -350,7 +350,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
         
         {/* Right Column: User Avatar */}
         <div className="flex-shrink-0 mt-0.5 select-none">
-          <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-muted text-muted-foreground">
+          <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 dark:bg-indigo-500/20">
             <User className="w-4 h-4" />
           </div>
         </div>
