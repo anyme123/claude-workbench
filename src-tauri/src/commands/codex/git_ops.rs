@@ -467,6 +467,19 @@ pub async fn record_codex_prompt_sent(
 ) -> Result<usize, String> {
     log::info!("[Codex Record] Recording prompt sent for session: {}", session_id);
 
+    // Check if Git operations are disabled in config
+    let execution_config = load_execution_config()
+        .map_err(|e| format!("Failed to load execution config: {}", e))?;
+
+    if execution_config.disable_rewind_git_operations {
+        log::info!("[Codex Record] Git operations disabled, skipping git record");
+        // Still need to return a prompt_index for tracking purposes
+        let git_records = load_codex_git_records(&session_id)?;
+        let prompt_index = git_records.records.len();
+        log::info!("[Codex Record] Returning prompt index #{} (no git record)", prompt_index);
+        return Ok(prompt_index);
+    }
+
     // Ensure Git repository is initialized
     simple_git::ensure_git_repo(&project_path)
         .map_err(|e| format!("Failed to ensure Git repo: {}", e))?;
@@ -512,6 +525,15 @@ pub async fn record_codex_prompt_completed(
 ) -> Result<(), String> {
     log::info!("[Codex Record] Recording prompt #{} completed for session: {}",
         prompt_index, session_id);
+
+    // Check if Git operations are disabled in config
+    let execution_config = load_execution_config()
+        .map_err(|e| format!("Failed to load execution config: {}", e))?;
+
+    if execution_config.disable_rewind_git_operations {
+        log::info!("[Codex Record] Git operations disabled, skipping git commit and record update");
+        return Ok(());
+    }
 
     // Auto-commit any changes made by AI
     let commit_message = format!("[Codex] After prompt #{}", prompt_index);

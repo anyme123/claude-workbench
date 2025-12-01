@@ -429,6 +429,20 @@ pub async fn record_prompt_sent(
 ) -> Result<usize, String> {
     log::info!("[Record Prompt] Recording prompt sent for session: {}", session_id);
 
+    // Check if Git operations are disabled in config
+    let execution_config = load_execution_config()
+        .map_err(|e| format!("Failed to load execution config: {}", e))?;
+
+    if execution_config.disable_rewind_git_operations {
+        log::info!("[Record Prompt] Git operations disabled, skipping git record");
+        // Still need to return a prompt_index for tracking purposes
+        let prompts = extract_prompts_from_jsonl(&session_id, &project_id)
+            .map_err(|e| format!("Failed to extract prompts from JSONL: {}", e))?;
+        let prompt_index = prompts.len();
+        log::info!("[Record Prompt] Returning prompt index #{} (no git record)", prompt_index);
+        return Ok(prompt_index);
+    }
+
     // Ensure Git repository is initialized
     simple_git::ensure_git_repo(&project_path)
         .map_err(|e| format!("Failed to ensure Git repo: {}", e))?;
@@ -444,9 +458,9 @@ pub async fn record_prompt_sent(
     // The new prompt hasn't been written to JSONL yet, so prompts.len() will be the index of the new prompt
     let prompts = extract_prompts_from_jsonl(&session_id, &project_id)
         .map_err(|e| format!("Failed to extract prompts from JSONL: {}", e))?;
-    
+
     let prompt_index = prompts.len(); // This will be the index of the new prompt
-    
+
     log::info!("[Record Prompt] New prompt will be assigned index #{}", prompt_index);
 
     // Create git record
@@ -461,7 +475,7 @@ pub async fn record_prompt_sent(
     save_git_record(&session_id, &project_id, prompt_index, git_record)
         .map_err(|e| format!("Failed to save git record: {}", e))?;
 
-    log::info!("[Record Prompt] ✅ Saved git record for prompt #{} with commit_before: {}", 
+    log::info!("[Record Prompt] ✅ Saved git record for prompt #{} with commit_before: {}",
         prompt_index, commit_before);
 
     Ok(prompt_index)
@@ -476,6 +490,15 @@ pub async fn mark_prompt_completed(
     prompt_index: usize,
 ) -> Result<(), String> {
     log::info!("Marking prompt #{} completed", prompt_index);
+
+    // Check if Git operations are disabled in config
+    let execution_config = load_execution_config()
+        .map_err(|e| format!("Failed to load execution config: {}", e))?;
+
+    if execution_config.disable_rewind_git_operations {
+        log::info!("[Mark Complete] Git operations disabled, skipping git commit and record update");
+        return Ok(());
+    }
 
     // Auto-commit any changes made by AI
     // This ensures each prompt has a distinct git state
@@ -509,7 +532,7 @@ pub async fn mark_prompt_completed(
     save_git_record(&session_id, &project_id, prompt_index, git_record)
         .map_err(|e| format!("Failed to save git record: {}", e))?;
 
-    log::info!("[Mark Complete] ✅ Marked prompt #{} as completed with git_commit_after: {}", 
+    log::info!("[Mark Complete] ✅ Marked prompt #{} as completed with git_commit_after: {}",
         prompt_index, commit_after);
     Ok(())
 }
