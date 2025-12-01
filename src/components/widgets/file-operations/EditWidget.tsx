@@ -124,7 +124,7 @@ export const EditWidget: React.FC<EditWidgetProps> = ({
 
         {/* Diff 视图 */}
         {isExpanded && (
-          <div className="rounded-lg border overflow-hidden text-xs font-mono mt-2 bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800">
+          <div className="rounded-lg border overflow-hidden text-xs font-mono mt-2 bg-muted border-border/50">
             <div className="max-h-[440px] overflow-y-auto overflow-x-auto">
               {diffResult.map((part, index) => {
                 const partClass = part.added
@@ -136,7 +136,7 @@ export const EditWidget: React.FC<EditWidgetProps> = ({
                 // 折叠大量未更改的行
                 if (!part.added && !part.removed && part.count && part.count > 8) {
                   return (
-                    <div key={index} className="px-4 py-1 border-y text-center text-xs bg-zinc-200 dark:bg-zinc-900 border-zinc-300 dark:border-zinc-800 text-zinc-500">
+                    <div key={index} className="px-4 py-1 border-y text-center text-xs bg-secondary/50 border-border/50 text-muted-foreground">
                       ... {part.count} 未更改的行 ...
                     </div>
                   );
