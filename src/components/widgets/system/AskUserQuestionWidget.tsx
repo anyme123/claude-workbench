@@ -81,15 +81,6 @@ export const AskUserQuestionWidget: React.FC<AskUserQuestionWidgetProps> = ({
     setIsCollapsed(!isCollapsed);
   };
 
-  // 🐛 调试：打印所有数据
-  React.useEffect(() => {
-    console.log('[AskUserQuestion] Raw Data:', {
-      answers,
-      result,
-      questions: questions.map(q => ({ header: q.header, question: q.question })),
-    });
-  }, [answers, questions, result]);
-
   // 解析answers - 可能在result.content中以字符串格式存储
   const parsedAnswers = useMemo(() => {
     // 如果answers不为空，直接使用
@@ -114,10 +105,8 @@ export const AskUserQuestionWidget: React.FC<AskUserQuestionWidgetProps> = ({
           const question = match[1].trim(); // 问题部分（包含问号）
           const answer = match[2].trim();   // 答案部分
           parsed[question] = answer;
-          console.log(`[AskUserQuestion] ✓ Parsed: "${question}" -> "${answer}"`);
         }
 
-        console.log('[AskUserQuestion] Total parsed:', Object.keys(parsed).length, 'answers');
         return parsed;
       }
 
@@ -146,7 +135,6 @@ export const AskUserQuestionWidget: React.FC<AskUserQuestionWidgetProps> = ({
       for (const key of possibleKeys) {
         if (key && parsedAnswers[key]) {
           map.set(q.header || q.question, parsedAnswers[key]);
-          console.log(`[AskUserQuestion] ✓ Matched: "${key}" -> "${parsedAnswers[key]}"`);
           break;
         }
       }
@@ -159,14 +147,12 @@ export const AskUserQuestionWidget: React.FC<AskUserQuestionWidgetProps> = ({
           // 检查问题文本的前30个字符是否匹配
           if (questionText.substring(0, 30) === keyLower.substring(0, 30)) {
             map.set(q.header || q.question, answerValue);
-            console.log(`[AskUserQuestion] ≈ Fuzzy matched: "${answerKey}" -> "${answerValue}"`);
             break;
           }
         }
       }
     });
 
-    console.log('[AskUserQuestion] Final mapping:', Array.from(map.entries()));
     return map;
   }, [questions, parsedAnswers]);
 
