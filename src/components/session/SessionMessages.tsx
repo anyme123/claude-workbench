@@ -123,7 +123,7 @@ export const SessionMessages = forwardRef<SessionMessagesRef, SessionMessagesPro
       ref={parentRef}
       className="flex-1 overflow-y-auto relative"
       style={{
-        paddingBottom: 'calc(140px + env(safe-area-inset-bottom))', // 增加底部空间，避免与输入框重叠
+        paddingBottom: 'calc(240px + env(safe-area-inset-bottom))', // 增加底部空间，避免与动态高度的输入框重叠
         paddingTop: '20px',
       }}
     >
