@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Undo2, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
+import { Undo2, AlertTriangle, ChevronDown, ChevronUp, User } from "lucide-react";
 import { MessageBubble } from "./MessageBubble";
 import { MessageImagePreview, extractImagesFromContent, extractImagePathsFromText } from "./MessageImagePreview";
 import { Button } from "@/components/ui/button";
@@ -234,8 +234,9 @@ export const UserMessage: React.FC<UserMessageProps> = ({
       id={promptIndex !== undefined ? `prompt-${promptIndex}` : undefined}
       className={cn("group relative", className)}
     >
-      <div className="flex justify-end">
-        <div className="relative">
+      <div className="flex justify-end gap-4">
+        <div className="relative flex-1 min-w-0 flex justify-end">
+          <div className="relative max-w-full">
           <MessageBubble
             variant="user"
             sideContent={images.length > 0 && (
@@ -344,6 +345,14 @@ export const UserMessage: React.FC<UserMessageProps> = ({
       <div className="absolute -bottom-5 right-1 text-[10px] text-muted-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 select-none pointer-events-none">
         {(message as any).sentAt || (message as any).timestamp ? formatTimestamp((message as any).sentAt || (message as any).timestamp) : ""}
       </div>
+        </div>
+        </div>
+        
+        {/* Right Column: User Avatar */}
+        <div className="flex-shrink-0 mt-0.5 select-none">
+          <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-muted text-muted-foreground">
+            <User className="w-4 h-4" />
+          </div>
         </div>
       </div>
     </div>
