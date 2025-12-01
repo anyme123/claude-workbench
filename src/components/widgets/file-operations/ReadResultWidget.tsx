@@ -137,7 +137,7 @@ export const ReadResultWidget: React.FC<ReadResultWidgetProps> = ({ content, fil
 
       {/* 代码内容 - Separated Box */}
       {(!isLargeFile || isExpanded) && (
-        <div className="rounded-lg border overflow-hidden bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800">
+        <div className="rounded-lg border overflow-hidden bg-zinc-50 dark:bg-[#1e1e1e] border-zinc-200 dark:border-zinc-800">
           <div className="relative overflow-x-auto">
             <SyntaxHighlighter
               language={language}

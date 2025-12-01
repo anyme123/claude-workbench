@@ -55,7 +55,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             <div
               className={cn(
                 "rounded-[20px] px-5 py-2.5", // More rounded, slightly tighter padding
-                "bg-[#F0F0F0] text-foreground dark:bg-[#303030] dark:text-foreground", // Neutral grey instead of primary color
+                "bg-secondary text-secondary-foreground", // Use semantic colors
                 "break-words text-[15px] leading-relaxed",
                 bubbleClassName
               )}

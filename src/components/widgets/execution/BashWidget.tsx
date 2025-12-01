@@ -109,7 +109,7 @@ export const BashWidget: React.FC<BashWidgetProps> = ({
 
       {/* 展开内容 */}
       {isExpanded && (
-        <div className="rounded-lg border overflow-hidden bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800">
+        <div className="rounded-lg border overflow-hidden bg-zinc-50 dark:bg-[#1e1e1e] border-zinc-200 dark:border-zinc-800">
           <div className="p-3 space-y-2">
             {/* 完整命令 */}
             <div className="text-xs font-mono text-muted-foreground border-b border-border/50 pb-2 mb-2 break-all">
