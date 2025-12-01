@@ -59,12 +59,12 @@ export const TaskWidget: React.FC<TaskWidgetProps> = ({
       {/* 头部 */}
       <div className="flex items-center gap-2 mb-2">
         <div className="relative">
-          <Bot className="h-4 w-4 text-purple-500" />
-          <Sparkles className="h-2.5 w-2.5 text-purple-400 absolute -top-1 -right-1" />
+          <Bot className="h-4 w-4 text-blue-500" />
+          <Sparkles className="h-2.5 w-2.5 text-blue-400 absolute -top-1 -right-1" />
         </div>
         <span className="text-sm font-medium">
           激活{subagentType && (
-            <span className="text-purple-600 dark:text-purple-400 mx-1 font-semibold">
+            <span className="text-blue-600 dark:text-blue-400 mx-1 font-semibold">
               [{getSubagentTypeLabel(subagentType)}]
             </span>
           )}任务
@@ -74,10 +74,10 @@ export const TaskWidget: React.FC<TaskWidgetProps> = ({
       <div className="ml-6 space-y-3">
         {/* 任务描述 */}
         {description && (
-          <div className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3">
+          <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3">
             <div className="flex items-center gap-2 mb-1">
-              <Zap className="h-3.5 w-3.5 text-purple-500" />
-              <span className="text-xs font-medium text-purple-600 dark:text-purple-400">任务描述</span>
+              <Zap className="h-3.5 w-3.5 text-blue-500" />
+              <span className="text-xs font-medium text-blue-600 dark:text-blue-400">任务描述</span>
             </div>
             <p className="text-sm text-foreground ml-5">{description}</p>
           </div>
