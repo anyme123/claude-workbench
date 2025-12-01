@@ -70,10 +70,6 @@ pub struct ClaudeMessage {
     #[serde(rename = "type")]
     pub message_type: String,
 
-    /// 子类型 (可选)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub subtype: Option<String>,
-
     /// 消息内容
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<ClaudeMessageContent>,
@@ -81,6 +77,42 @@ pub struct ClaudeMessage {
     /// 时间戳 (ISO 8601)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timestamp: Option<String>,
+
+    /// 消息唯一标识 (UUID)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uuid: Option<String>,
+
+    /// 父消息 UUID（构建消息链）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_uuid: Option<String>,
+
+    /// Session ID
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+
+    /// 工作目录
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cwd: Option<String>,
+
+    /// CLI 版本
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+
+    /// Git 分支
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub git_branch: Option<String>,
+
+    /// 用户类型
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_type: Option<String>,
+
+    /// 是否为侧链
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_sidechain: Option<bool>,
+
+    /// 子类型 (可选)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subtype: Option<String>,
 
     /// 接收时间
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -93,10 +125,6 @@ pub struct ClaudeMessage {
     /// 模型信息
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
-
-    /// Session ID
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub session_id: Option<String>,
 
     /// 转换元数据
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -647,6 +675,40 @@ impl CodexToClaudeConverter {
         }
     }
 
+    /// 创建标准 Claude 消息的辅助函数
+    fn create_claude_message(
+        &self,
+        message_type: &str,
+        role: &str,
+        content: Vec<ClaudeContentBlock>,
+        timestamp: &str,
+        model: Option<String>,
+    ) -> ClaudeMessage {
+        ClaudeMessage {
+            message_type: message_type.to_string(),
+            message: Some(ClaudeMessageContent {
+                role: role.to_string(),
+                content,
+                usage: None,
+            }),
+            timestamp: Some(timestamp.to_string()),
+            uuid: Some(uuid::Uuid::new_v4().to_string()),
+            parent_uuid: None,
+            session_id: Some(self.new_session_id.clone()),
+            cwd: Some(self.project_path.clone()),
+            version: Some("converted".to_string()),
+            git_branch: None,
+            user_type: if role == "user" { Some("external".to_string()) } else { None },
+            is_sidechain: Some(false),
+            subtype: None,
+            received_at: if role != "user" { Some(timestamp.to_string()) } else { None },
+            sent_at: if role == "user" { Some(timestamp.to_string()) } else { None },
+            model,
+            conversion_source: None,
+            extra: HashMap::new(),
+        }
+    }
+
     pub fn convert(&self) -> Result<ConversionResult, String> {
         log::info!(
             "Converting Codex session {} to Claude",
@@ -757,13 +819,23 @@ impl CodexToClaudeConverter {
         let payload = event.payload.as_ref()?;
         Some(ClaudeMessage {
             message_type: "system".to_string(),
-            subtype: Some("init".to_string()),
             message: None,
             timestamp: Some(timestamp.to_string()),
+            uuid: Some(uuid::Uuid::new_v4().to_string()),
+            parent_uuid: None,
+            session_id: Some(self.new_session_id.clone()),
+            cwd: Some(self.project_path.clone()),
+            version: Some("converted".to_string()),
+            git_branch: payload.get("git")
+                .and_then(|g| g.get("branch"))
+                .and_then(|b| b.as_str())
+                .map(String::from),
+            user_type: None,
+            is_sidechain: Some(false),
+            subtype: Some("init".to_string()),
             received_at: Some(timestamp.to_string()),
             sent_at: None,
             model: payload.get("model").and_then(|v| v.as_str()).map(String::from),
-            session_id: Some(self.new_session_id.clone()),
             conversion_source: Some(ConversionSource {
                 engine: "codex".to_string(),
                 session_id: self.source_session_id.clone(),
@@ -805,30 +877,13 @@ impl CodexToClaudeConverter {
                     return None;
                 }
 
-                Some(ClaudeMessage {
-                    message_type: if role == "user" { "user" } else { "assistant" }.to_string(),
-                    subtype: None,
-                    message: Some(ClaudeMessageContent {
-                        role: role.to_string(),
-                        content: blocks,
-                        usage: None,
-                    }),
-                    timestamp: Some(timestamp.to_string()),
-                    received_at: if role != "user" {
-                        Some(timestamp.to_string())
-                    } else {
-                        None
-                    },
-                    sent_at: if role == "user" {
-                        Some(timestamp.to_string())
-                    } else {
-                        None
-                    },
-                    model: None,
-                    session_id: None,
-                    conversion_source: None,
-                    extra: HashMap::new(),
-                })
+                Some(self.create_claude_message(
+                    if role == "user" { "user" } else { "assistant" },
+                    role,
+                    blocks,
+                    timestamp,
+                    None,
+                ))
             }
             "function_call" => {
                 let name = payload.get("name")?.as_str()?;
@@ -838,52 +893,34 @@ impl CodexToClaudeConverter {
                 let claude_tool_name = map_codex_to_claude_tool(name);
                 let input: Value = serde_json::from_str(arguments).unwrap_or(Value::Null);
 
-                Some(ClaudeMessage {
-                    message_type: "assistant".to_string(),
-                    subtype: None,
-                    message: Some(ClaudeMessageContent {
-                        role: "assistant".to_string(),
-                        content: vec![ClaudeContentBlock::ToolUse {
-                            id: call_id.to_string(),
-                            name: claude_tool_name,
-                            input,
-                        }],
-                        usage: None,
-                    }),
-                    timestamp: Some(timestamp.to_string()),
-                    received_at: Some(timestamp.to_string()),
-                    sent_at: None,
-                    model: None,
-                    session_id: None,
-                    conversion_source: None,
-                    extra: HashMap::new(),
-                })
+                Some(self.create_claude_message(
+                    "assistant",
+                    "assistant",
+                    vec![ClaudeContentBlock::ToolUse {
+                        id: call_id.to_string(),
+                        name: claude_tool_name,
+                        input,
+                    }],
+                    timestamp,
+                    None,
+                ))
             }
             "function_call_output" => {
                 let call_id = payload.get("call_id")?.as_str()?;
                 let output = payload.get("output").and_then(|v| v.as_str()).unwrap_or("");
                 let is_error = payload.get("is_error").and_then(|v| v.as_bool()).unwrap_or(false);
 
-                Some(ClaudeMessage {
-                    message_type: "assistant".to_string(),
-                    subtype: None,
-                    message: Some(ClaudeMessageContent {
-                        role: "assistant".to_string(),
-                        content: vec![ClaudeContentBlock::ToolResult {
-                            tool_use_id: call_id.to_string(),
-                            content: Value::String(output.to_string()),
-                            is_error: Some(is_error),
-                        }],
-                        usage: None,
-                    }),
-                    timestamp: Some(timestamp.to_string()),
-                    received_at: Some(timestamp.to_string()),
-                    sent_at: None,
-                    model: None,
-                    session_id: None,
-                    conversion_source: None,
-                    extra: HashMap::new(),
-                })
+                Some(self.create_claude_message(
+                    "assistant",
+                    "assistant",
+                    vec![ClaudeContentBlock::ToolResult {
+                        tool_use_id: call_id.to_string(),
+                        content: Value::String(output.to_string()),
+                        is_error: Some(is_error),
+                    }],
+                    timestamp,
+                    None,
+                ))
             }
             _ => None,
         }
@@ -898,51 +935,32 @@ impl CodexToClaudeConverter {
         match item_type {
             "reasoning" => {
                 let text = item.get("text")?.as_str()?;
-                Some(ClaudeMessage {
-                    message_type: "assistant".to_string(),
-                    subtype: None,
-                    message: Some(ClaudeMessageContent {
-                        role: "assistant".to_string(),
-                        content: vec![ClaudeContentBlock::Thinking {
-                            thinking: text.to_string(),
-                        }],
-                        usage: None,
-                    }),
-                    timestamp: Some(timestamp.to_string()),
-                    received_at: Some(timestamp.to_string()),
-                    sent_at: None,
-                    model: None,
-                    session_id: None,
-                    conversion_source: None,
-                    extra: HashMap::new(),
-                })
+                Some(self.create_claude_message(
+                    "assistant",
+                    "assistant",
+                    vec![ClaudeContentBlock::Thinking {
+                        thinking: text.to_string(),
+                    }],
+                    timestamp,
+                    None,
+                ))
             }
             "agent_message" => {
                 let text = item.get("text")?.as_str()?;
-                Some(ClaudeMessage {
-                    message_type: "assistant".to_string(),
-                    subtype: None,
-                    message: Some(ClaudeMessageContent {
-                        role: "assistant".to_string(),
-                        content: vec![ClaudeContentBlock::Text {
-                            text: text.to_string(),
-                        }],
-                        usage: None,
-                    }),
-                    timestamp: Some(timestamp.to_string()),
-                    received_at: Some(timestamp.to_string()),
-                    sent_at: None,
-                    model: None,
-                    session_id: None,
-                    conversion_source: None,
-                    extra: HashMap::new(),
-                })
+                Some(self.create_claude_message(
+                    "assistant",
+                    "assistant",
+                    vec![ClaudeContentBlock::Text {
+                        text: text.to_string(),
+                    }],
+                    timestamp,
+                    None,
+                ))
             }
             "todo_list" | "file_change" | "mcp_tool_call" => {
-                // 转换为 system 消息
+                // 转换为 system 消息（特殊处理，不使用辅助函数）
                 Some(ClaudeMessage {
                     message_type: "system".to_string(),
-                    subtype: Some(item_type.to_string()),
                     message: Some(ClaudeMessageContent {
                         role: "system".to_string(),
                         content: vec![ClaudeContentBlock::Text {
@@ -951,10 +969,18 @@ impl CodexToClaudeConverter {
                         usage: None,
                     }),
                     timestamp: Some(timestamp.to_string()),
+                    uuid: Some(uuid::Uuid::new_v4().to_string()),
+                    parent_uuid: None,
+                    session_id: Some(self.new_session_id.clone()),
+                    cwd: Some(self.project_path.clone()),
+                    version: Some("converted".to_string()),
+                    git_branch: None,
+                    user_type: None,
+                    is_sidechain: Some(false),
+                    subtype: Some(item_type.to_string()),
                     received_at: Some(timestamp.to_string()),
                     sent_at: None,
                     model: None,
-                    session_id: None,
                     conversion_source: None,
                     extra: HashMap::new(),
                 })
@@ -971,33 +997,24 @@ impl CodexToClaudeConverter {
                     .and_then(|v| v.as_str())
                     .unwrap_or("cmd_unknown");
 
-                Some(ClaudeMessage {
-                    message_type: "assistant".to_string(),
-                    subtype: None,
-                    message: Some(ClaudeMessageContent {
-                        role: "assistant".to_string(),
-                        content: vec![
-                            ClaudeContentBlock::ToolUse {
-                                id: item_id.to_string(),
-                                name: "bash".to_string(),
-                                input: serde_json::json!({ "command": command }),
-                            },
-                            ClaudeContentBlock::ToolResult {
-                                tool_use_id: item_id.to_string(),
-                                content: Value::String(output.to_string()),
-                                is_error: Some(exit_code != 0),
-                            },
-                        ],
-                        usage: None,
-                    }),
-                    timestamp: Some(timestamp.to_string()),
-                    received_at: Some(timestamp.to_string()),
-                    sent_at: None,
-                    model: None,
-                    session_id: None,
-                    conversion_source: None,
-                    extra: HashMap::new(),
-                })
+                Some(self.create_claude_message(
+                    "assistant",
+                    "assistant",
+                    vec![
+                        ClaudeContentBlock::ToolUse {
+                            id: item_id.to_string(),
+                            name: "bash".to_string(),
+                            input: serde_json::json!({ "command": command }),
+                        },
+                        ClaudeContentBlock::ToolResult {
+                            tool_use_id: item_id.to_string(),
+                            content: Value::String(output.to_string()),
+                            is_error: Some(exit_code != 0),
+                        },
+                    ],
+                    timestamp,
+                    None,
+                ))
             }
             _ => None,
         }
