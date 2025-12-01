@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import type { Question, QuestionOption, UserAnswers } from "@/contexts/UserQuestionContext";
+import type { Question, UserAnswers } from "@/contexts/UserQuestionContext";
 
 export interface AskUserQuestionDialogProps {
   /** 是否显示对话框 */

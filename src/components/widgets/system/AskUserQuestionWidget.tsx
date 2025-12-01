@@ -188,7 +188,7 @@ export const AskUserQuestionWidget: React.FC<AskUserQuestionWidgetProps> = ({
           const keyLower = answerKey.toLowerCase();
           // 检查问题文本的前30个字符是否匹配
           if (questionText.substring(0, 30) === keyLower.substring(0, 30)) {
-            map.set(q.header || q.question, answerValue);
+            map.set(q.header || q.question, answerValue as string | string[]);
             break;
           }
         }
