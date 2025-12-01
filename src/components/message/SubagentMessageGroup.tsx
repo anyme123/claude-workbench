@@ -95,7 +95,7 @@ export const SubagentMessageGroup: React.FC<SubagentMessageGroupProps> = ({
           onClick={() => setIsExpanded(!isExpanded)}
         >
           <div className="flex items-center gap-2 min-w-0">
-            <div className="flex items-center justify-center w-5 h-5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400">
+            <div className="flex items-center justify-center w-5 h-5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">
               <Bot className="h-3.5 w-3.5" />
             </div>
             <span className="text-sm font-medium text-foreground/80 truncate">
