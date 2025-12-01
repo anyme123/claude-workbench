@@ -273,19 +273,28 @@ pub fn map_claude_to_codex_tool(claude_name: &str) -> String {
 /// Claude Session → Codex Session 转换器
 pub struct ClaudeToCodexConverter {
     source_session_id: String,
-    project_id: String,      // 实际的目录名（如 C--Users-...）
-    project_path: String,    // 原始项目路径
-    new_session_id: String,  // 格式: rollout-{uuid}
+    project_id: String,          // 实际的目录名（如 C--Users-...）
+    project_path: String,        // 原始项目路径
+    new_session_uuid: String,    // 纯 UUID（用于文件内容）
+    new_session_filename: String, // rollout-{uuid}（用于文件名）
 }
 
 impl ClaudeToCodexConverter {
     pub fn new(source_session_id: String, project_id: String, project_path: String) -> Self {
-        let new_session_id = format!("rollout-{}", uuid::Uuid::new_v4());
+        let uuid = uuid::Uuid::new_v4().to_string();
+        let new_session_uuid = uuid.clone();
+
+        // 生成带时间戳的文件名：rollout-2025-12-01T09-26-15-{uuid}
+        let now = chrono::Utc::now();
+        let timestamp = now.format("%Y-%m-%dT%H-%M-%S").to_string();
+        let new_session_filename = format!("rollout-{}-{}", timestamp, uuid);
+
         Self {
             source_session_id,
             project_id,
             project_path,
-            new_session_id,
+            new_session_uuid,
+            new_session_filename,
         }
     }
 
@@ -328,12 +337,12 @@ impl ClaudeToCodexConverter {
         log::info!(
             "Successfully converted {} messages to Codex session {}",
             codex_events.len(),
-            self.new_session_id
+            self.new_session_filename
         );
 
         Ok(ConversionResult {
             success: true,
-            new_session_id: self.new_session_id.clone(),
+            new_session_id: self.new_session_filename.clone(), // 返回文件名（带 rollout- 前缀）
             target_engine: "codex".to_string(),
             message_count: codex_events.len(),
             source: ConversionSource {
@@ -414,10 +423,13 @@ impl ClaudeToCodexConverter {
             event_type: "session_meta".to_string(),
             timestamp: Some(timestamp.to_string()),
             payload: Some(serde_json::json!({
-                "id": self.new_session_id,
+                "id": self.new_session_uuid, // 使用纯 UUID（不带 rollout- 前缀）
                 "timestamp": timestamp,
                 "cwd": self.project_path,
-                "model": model,
+                "originator": "session_converter",
+                "cli_version": "converted",
+                "source": "conversion",
+                "model_provider": model.map(|_| "converted").unwrap_or("unknown"),
                 "conversion_source": {
                     "engine": "claude",
                     "session_id": self.source_session_id,
@@ -470,7 +482,8 @@ impl ClaudeToCodexConverter {
             .iter()
             .filter_map(|b| match b {
                 ClaudeContentBlock::Text { text } => {
-                    Some(serde_json::json!({"type": "text", "text": text}))
+                    // Codex 使用 input_text 类型
+                    Some(serde_json::json!({"type": "input_text", "text": text}))
                 }
                 _ => None,
             })
@@ -480,10 +493,9 @@ impl ClaudeToCodexConverter {
             event_type: "response_item".to_string(),
             timestamp: Some(timestamp.to_string()),
             payload: Some(serde_json::json!({
-                "role": "user",
                 "type": "message",
-                "content": content,
-                "timestamp": timestamp
+                "role": "user",
+                "content": content
             })),
             thread_id: None,
             usage: None,
@@ -505,10 +517,9 @@ impl ClaudeToCodexConverter {
                         event_type: "response_item".to_string(),
                         timestamp: Some(timestamp.to_string()),
                         payload: Some(serde_json::json!({
-                            "role": "assistant",
                             "type": "message",
-                            "content": [{ "type": "text", "text": text }],
-                            "timestamp": timestamp
+                            "role": "assistant",
+                            "content": [{ "type": "output_text", "text": text }] // Codex 使用 output_text
                         })),
                         thread_id: None,
                         usage: None,
@@ -596,7 +607,7 @@ impl ClaudeToCodexConverter {
         std::fs::create_dir_all(&date_dir)
             .map_err(|e| format!("Failed to create date directory: {}", e))?;
 
-        let file_path = date_dir.join(format!("{}.jsonl", self.new_session_id));
+        let file_path = date_dir.join(format!("{}.jsonl", self.new_session_filename));
 
         let mut file = std::fs::File::create(&file_path)
             .map_err(|e| format!("Failed to create session file: {}", e))?;
