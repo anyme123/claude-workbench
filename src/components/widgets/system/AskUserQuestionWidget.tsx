@@ -246,26 +246,39 @@ export const AskUserQuestionWidget: React.FC<AskUserQuestionWidgetProps> = ({
                             <div
                               key={optIndex}
                               className={cn(
-                                "text-xs p-2 rounded transition-all",
+                                "text-xs p-2.5 rounded-md transition-all relative",
                                 isSelected
-                                  ? "bg-green-500/20 border border-green-500/30 shadow-sm"
+                                  ? "bg-green-500/15 border-2 border-green-500/40 shadow-md"
                                   : "bg-muted/30 hover:bg-muted/50 border border-transparent"
                               )}
                             >
-                              <div className="flex items-start gap-2">
-                                {isSelected && (
-                                  <Check className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
+                              <div className="flex items-start gap-2.5">
+                                {/* 选中徽章 */}
+                                {isSelected ? (
+                                  <div className="flex-shrink-0 h-5 w-5 rounded-full bg-green-500 flex items-center justify-center shadow-sm">
+                                    <Check className="h-3.5 w-3.5 text-white font-bold" strokeWidth={3} />
+                                  </div>
+                                ) : (
+                                  <div className="flex-shrink-0 h-5 w-5 rounded-full border-2 border-muted-foreground/30 bg-background" />
                                 )}
-                                <div className="flex-1">
-                                  <div
-                                    className={cn(
-                                      "font-medium",
-                                      isSelected
-                                        ? "text-green-700 dark:text-green-300"
-                                        : "text-foreground"
+                                <div className="flex-1 pt-0.5">
+                                  <div className="flex items-center gap-2">
+                                    <div
+                                      className={cn(
+                                        "font-medium",
+                                        isSelected
+                                          ? "text-green-700 dark:text-green-300"
+                                          : "text-foreground"
+                                      )}
+                                    >
+                                      {option.label}
+                                    </div>
+                                    {/* 选中标签 */}
+                                    {isSelected && (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-green-500 text-white shadow-sm">
+                                        已选择
+                                      </span>
                                     )}
-                                  >
-                                    {option.label}
                                   </div>
                                   {option.description && (
                                     <div
