@@ -50,6 +50,9 @@ import {
   // Plan 模式切换
   PlanModeWidget,
 
+  // 用户交互类
+  AskUserQuestionWidget,
+
   // 文件操作（已补充）
   WriteWidget,
 
@@ -583,6 +586,18 @@ export function initializeToolRegistry(): void {
         result: props.result,
       })),
       description: '进入 Plan 模式',
+    },
+
+    // AskUserQuestion - 用户问题询问
+    {
+      name: 'askuserquestion',
+      pattern: /^ask[-_]?user[-_]?question$/i,
+      render: createToolAdapter(AskUserQuestionWidget, (props) => ({
+        questions: props.input?.questions || [],
+        answers: props.input?.answers || props.result?.content?.answers || {},
+        result: props.result,
+      })),
+      description: '用户问题询问工具',
     },
   ];
 
