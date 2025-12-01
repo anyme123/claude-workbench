@@ -128,9 +128,9 @@ export const EditWidget: React.FC<EditWidgetProps> = ({
             <div className="max-h-[440px] overflow-y-auto overflow-x-auto">
               {diffResult.map((part, index) => {
                 const partClass = part.added
-                  ? 'bg-green-100 dark:bg-green-950/20'
+                  ? 'bg-green-500/15 dark:bg-green-500/20'
                   : part.removed
-                  ? 'bg-red-100 dark:bg-red-950/20'
+                  ? 'bg-red-500/15 dark:bg-red-500/20'
                   : '';
 
                 // 折叠大量未更改的行
