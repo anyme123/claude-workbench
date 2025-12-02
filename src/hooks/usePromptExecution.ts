@@ -18,7 +18,8 @@ import { api, type Session } from '@/lib/api';
 import { translationMiddleware, isSlashCommand, type TranslationResult } from '@/lib/translationMiddleware';
 import type { ClaudeStreamMessage } from '@/types/claude';
 import type { ModelType } from '@/components/FloatingPromptInput/types';
-import { codexConverter } from '@/lib/codexConverter';
+// 🔧 FIX: 移除全局单例导入,改为在每个会话中动态创建实例
+// import { codexConverter } from '@/lib/codexConverter'; // REMOVED - 避免全局单例污染
 import type { CodexExecutionMode } from '@/types/codex';
 
 // ============================================================================
@@ -287,8 +288,11 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
         // 🆕 Codex Event Listeners (with session isolation support)
         // ====================================================================
         if (executionEngine === 'codex') {
-          // Reset Codex converter state for new session
-          codexConverter.reset();
+          // 🔧 CRITICAL FIX: 创建会话级别的转换器实例,避免全局单例污染
+          // 问题: 全局 codexConverter 单例会在多个标签页间共享状态(threadId, itemMap, toolResults)
+          // 解决: 每个会话创建独立的转换器实例
+          const { CodexEventConverter } = await import('@/lib/codexConverter');
+          const sessionCodexConverter = new CodexEventConverter();
 
           // 🔧 FIX: Track current Codex session ID for channel isolation
           let currentCodexSessionId: string | null = null;
@@ -321,8 +325,8 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
             }
             processedCodexMessages.add(messageId);
 
-            // Convert Codex JSONL event to ClaudeStreamMessage
-            const message = codexConverter.convertEvent(payload);
+            // 🔧 FIX: 使用会话级别的转换器实例
+            const message = sessionCodexConverter.convertEvent(payload);
             if (message) {
               setMessages(prev => [...prev, message]);
               setRawJsonlOutput((prev) => [...prev, payload]);
@@ -449,13 +453,19 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
             }
           });
 
-          // Listen for Codex JSONL output (global fallback)
+          // 🔧 FIX: 移除全局监听器,避免跨会话串流
+          // Listen for Codex JSONL output (global fallback) - REMOVED to prevent cross-session data leakage
+          // 问题: 多个标签页都监听全局 'codex-output' 事件,导致消息被多个会话接收
+          // 解决: 仅在会话ID未知的早期阶段处理全局事件,且必须验证会话归属
           const codexOutputUnlisten = await listen<string>('codex-output', (evt) => {
-            // 🔧 FIX: Only process if this tab has an active session
-            // This prevents other tabs from processing this tab's messages
+            // 🔧 CRITICAL FIX: 只在尚未收到会话ID时处理全局事件
             if (!hasActiveSessionRef.current) return;
-            // Only process if we haven't switched to session-specific listener yet
-            // or if session_id not yet known (backward compatibility)
+            if (currentCodexSessionId) {
+              // 已经有会话ID,不再处理全局事件(应该由会话特定监听器处理)
+              console.log('[usePromptExecution] Ignoring global codex-output (session-specific listener active)');
+              return;
+            }
+            // 只在会话ID未知的早期阶段处理
             processCodexOutput(evt.payload);
           });
 
@@ -466,11 +476,17 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
             setError(evt.payload);
           });
 
-          // Listen for Codex completion (global fallback)
+          // 🔧 FIX: 移除全局完成事件监听器,避免跨会话串流
+          // Listen for Codex completion (global fallback) - FIXED to prevent cross-session interference
           const codexCompleteUnlisten = await listen<boolean>('codex-complete', async () => {
-            // 🔧 FIX: Only process if this tab has an active session
+            // 🔧 CRITICAL FIX: 只在尚未收到会话ID时处理全局事件
             if (!hasActiveSessionRef.current) return;
-            console.log('[usePromptExecution] Received codex-complete (global)');
+            if (currentCodexSessionId) {
+              // 已经有会话ID,不再处理全局完成事件(应该由会话特定监听器处理)
+              console.log('[usePromptExecution] Ignoring global codex-complete (session-specific listener active)');
+              return;
+            }
+            console.log('[usePromptExecution] Received codex-complete (global fallback)');
             await processCodexComplete();
           });
 
@@ -768,9 +784,17 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
             };
           });
 
-          // Listen for Gemini output (global fallback)
+          // 🔧 FIX: 移除全局监听器,避免跨会话串流
+          // Listen for Gemini output (global fallback) - FIXED to prevent cross-session data leakage
           const geminiOutputUnlisten = await listen<string>('gemini-output', (evt) => {
+            // 🔧 CRITICAL FIX: 只在尚未收到会话ID时处理全局事件
             if (!hasActiveSessionRef.current) return;
+            if (currentGeminiSessionId) {
+              // 已经有会话ID,不再处理全局事件(应该由会话特定监听器处理)
+              console.log('[usePromptExecution] Ignoring global gemini-output (session-specific listener active)');
+              return;
+            }
+            // 只在会话ID未知的早期阶段处理
             processGeminiOutput(evt.payload);
           });
 
@@ -786,10 +810,17 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
             }
           });
 
-          // Listen for Gemini completion (global fallback)
+          // 🔧 FIX: 移除全局完成事件监听器,避免跨会话串流
+          // Listen for Gemini completion (global fallback) - FIXED to prevent cross-session interference
           const geminiCompleteUnlisten = await listen<boolean>('gemini-complete', async () => {
+            // 🔧 CRITICAL FIX: 只在尚未收到会话ID时处理全局事件
             if (!hasActiveSessionRef.current) return;
-            console.log('[usePromptExecution] Received gemini-complete (global)');
+            if (currentGeminiSessionId) {
+              // 已经有会话ID,不再处理全局完成事件(应该由会话特定监听器处理)
+              console.log('[usePromptExecution] Ignoring global gemini-complete (session-specific listener active)');
+              return;
+            }
+            console.log('[usePromptExecution] Received gemini-complete (global fallback)');
             await processGeminiComplete();
           });
 
@@ -1012,25 +1043,25 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
         let hasRecordedPrompt = recordedPromptIndex >= 0;
 
         // ====================================================================
-        // Generic Listeners (Catch-all)
+        // Generic Listeners (Catch-all) - FIXED to prevent cross-session data leakage
         // ====================================================================
         const genericOutputUnlisten = await listen<string>('claude-output', async (event) => {
-          // 🔧 FIX: Only process if this tab has an active session
-          // This prevents other tabs from processing this tab's messages
+          // 🔧 CRITICAL FIX: 只在尚未收到会话ID时处理全局事件
           if (!hasActiveSessionRef.current) return;
 
-          // 🔒 CRITICAL FIX: Session Isolation
-          // Only ignore generic messages AFTER we've attached session-specific listeners.
-          // Before that, we must process all messages through the generic listener.
+          // 🔒 CRITICAL FIX: Session Isolation - 严格隔离全局事件处理
+          // 问题: 多个标签页都监听全局 'claude-output',导致消息被多个会话接收
+          // 解决: 只在会话ID未知的早期阶段处理全局事件
           if (hasAttachedSessionListeners) {
              try {
                 const msg = JSON.parse(event.payload) as ClaudeStreamMessage;
-                // Only process if it's a NEW session init (different session_id)
+                // 只处理新会话的 init 消息(session_id 不同)
                 if (msg.type === 'system' && msg.subtype === 'init' && msg.session_id && msg.session_id !== currentSessionId) {
                    console.log('[usePromptExecution] Detected NEW session_id from generic listener:', msg.session_id);
                    // Fall through to processing below
                 } else {
-                   // Ignore all other messages - they are handled by session-specific listeners
+                   // ⚠️ 忽略所有其他消息 - 应该由会话特定监听器处理
+                   console.log('[usePromptExecution] Ignoring global claude-output (session-specific listener active)');
                    return;
                 }
              } catch {
