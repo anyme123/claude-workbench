@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useRef, useState } from "react";
+import React, { memo, useEffect, useRef, useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -6,6 +6,7 @@ import { getClaudeSyntaxTheme } from "@/lib/claudeSyntaxTheme";
 import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
 import { copyTextToClipboard } from "@/lib/clipboard";
+import { useTypewriter } from "@/hooks/useTypewriter";
 
 interface CodeBlockRendererProps {
   language: string;
@@ -115,33 +116,64 @@ interface MessageContentProps {
   className?: string;
   /** 是否正在流式输出 */
   isStreaming?: boolean;
+  /** 是否启用打字机效果 */
+  enableTypewriter?: boolean;
+  /** 打字机速度（毫秒/字符） */
+  typewriterSpeed?: number;
 }
 
 /**
  * 消息内容渲染组件
- * 支持Markdown + 代码高亮
+ * 支持Markdown + 代码高亮 + 打字机效果
  */
 const MessageContentComponent: React.FC<MessageContentProps> = ({
   content,
   className,
-  isStreaming = false
+  isStreaming = false,
+  enableTypewriter = true,
+  typewriterSpeed = 8
 }) => {
   const { theme } = useTheme();
   const syntaxTheme = getClaudeSyntaxTheme(theme === 'dark');
 
+  // 使用打字机效果
+  const {
+    displayedText,
+    isTyping,
+    skipToEnd
+  } = useTypewriter(content, {
+    enabled: enableTypewriter && isStreaming, // 只在流式输出时启用打字机效果
+    speed: typewriterSpeed,
+    isStreaming
+  });
+
+  // 决定显示的内容：流式输出时使用打字机效果，否则直接显示全部
+  const textToDisplay = (enableTypewriter && isStreaming) ? displayedText : content;
+
+  // 双击跳过打字机效果
+  const handleDoubleClick = useCallback(() => {
+    if (isTyping) {
+      skipToEnd();
+    }
+  }, [isTyping, skipToEnd]);
+
   return (
-    <div className={cn(
-      "prose prose-sm dark:prose-invert max-w-none",
-      "prose-headings:font-semibold prose-headings:tracking-tight",
-      "prose-p:leading-relaxed prose-p:text-foreground/90",
-      "prose-a:text-primary prose-a:no-underline prose-a:border-b prose-a:border-primary/30 hover:prose-a:border-primary prose-a:transition-colors",
-      "prose-blockquote:border-l-4 prose-blockquote:border-primary/20 prose-blockquote:bg-muted/30 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r-lg prose-blockquote:not-italic",
-      "prose-ul:list-disc prose-ul:pl-6",
-      "prose-ol:list-decimal prose-ol:pl-6",
-      "prose-li:marker:text-muted-foreground",
-      "prose-hr:border-border/50 prose-hr:my-8",
-      className
-    )}>
+    <div
+      className={cn(
+        "prose prose-sm dark:prose-invert max-w-none",
+        "prose-headings:font-semibold prose-headings:tracking-tight",
+        "prose-p:leading-relaxed prose-p:text-foreground/90",
+        "prose-a:text-primary prose-a:no-underline prose-a:border-b prose-a:border-primary/30 hover:prose-a:border-primary prose-a:transition-colors",
+        "prose-blockquote:border-l-4 prose-blockquote:border-primary/20 prose-blockquote:bg-muted/30 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r-lg prose-blockquote:not-italic",
+        "prose-ul:list-disc prose-ul:pl-6",
+        "prose-ol:list-decimal prose-ol:pl-6",
+        "prose-li:marker:text-muted-foreground",
+        "prose-hr:border-border/50 prose-hr:my-8",
+        className
+      )}
+      onDoubleClick={handleDoubleClick}
+      title={isTyping ? "双击跳过打字效果" : undefined}
+    >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -174,7 +206,7 @@ const MessageContentComponent: React.FC<MessageContentProps> = ({
               />
             );
           },
-          
+
           // 链接渲染
           a({ node, children, href, ...props }) {
             return (
@@ -189,7 +221,7 @@ const MessageContentComponent: React.FC<MessageContentProps> = ({
               </a>
             );
           },
-          
+
           // 表格渲染
           table({ node, children, ...props }) {
             return (
@@ -200,7 +232,7 @@ const MessageContentComponent: React.FC<MessageContentProps> = ({
               </div>
             );
           },
-          
+
           thead({ node, children, ...props }) {
             return (
               <thead className="bg-muted/50" {...props}>
@@ -208,7 +240,7 @@ const MessageContentComponent: React.FC<MessageContentProps> = ({
               </thead>
             );
           },
-          
+
           th({ node, children, ...props }) {
             return (
               <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider" {...props}>
@@ -216,7 +248,7 @@ const MessageContentComponent: React.FC<MessageContentProps> = ({
               </th>
             );
           },
-          
+
           td({ node, children, ...props }) {
             return (
               <td className="px-4 py-3 text-sm text-foreground/80 whitespace-nowrap" {...props}>
@@ -226,12 +258,19 @@ const MessageContentComponent: React.FC<MessageContentProps> = ({
           },
         }}
       >
-        {content}
+        {textToDisplay}
       </ReactMarkdown>
-      
-      {/* 流式输出指示器 */}
-      {isStreaming && (
-        <span className="inline-block w-1.5 h-4 ml-1 bg-primary animate-pulse rounded-full" />
+
+      {/* 流式输出光标指示器 - 只在打字中或流式输出时显示 */}
+      {(isStreaming || isTyping) && (
+        <span
+          className={cn(
+            "inline-block w-1.5 h-4 ml-1 rounded-full",
+            isTyping
+              ? "bg-primary animate-pulse"
+              : "bg-primary/50 animate-pulse"
+          )}
+        />
       )}
     </div>
   );
