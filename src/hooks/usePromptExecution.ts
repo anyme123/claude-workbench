@@ -89,7 +89,7 @@ interface UsePromptExecutionConfig {
   setLastTranslationResult: (result: TranslationResult | null) => void;
   setQueuedPrompts: React.Dispatch<React.SetStateAction<QueuedPrompt[]>>;
   setRawJsonlOutput: React.Dispatch<React.SetStateAction<string[]>>;
-  setExtractedSessionInfo: React.Dispatch<React.SetStateAction<{ sessionId: string; projectId: string } | null>>;
+  setExtractedSessionInfo: React.Dispatch<React.SetStateAction<{ sessionId: string; projectId: string; engine?: 'claude' | 'codex' | 'gemini' } | null>>;
   setIsFirstPrompt: (isFirst: boolean) => void;
 
   // External Hook Functions
@@ -344,7 +344,7 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
 
                 // Save session info for resuming (uses thread_id, not channel ID)
                 const projectId = projectPath.replace(/[^a-zA-Z0-9]/g, '-');
-                setExtractedSessionInfo({ sessionId: codexThreadId, projectId });
+                setExtractedSessionInfo({ sessionId: codexThreadId, projectId, engine: 'codex' });
 
                 // Mark as not first prompt anymore
                 setIsFirstPrompt(false);
@@ -649,7 +649,7 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
 
                   // Save session info
                   const projectId = projectPath.replace(/[^a-zA-Z0-9]/g, '-');
-                  setExtractedSessionInfo({ sessionId: data.session_id, projectId });
+                  setExtractedSessionInfo({ sessionId: data.session_id, projectId, engine: 'gemini' });
                   setIsFirstPrompt(false);
 
                   // Store pending session info
@@ -1061,7 +1061,7 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
                 // If we haven't extracted session info before, do it now
                 if (!extractedSessionInfo) {
                   const projectId = projectPath.replace(/[^a-zA-Z0-9]/g, '-');
-                  setExtractedSessionInfo({ sessionId: msg.session_id, projectId });
+                  setExtractedSessionInfo({ sessionId: msg.session_id, projectId, engine: 'claude' });
                 }
 
                 // Record prompt after system:init (user message already written to JSONL)

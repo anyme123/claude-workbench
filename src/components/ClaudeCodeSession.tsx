@@ -95,7 +95,7 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [_rawJsonlOutput, setRawJsonlOutput] = useState<string[]>([]); // Kept for hooks, not directly used
   const [isFirstPrompt, setIsFirstPrompt] = useState(!session); // Key state for session continuation
-  const [extractedSessionInfo, setExtractedSessionInfo] = useState<{ sessionId: string; projectId: string } | null>(null);
+  const [extractedSessionInfo, setExtractedSessionInfo] = useState<{ sessionId: string; projectId: string; engine?: 'claude' | 'codex' | 'gemini' } | null>(null);
   const [claudeSessionId, setClaudeSessionId] = useState<string | null>(null);
 
   // Plan Mode state - 使用 Context（方案 B-1）
@@ -293,6 +293,7 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
         project_id: extractedSessionInfo.projectId,
         project_path: projectPath,
         created_at: Date.now(),
+        engine: extractedSessionInfo.engine, // 🔧 FIX: Include engine field
       } as Session;
     }
     return null;
