@@ -130,13 +130,20 @@ export const ViewRouter: React.FC = () => {
   // Handlers
   const handleSessionDelete = async (sessionId: string, projectId: string) => {
     try {
-      // Find the session to check if it's a Codex session
+      // Find the session to check its engine type
       const session = sessions.find(s => s.id === sessionId);
-      const isCodexSession = session && (session as any).engine === 'codex';
+      const engine = (session as any)?.engine;
 
-      if (isCodexSession) {
+      if (engine === 'codex') {
         // Delete Codex session
         await api.deleteCodexSession(sessionId);
+      } else if (engine === 'gemini') {
+        // Delete Gemini session - need project path from selectedProject
+        if (selectedProject) {
+          await api.deleteGeminiSession(selectedProject.path, sessionId);
+        } else {
+          throw new Error('No project selected for Gemini session deletion');
+        }
       } else {
         // Delete Claude session
         await api.deleteSession(sessionId, projectId);
@@ -154,15 +161,19 @@ export const ViewRouter: React.FC = () => {
 
   const handleSessionsBatchDelete = async (sessionIds: string[], projectId: string) => {
     try {
-      // Separate Claude and Codex sessions
+      // Separate Claude, Codex and Gemini sessions
       const claudeSessionIds: string[] = [];
       const codexSessionIds: string[] = [];
+      const geminiSessionIds: string[] = [];
 
       sessionIds.forEach(id => {
         const session = sessions.find(s => s.id === id);
         if (session) {
-          if ((session as any).engine === 'codex') {
+          const engine = (session as any).engine;
+          if (engine === 'codex') {
             codexSessionIds.push(id);
+          } else if (engine === 'gemini') {
+            geminiSessionIds.push(id);
           } else {
             claudeSessionIds.push(id);
           }
@@ -172,6 +183,13 @@ export const ViewRouter: React.FC = () => {
       // Delete Codex sessions individually
       for (const id of codexSessionIds) {
         await api.deleteCodexSession(id);
+      }
+
+      // Delete Gemini sessions individually
+      if (selectedProject) {
+        for (const id of geminiSessionIds) {
+          await api.deleteGeminiSession(selectedProject.path, id);
+        }
       }
 
       // Delete Claude sessions in batch
