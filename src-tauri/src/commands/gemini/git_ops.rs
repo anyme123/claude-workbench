@@ -207,20 +207,18 @@ fn extract_gemini_prompts(session_id: &str, project_path: &str) -> Result<Vec<Pr
 
     for message in messages {
         // Only process user messages
-        let role = message.get("role").and_then(|r| r.as_str());
-        if role != Some("user") {
+        // Gemini CLI stores messages with "type" field, not "role"
+        let msg_type = message.get("type").and_then(|t| t.as_str());
+        if msg_type != Some("user") {
             continue;
         }
 
-        // Extract text content from parts
-        let mut extracted_text = String::new();
-        if let Some(parts) = message.get("parts").and_then(|p| p.as_array()) {
-            for part in parts {
-                if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
-                    extracted_text.push_str(text);
-                }
-            }
-        }
+        // Extract text content from "content" field (direct string)
+        // Gemini CLI stores content as a simple string, not as parts array
+        let extracted_text = message.get("content")
+            .and_then(|c| c.as_str())
+            .unwrap_or("")
+            .to_string();
 
         if extracted_text.trim().is_empty() {
             continue;
