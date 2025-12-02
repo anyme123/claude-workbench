@@ -1124,6 +1124,7 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
           <RevertPromptPicker
             sessionId={effectiveSession.id}
             projectId={effectiveSession.project_id}
+            projectPath={projectPath}
             engine={effectiveSession.engine || executionEngineConfig.engine || 'claude'}
             onSelect={handleRevert}
             onClose={() => setShowRevertPicker(false)}

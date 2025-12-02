@@ -32,6 +32,8 @@ interface RevertPromptPickerProps {
   sessionId: string;
   /** 项目ID */
   projectId: string;
+  /** 项目路径（Gemini 需要） */
+  projectPath?: string;
   /** 会话引擎（claude/codex/gemini），用于选择正确的撤回接口 */
   engine?: 'claude' | 'codex' | 'gemini';
   /** 选择回调 */
@@ -56,6 +58,7 @@ const truncateText = (text: string, maxLength: number = 80): string => {
 export const RevertPromptPicker: React.FC<RevertPromptPickerProps> = ({
   sessionId,
   projectId,
+  projectPath = '',
   engine = 'claude',
   onSelect,
   onClose,
@@ -77,7 +80,7 @@ export const RevertPromptPicker: React.FC<RevertPromptPickerProps> = ({
         const promptRecords = isCodex
           ? await api.getCodexPromptList(sessionId)
           : isGemini
-          ? await api.getGeminiPromptList(sessionId, projectId)
+          ? await api.getGeminiPromptList(sessionId, projectPath)
           : await api.getPromptList(sessionId, projectId);
 
         console.log('[RevertPromptPicker] Loaded prompts from backend:', promptRecords);
@@ -105,7 +108,7 @@ export const RevertPromptPicker: React.FC<RevertPromptPickerProps> = ({
     };
 
     loadPrompts();
-  }, [sessionId, projectId, onClose, isCodex, isGemini]);
+  }, [sessionId, projectId, projectPath, onClose, isCodex, isGemini]);
 
   // 异步加载每个提示词的撤回能力
   useEffect(() => {
@@ -116,7 +119,7 @@ export const RevertPromptPicker: React.FC<RevertPromptPickerProps> = ({
             const capabilities = isCodex
               ? await api.checkCodexRewindCapabilities(sessionId, prompt.index)
               : isGemini
-              ? await api.checkGeminiRewindCapabilities(sessionId, projectId, prompt.index)
+              ? await api.checkGeminiRewindCapabilities(sessionId, projectPath, prompt.index)
               : await api.checkRewindCapabilities(
                   sessionId,
                   projectId,

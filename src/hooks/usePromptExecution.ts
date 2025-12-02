@@ -1328,6 +1328,20 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
           debug: false
         });
 
+        // 🆕 Store pending prompt info for completion recording
+        // 已有会话: recordedPromptIndex 已在前面设置
+        // 新会话: geminiPendingInfo.promptIndex 将在 gemini-session-init 事件后设置
+        const pendingIndex = recordedPromptIndex >= 0 ? recordedPromptIndex : geminiPendingInfo?.promptIndex;
+        const pendingSessionId = effectiveSession?.id || geminiPendingInfo?.sessionId || null;
+        if (pendingIndex !== undefined && pendingSessionId) {
+          window.__geminiPendingPrompt = {
+            sessionId: pendingSessionId,
+            projectPath,
+            promptIndex: pendingIndex
+          };
+          console.log('[Gemini Rewind] Set pending prompt:', { sessionId: pendingSessionId, promptIndex: pendingIndex });
+        }
+
       } else {
         // ====================================================================
         // Claude Code Execution Branch
