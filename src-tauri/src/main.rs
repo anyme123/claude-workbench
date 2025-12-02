@@ -89,6 +89,11 @@ use commands::codex::{
     convert_session, convert_claude_to_codex, convert_codex_to_claude,
     CodexProcessState,
 };
+use commands::gemini::{
+    execute_gemini, cancel_gemini, check_gemini_installed,
+    get_gemini_config, update_gemini_config, get_gemini_models,
+    GeminiProcessState,
+};
 use process::ProcessRegistryState;
 use tauri::{Manager, WindowEvent};
 use tauri_plugin_window_state::Builder as WindowStatePlugin;
@@ -130,6 +135,9 @@ fn main() {
 
             // Initialize Codex process state
             app.manage(CodexProcessState::default());
+
+            // Initialize Gemini process state
+            app.manage(GeminiProcessState::default());
 
             // Initialize auto-compact manager for context management
             let auto_compact_manager =
@@ -393,6 +401,13 @@ fn main() {
             focus_session_window,
             emit_to_window,
             broadcast_to_session_windows,
+            // Google Gemini CLI Integration
+            execute_gemini,
+            cancel_gemini,
+            check_gemini_installed,
+            get_gemini_config,
+            update_gemini_config,
+            get_gemini_models,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

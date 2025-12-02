@@ -32,8 +32,8 @@ interface RevertPromptPickerProps {
   sessionId: string;
   /** 项目ID */
   projectId: string;
-  /** 会话引擎（claude/codex），用于选择正确的撤回接口 */
-  engine?: 'claude' | 'codex';
+  /** 会话引擎（claude/codex/gemini），用于选择正确的撤回接口 */
+  engine?: 'claude' | 'codex' | 'gemini';
   /** 选择回调 */
   onSelect: (promptIndex: number, mode: RewindMode) => void;
   /** 关闭回调 */

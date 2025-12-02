@@ -16,8 +16,8 @@ export interface CreateSessionWindowParams {
   sessionId?: string;
   projectPath?: string;
   title: string;
-  /** Execution engine: 'claude' | 'codex' */
-  engine?: 'claude' | 'codex';
+  /** Execution engine: 'claude' | 'codex' | 'gemini' */
+  engine?: 'claude' | 'codex' | 'gemini';
 }
 
 export interface WindowCreationResult {

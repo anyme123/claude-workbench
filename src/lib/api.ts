@@ -54,8 +54,8 @@ export interface Session {
   last_message_timestamp?: string;
   /** The model used in this session (if available) */
   model?: string;
-  /** 🆕 Execution engine: 'claude' | 'codex' */
-  engine?: 'claude' | 'codex';
+  /** Execution engine: 'claude' | 'codex' | 'gemini' */
+  engine?: 'claude' | 'codex' | 'gemini';
 }
 
 /**
@@ -3050,6 +3050,90 @@ export const api = {
       });
     } catch (error) {
       console.error("Failed to convert Codex to Claude:", error);
+      throw error;
+    }
+  },
+
+  // ==================== Google Gemini CLI Integration ====================
+
+  /**
+   * Executes a Gemini CLI session with streaming output
+   * @param options - Gemini execution options
+   * @returns Promise resolving when execution starts (events are streamed via event listeners)
+   */
+  async executeGemini(options: import('@/types/gemini').GeminiExecutionOptions): Promise<void> {
+    try {
+      return await invoke("execute_gemini", { options });
+    } catch (error) {
+      console.error("Failed to execute Gemini:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Cancels a running Gemini execution
+   * @param sessionId - Optional session ID to cancel (cancels all if not provided)
+   */
+  async cancelGemini(sessionId?: string): Promise<void> {
+    try {
+      await invoke("cancel_gemini", { sessionId });
+    } catch (error) {
+      console.error("Failed to cancel Gemini:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Checks if Gemini CLI is installed
+   * @returns Promise resolving to installation status
+   */
+  async checkGeminiInstalled(): Promise<import('@/types/gemini').GeminiInstallStatus> {
+    try {
+      return await invoke("check_gemini_installed");
+    } catch (error) {
+      console.error("Failed to check Gemini installation:", error);
+      return {
+        installed: false,
+        error: String(error),
+      };
+    }
+  },
+
+  /**
+   * Gets Gemini CLI configuration
+   * @returns Promise resolving to Gemini configuration
+   */
+  async getGeminiConfig(): Promise<import('@/types/gemini').GeminiConfig> {
+    try {
+      return await invoke("get_gemini_config");
+    } catch (error) {
+      console.error("Failed to get Gemini config:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Updates Gemini CLI configuration
+   * @param config - New configuration to apply
+   */
+  async updateGeminiConfig(config: import('@/types/gemini').GeminiConfig): Promise<void> {
+    try {
+      await invoke("update_gemini_config", { config });
+    } catch (error) {
+      console.error("Failed to update Gemini config:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Gets available Gemini models
+   * @returns Promise resolving to array of model information
+   */
+  async getGeminiModels(): Promise<import('@/types/gemini').GeminiModelInfo[]> {
+    try {
+      return await invoke("get_gemini_models");
+    } catch (error) {
+      console.error("Failed to get Gemini models:", error);
       throw error;
     }
   },

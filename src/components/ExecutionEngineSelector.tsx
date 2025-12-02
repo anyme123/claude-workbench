@@ -27,7 +27,7 @@ import type { CodexExecutionMode } from '@/types/codex';
 // Type Definitions
 // ============================================================================
 
-export type ExecutionEngine = 'claude' | 'codex';
+export type ExecutionEngine = 'claude' | 'codex' | 'gemini';
 export type CodexRuntimeMode = 'auto' | 'native' | 'wsl';
 
 export interface ExecutionEngineConfig {
@@ -36,6 +36,9 @@ export interface ExecutionEngineConfig {
   codexMode?: CodexExecutionMode;
   codexModel?: string;
   codexApiKey?: string;
+  // Gemini-specific config
+  geminiModel?: string;
+  geminiApprovalMode?: 'auto_edit' | 'yolo' | 'default';
 }
 
 interface CodexModeConfig {

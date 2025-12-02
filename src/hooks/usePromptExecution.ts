@@ -58,10 +58,12 @@ interface UsePromptExecutionConfig {
   isFirstPrompt: boolean;
   extractedSessionInfo: { sessionId: string; projectId: string } | null;
 
-  // 🆕 Codex Integration
-  executionEngine?: 'claude' | 'codex'; // 执行引擎选择 (默认: 'claude')
+  // 🆕 Execution Engine Integration (Claude/Codex/Gemini)
+  executionEngine?: 'claude' | 'codex' | 'gemini'; // 执行引擎选择 (默认: 'claude')
   codexMode?: CodexExecutionMode;       // Codex 执行模式
   codexModel?: string;                  // Codex 模型 (e.g., 'gpt-5.1-codex-max')
+  geminiModel?: string;                 // Gemini 模型 (e.g., 'gemini-2.5-pro')
+  geminiApprovalMode?: 'auto_edit' | 'yolo' | 'default'; // Gemini 审批模式
 
   // Refs
   hasActiveSessionRef: React.MutableRefObject<boolean>;
