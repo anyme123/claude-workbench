@@ -244,18 +244,22 @@ export function initializeToolRegistry(): void {
     },
 
     // LS - 列出目录
+    // 支持: ls, list_directory (Gemini)
     {
       name: 'ls',
+      pattern: /^(?:ls|list[-_]?directory)$/i,
       render: createToolAdapter(LSWidget, (props) => ({
-        path: props.input?.path || '.',
+        path: props.input?.path || props.input?.directory_path || '.',
         result: props.result,
       })),
       description: '目录列表工具',
     },
 
     // Read - 读取文件
+    // 支持: read, read_file (Gemini)
     {
       name: 'read',
+      pattern: /^(?:read|read[-_]?file)$/i,
       render: createToolAdapter(ReadWidget, (props) => ({
         filePath: props.input?.file_path || props.input?.path || '',
         result: props.result,
@@ -284,8 +288,10 @@ export function initializeToolRegistry(): void {
     },
 
     // Edit - 编辑文件
+    // 支持: edit, replace (Gemini)
     {
       name: 'edit',
+      pattern: /^(?:edit|replace)$/i,
       render: createToolAdapter(EditWidget, (props) => {
         const input = props.input || {};
 
@@ -356,8 +362,10 @@ export function initializeToolRegistry(): void {
     },
 
     // Bash - 执行命令
+    // 支持: bash, run_shell_command (Gemini), shell_command (Codex)
     {
       name: 'bash',
+      pattern: /^(?:bash|run[-_]?shell[-_]?command|shell[-_]?command)$/i,
       render: createToolAdapter(BashWidget, (props) => {
         const input = props.input || {};
         // Support multiple parameter formats:
@@ -388,12 +396,14 @@ export function initializeToolRegistry(): void {
     },
 
     // Grep - 搜索内容
+    // 支持: grep, search_file_content (Gemini), search_files (Codex)
     {
       name: 'grep',
+      pattern: /^(?:grep|search[-_]?file[-_]?content|search[-_]?files)$/i,
       render: createToolAdapter(GrepWidget, (props) => ({
-        pattern: props.input?.pattern || '',
-        path: props.input?.path,
-        include: props.input?.include,
+        pattern: props.input?.pattern || props.input?.query || props.input?.search_term || '',
+        path: props.input?.path || props.input?.directory,
+        include: props.input?.include || props.input?.file_pattern,
         exclude: props.input?.exclude,
         result: props.result,
       })),
@@ -401,22 +411,26 @@ export function initializeToolRegistry(): void {
     },
 
     // Glob - 查找文件
+    // 支持: glob, find_files (Codex), list_files
     {
       name: 'glob',
+      pattern: /^(?:glob|find[-_]?files|list[-_]?files)$/i,
       render: createToolAdapter(GlobWidget, (props) => ({
-        pattern: props.input?.pattern || '',
-        path: props.input?.path,
+        pattern: props.input?.pattern || props.input?.file_pattern || '',
+        path: props.input?.path || props.input?.directory,
         result: props.result,
       })),
       description: '文件匹配查找工具',
     },
 
     // Write - 写入文件
+    // 支持: write, write_file (Gemini), create_file (Codex), save_file
     {
       name: 'write',
+      pattern: /^(?:write|write[-_]?file|create[-_]?file|save[-_]?file)$/i,
       render: createToolAdapter(WriteWidget, (props) => {
         const input = props.input || {};
-        const filePath = input.file_path || '';
+        const filePath = input.file_path || input.path || '';
         let content = input.content || '';
 
         // Codex 格式：如果没有 content 但有 diff/patch，从中提取新内容
@@ -435,18 +449,22 @@ export function initializeToolRegistry(): void {
     },
 
     // WebSearch - 网络搜索
+    // 支持: websearch, web_search (Codex/Gemini), search_web
     {
       name: 'websearch',
+      pattern: /^(?:web[-_]?search|search[-_]?web)$/i,
       render: createToolAdapter(WebSearchWidget, (props) => ({
-        query: props.input?.query || '',
+        query: props.input?.query || props.input?.search_query || '',
         result: props.result,
       })),
       description: '网络搜索工具',
     },
 
     // WebFetch - 获取网页
+    // 支持: webfetch, web_fetch, fetch_url (Codex), get_url
     {
       name: 'webfetch',
+      pattern: /^(?:web[-_]?fetch|fetch[-_]?url|get[-_]?url)$/i,
       render: createToolAdapter(WebFetchWidget, (props) => ({
         url: props.input?.url || '',
         prompt: props.input?.prompt,
