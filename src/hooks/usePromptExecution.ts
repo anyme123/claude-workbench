@@ -241,17 +241,10 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
               codexPendingInfo.sessionId = effectiveSession.id;
             }
           } else if (executionEngine === 'gemini') {
-            // ✅ Gemini 使用专用的记录 API（写入 ~/.gemini/git-records/）
-            recordedPromptIndex = await api.recordGeminiPromptSent(
-              effectiveSession.id,
-              projectPath,
-              prompt
-            );
-            console.log('[Gemini Revert] [OK] Recorded Gemini prompt #', recordedPromptIndex, '(existing session)');
-            if (geminiPendingInfo) {
-              geminiPendingInfo.promptIndex = recordedPromptIndex;
-              geminiPendingInfo.sessionId = effectiveSession.id;
-            }
+            // 🔧 FIX: Gemini must wait for real CLI session ID from init event
+            // Don't record here even for existing sessions - Gemini CLI may generate new session ID
+            console.log('[Gemini Revert] [WAIT] Will record prompt after Gemini CLI session ID is received');
+            // geminiPendingInfo will be used in the init event handler
           } else {
             // Claude Code 使用原有的记录 API（写入 .claude-sessions/）
             recordedPromptIndex = await api.recordPromptSent(
