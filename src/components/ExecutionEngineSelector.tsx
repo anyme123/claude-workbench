@@ -1,12 +1,12 @@
 /**
  * ExecutionEngineSelector Component
  *
- * Allows users to switch between Claude Code and Codex execution engines
+ * Allows users to switch between Claude Code, Codex, and Gemini CLI execution engines
  * with appropriate configuration options for each.
  */
 
 import React, { useState, useEffect } from 'react';
-import { Settings, Zap, Check, Monitor, Terminal } from 'lucide-react';
+import { Settings, Zap, Check, Monitor, Terminal, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -70,11 +70,15 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
   const [codexVersion, setCodexVersion] = useState<string | null>(null);
   const [codexModeConfig, setCodexModeConfig] = useState<CodexModeConfig | null>(null);
   const [savingConfig, setSavingConfig] = useState(false);
+  // Gemini state
+  const [geminiAvailable, setGeminiAvailable] = useState(false);
+  const [geminiVersion, setGeminiVersion] = useState<string | null>(null);
 
-  // Check Codex availability and mode config on mount
+  // Check Codex and Gemini availability on mount
   useEffect(() => {
     checkCodexAvailability();
     loadCodexModeConfig();
+    checkGeminiAvailability();
   }, []);
 
   const checkCodexAvailability = async () => {
@@ -102,6 +106,22 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
       setCodexModeConfig(config);
     } catch (error) {
       console.error('[ExecutionEngineSelector] Failed to load Codex mode config:', error);
+    }
+  };
+
+  const checkGeminiAvailability = async () => {
+    try {
+      if (!api || typeof api.checkGeminiInstalled !== 'function') {
+        console.warn('[ExecutionEngineSelector] api.checkGeminiInstalled is not available');
+        return;
+      }
+
+      const result = await api.checkGeminiInstalled();
+      setGeminiAvailable(result.installed);
+      setGeminiVersion(result.version || null);
+    } catch (error) {
+      console.error('[ExecutionEngineSelector] Failed to check Gemini availability:', error);
+      setGeminiAvailable(false);
     }
   };
 
@@ -184,6 +204,11 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
       return;
     }
 
+    if (engine === 'gemini' && !geminiAvailable) {
+      alert('Gemini CLI 未安装或不可用。请运行 npm install -g @google/gemini-cli 安装。');
+      return;
+    }
+
     onChange({
       ...value,
       engine,
@@ -204,6 +229,34 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
     });
   };
 
+  const handleGeminiModelChange = (model: string) => {
+    onChange({
+      ...value,
+      geminiModel: model,
+    });
+  };
+
+  const handleGeminiApprovalModeChange = (mode: 'auto_edit' | 'yolo' | 'default') => {
+    onChange({
+      ...value,
+      geminiApprovalMode: mode,
+    });
+  };
+
+  // Get display name for current engine
+  const getEngineDisplayName = () => {
+    switch (value.engine) {
+      case 'claude':
+        return 'Claude Code';
+      case 'codex':
+        return 'Codex';
+      case 'gemini':
+        return 'Gemini';
+      default:
+        return 'Claude Code';
+    }
+  };
+
   return (
     <Popover
       open={showSettings}
@@ -216,11 +269,20 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
           className={`justify-between ${className}`}
         >
           <div className="flex items-center gap-2">
-            <Zap className="h-4 w-4" />
-            <span>{value.engine === 'claude' ? 'Claude Code' : 'Codex'}</span>
+            {value.engine === 'gemini' ? (
+              <Sparkles className="h-4 w-4" />
+            ) : (
+              <Zap className="h-4 w-4" />
+            )}
+            <span>{getEngineDisplayName()}</span>
             {value.engine === 'codex' && value.codexMode && (
               <span className="text-xs text-muted-foreground">
                 ({value.codexMode === 'read-only' ? '只读' : value.codexMode === 'full-auto' ? '编辑' : '完全访问'})
+              </span>
+            )}
+            {value.engine === 'gemini' && value.geminiApprovalMode && (
+              <span className="text-xs text-muted-foreground">
+                ({value.geminiApprovalMode === 'yolo' ? 'YOLO' : value.geminiApprovalMode === 'auto_edit' ? '自动编辑' : '默认'})
               </span>
             )}
           </div>
@@ -232,14 +294,14 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
           {/* Engine Selection */}
           <div className="space-y-2">
             <Label className="text-sm font-medium">执行引擎</Label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <Button
                 variant={value.engine === 'claude' ? 'default' : 'outline'}
                 className="justify-start"
                 onClick={() => handleEngineChange('claude')}
               >
                 <Check className={`mr-2 h-4 w-4 ${value.engine === 'claude' ? 'opacity-100' : 'opacity-0'}`} />
-                Claude Code
+                Claude
               </Button>
               <Button
                 variant={value.engine === 'codex' ? 'default' : 'outline'}
@@ -249,6 +311,15 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
               >
                 <Check className={`mr-2 h-4 w-4 ${value.engine === 'codex' ? 'opacity-100' : 'opacity-0'}`} />
                 Codex
+              </Button>
+              <Button
+                variant={value.engine === 'gemini' ? 'default' : 'outline'}
+                className="justify-start"
+                onClick={() => handleEngineChange('gemini')}
+                disabled={!geminiAvailable}
+              >
+                <Check className={`mr-2 h-4 w-4 ${value.engine === 'gemini' ? 'opacity-100' : 'opacity-0'}`} />
+                Gemini
               </Button>
             </div>
           </div>
@@ -409,6 +480,89 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
                   </div>
                 </>
               )}
+            </>
+          )}
+
+          {/* Gemini-specific settings */}
+          {value.engine === 'gemini' && (
+            <>
+              <div className="h-px bg-border" />
+
+              {/* Model Selection */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">模型</Label>
+                <Select
+                  value={value.geminiModel || 'gemini-2.5-pro'}
+                  onValueChange={handleGeminiModelChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="gemini-2.5-pro">
+                      <div>
+                        <div className="font-medium">Gemini 2.5 Pro</div>
+                        <div className="text-xs text-muted-foreground">最强大，1M 上下文</div>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="gemini-2.5-flash">
+                      <div>
+                        <div className="font-medium">Gemini 2.5 Flash</div>
+                        <div className="text-xs text-muted-foreground">快速高效</div>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="gemini-2.0-flash-exp">
+                      <div>
+                        <div className="font-medium">Gemini 2.0 Flash (实验)</div>
+                        <div className="text-xs text-muted-foreground">实验性版本</div>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Approval Mode */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">审批模式</Label>
+                <Select
+                  value={value.geminiApprovalMode || 'auto_edit'}
+                  onValueChange={(v) => handleGeminiApprovalModeChange(v as 'auto_edit' | 'yolo' | 'default')}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="default">
+                      <div>
+                        <div className="font-medium">默认</div>
+                        <div className="text-xs text-muted-foreground">每次操作需确认</div>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="auto_edit">
+                      <div>
+                        <div className="font-medium">自动编辑</div>
+                        <div className="text-xs text-muted-foreground">自动批准文件编辑</div>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="yolo">
+                      <div>
+                        <div className="font-medium text-destructive">YOLO 模式</div>
+                        <div className="text-xs text-muted-foreground">⚠️ 自动批准所有操作</div>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Status */}
+              <div className="rounded-md border p-2 bg-muted/50">
+                <div className="flex items-center gap-2 text-xs">
+                  <Sparkles className="h-3 w-3" />
+                  <div className={`h-2 w-2 rounded-full ${geminiAvailable ? 'bg-green-500' : 'bg-red-500'}`} />
+                  <span>{geminiAvailable ? '已安装' : '未安装'}</span>
+                  {geminiVersion && <span className="text-muted-foreground">• {geminiVersion}</span>}
+                </div>
+              </div>
             </>
           )}
 

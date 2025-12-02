@@ -30,5 +30,25 @@ export interface ClaudeStreamMessage {
       output_tokens: number;
     };
   };
+  // Google Gemini metadata (when converted from Gemini events)
+  geminiMetadata?: {
+    provider: 'gemini';
+    eventType: string;
+    delta?: boolean;
+    stats?: {
+      total_tokens?: number;
+      input_tokens?: number;
+      output_tokens?: number;
+      duration_ms?: number;
+      tool_calls?: number;
+    };
+    toolName?: string;
+    toolId?: string;
+    status?: string;
+    exitCode?: number;
+    raw?: unknown;
+  };
+  // Execution engine identifier
+  engine?: 'claude' | 'codex' | 'gemini';
   [key: string]: any;
 }

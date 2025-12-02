@@ -25,13 +25,17 @@ import type { CodexExecutionMode } from '@/types/codex';
 // Global Type Declarations
 // ============================================================================
 
-// Extend window object for Codex pending prompt tracking
+// Extend window object for Codex/Gemini pending prompt tracking
 declare global {
   interface Window {
     __codexPendingPrompt?: {
       sessionId: string;
       projectPath: string;
       promptIndex: number;
+    };
+    __geminiPendingSession?: {
+      sessionId: string;
+      projectPath: string;
     };
   }
 }
@@ -108,6 +112,8 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
     executionEngine = 'claude', // 🆕 默认使用 Claude Code
     codexMode = 'read-only',     // 🆕 Codex 默认只读模式
     codexModel,                  // 🆕 Codex 模型
+    geminiModel,                 // 🆕 Gemini 模型
+    geminiApprovalMode,          // 🆕 Gemini 审批模式
     hasActiveSessionRef,
     unlistenRefs,
     isMountedRef,
@@ -443,6 +449,214 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
           });
 
           unlistenRefs.current = [codexSessionInitUnlisten, codexOutputUnlisten, codexErrorUnlisten, codexCompleteUnlisten];
+        } else if (executionEngine === 'gemini') {
+          // ====================================================================
+          // 🆕 Gemini Event Listeners
+          // ====================================================================
+
+          // 🔧 Track current Gemini session ID for channel isolation
+          let currentGeminiSessionId: string | null = null;
+          // 🔧 Track processed message IDs to prevent duplicates
+          const processedGeminiMessages = new Set<string>();
+
+          // Helper function to generate message ID for deduplication
+          const getGeminiMessageId = (payload: string): string => {
+            let hash = 0;
+            for (let i = 0; i < payload.length; i++) {
+              const char = payload.charCodeAt(i);
+              hash = ((hash << 5) - hash) + char;
+              hash = hash & hash;
+            }
+            return `gemini-${hash}`;
+          };
+
+          // Helper function to convert Gemini unified message to ClaudeStreamMessage
+          const convertGeminiToClaudeMessage = (data: any): ClaudeStreamMessage | null => {
+            try {
+              // The backend already converts to unified format, we just need to ensure type compatibility
+              // Note: geminiMetadata is already included in data from backend conversion
+
+              if (data.type === 'system' && data.subtype === 'init') {
+                return {
+                  type: 'system',
+                  subtype: 'init',
+                  session_id: data.session_id,
+                  model: data.model,
+                  timestamp: data.timestamp,
+                  engine: 'gemini' as const
+                };
+              }
+
+              if (data.type === 'assistant' || data.type === 'user') {
+                return {
+                  type: data.type,
+                  message: data.message,
+                  timestamp: data.timestamp,
+                  engine: 'gemini' as const
+                };
+              }
+
+              if (data.type === 'result') {
+                return {
+                  type: 'result',
+                  subtype: data.subtype || 'success',
+                  usage: data.usage,
+                  timestamp: data.timestamp,
+                  engine: 'gemini' as const
+                };
+              }
+
+              if (data.type === 'system' && data.subtype === 'error') {
+                return {
+                  type: 'system',
+                  subtype: 'error',
+                  error: data.error,
+                  timestamp: data.timestamp,
+                  engine: 'gemini' as const
+                };
+              }
+
+              // Fallback for unknown types
+              return {
+                type: 'system',
+                subtype: 'raw',
+                message: { content: [{ type: 'text', text: JSON.stringify(data) }] },
+                engine: 'gemini' as const
+              };
+            } catch (err) {
+              console.error('[usePromptExecution] Failed to convert Gemini message:', err);
+              return null;
+            }
+          };
+
+          // Helper function to process Gemini output
+          const processGeminiOutput = (payload: string) => {
+            if (!isMountedRef.current) return;
+
+            // 🔧 FIX: Deduplicate messages
+            const messageId = getGeminiMessageId(payload);
+            if (processedGeminiMessages.has(messageId)) {
+              console.log('[usePromptExecution] Skipping duplicate Gemini message:', messageId);
+              return;
+            }
+            processedGeminiMessages.add(messageId);
+
+            try {
+              const data = JSON.parse(payload);
+              const message = convertGeminiToClaudeMessage(data);
+
+              if (message) {
+                setMessages(prev => [...prev, message]);
+                setRawJsonlOutput((prev) => [...prev, payload]);
+
+                // Extract session_id from init message
+                if (message.type === 'system' && message.subtype === 'init' && data.session_id) {
+                  currentGeminiSessionId = data.session_id;
+                  setClaudeSessionId(data.session_id);
+
+                  // Save session info
+                  const projectId = projectPath.replace(/[^a-zA-Z0-9]/g, '-');
+                  setExtractedSessionInfo({ sessionId: data.session_id, projectId });
+                  setIsFirstPrompt(false);
+
+                  // Store pending session info
+                  window.__geminiPendingSession = {
+                    sessionId: data.session_id,
+                    projectPath
+                  };
+                }
+              }
+            } catch (err) {
+              console.error('[usePromptExecution] Failed to process Gemini output:', err, payload);
+            }
+          };
+
+          // Helper function to process Gemini completion
+          const processGeminiComplete = async () => {
+            setIsLoading(false);
+            hasActiveSessionRef.current = false;
+            isListeningRef.current = false;
+
+            // Clean up listeners
+            unlistenRefs.current.forEach(u => u && typeof u === 'function' && u());
+            unlistenRefs.current = [];
+
+            // Clear pending session
+            delete window.__geminiPendingSession;
+
+            // Process queued prompts
+            if (queuedPromptsRef.current.length > 0) {
+              const [nextPrompt, ...remainingPrompts] = queuedPromptsRef.current;
+              setQueuedPrompts(remainingPrompts);
+
+              setTimeout(() => {
+                handleSendPrompt(nextPrompt.prompt, nextPrompt.model);
+              }, 100);
+            }
+          };
+
+          // Helper function to attach session-specific listeners
+          const attachGeminiSessionListeners = async (sessionId: string) => {
+            console.log('[usePromptExecution] Attaching Gemini session-specific listeners for:', sessionId);
+
+            const specificOutputUnlisten = await listen<string>(`gemini-output:${sessionId}`, (evt) => {
+              processGeminiOutput(evt.payload);
+            });
+
+            const specificCompleteUnlisten = await listen<boolean>(`gemini-complete:${sessionId}`, async () => {
+              console.log('[usePromptExecution] Received gemini-complete (session-specific):', sessionId);
+              await processGeminiComplete();
+            });
+
+            // Replace existing listeners with session-specific ones
+            unlistenRefs.current.forEach((u) => u && typeof u === 'function' && u());
+            unlistenRefs.current = [specificOutputUnlisten, specificCompleteUnlisten];
+          };
+
+          // Listen for session init event
+          const geminiSessionInitUnlisten = await listen<string>('gemini-session-init', async (evt) => {
+            if (!hasActiveSessionRef.current) return;
+            console.log('[usePromptExecution] Received gemini-session-init:', evt.payload);
+            try {
+              const data = JSON.parse(evt.payload);
+              if (data.session_id && !currentGeminiSessionId) {
+                const sessionId = data.session_id as string;
+                currentGeminiSessionId = sessionId;
+                setClaudeSessionId(sessionId);
+                // Switch to session-specific listeners
+                await attachGeminiSessionListeners(sessionId);
+              }
+            } catch (err) {
+              console.error('[usePromptExecution] Failed to parse gemini-session-init:', err);
+            }
+          });
+
+          // Listen for Gemini output (global fallback)
+          const geminiOutputUnlisten = await listen<string>('gemini-output', (evt) => {
+            if (!hasActiveSessionRef.current) return;
+            processGeminiOutput(evt.payload);
+          });
+
+          // Listen for Gemini errors
+          const geminiErrorUnlisten = await listen<string>('gemini-error', (evt) => {
+            if (!hasActiveSessionRef.current) return;
+            console.error('[usePromptExecution] Gemini error:', evt.payload);
+            try {
+              const data = JSON.parse(evt.payload);
+              setError(data.error?.message || evt.payload);
+            } catch {
+              setError(evt.payload);
+            }
+          });
+
+          // Listen for Gemini completion (global fallback)
+          const geminiCompleteUnlisten = await listen<boolean>('gemini-complete', async () => {
+            if (!hasActiveSessionRef.current) return;
+            console.log('[usePromptExecution] Received gemini-complete (global)');
+            await processGeminiComplete();
+          });
+
+          unlistenRefs.current = [geminiSessionInitUnlisten, geminiOutputUnlisten, geminiErrorUnlisten, geminiCompleteUnlisten];
         } else {
           // --------------------------------------------------------------------
           // Claude Code Event Listener Setup Strategy
@@ -846,6 +1060,7 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
           },
           sentAt: new Date().toISOString(),
           ...(executionEngine === 'codex' ? { engine: 'codex' as const } : {}),
+          ...(executionEngine === 'gemini' ? { engine: 'gemini' as const } : {}),
           // Add translation metadata for debugging/info
           translationMeta: userInputTranslation ? {
             wasTranslated: userInputTranslation.wasTranslated,
@@ -916,6 +1131,31 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
             promptIndex: pendingIndex
           };
         }
+      } else if (executionEngine === 'gemini') {
+        // ====================================================================
+        // 🆕 Gemini Execution Branch
+        // ====================================================================
+        const { geminiModel, geminiApprovalMode } = config;
+
+        console.log('[usePromptExecution] Executing Gemini with:', {
+          projectPath,
+          prompt: processedPrompt.substring(0, 100) + '...',
+          model: geminiModel || 'gemini-2.5-pro',
+          approvalMode: geminiApprovalMode || 'auto_edit'
+        });
+
+        // Gemini CLI does not support session resumption yet
+        // Always start a new execution
+        setIsFirstPrompt(false);
+
+        await api.executeGemini({
+          projectPath,
+          prompt: processedPrompt,
+          model: geminiModel || 'gemini-2.5-pro',
+          approvalMode: geminiApprovalMode || 'auto_edit',
+          debug: false
+        });
+
       } else {
         // ====================================================================
         // Claude Code Execution Branch
@@ -962,9 +1202,11 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
     isActive,
     isFirstPrompt,
     extractedSessionInfo,
-    executionEngine,  // 🆕 Codex integration
+    executionEngine,  // 🆕 Codex/Gemini integration
     codexMode,        // 🆕 Codex integration
     codexModel,       // 🆕 Codex integration
+    geminiModel,      // 🆕 Gemini integration
+    geminiApprovalMode, // 🆕 Gemini integration
     hasActiveSessionRef,
     unlistenRefs,
     isMountedRef,
