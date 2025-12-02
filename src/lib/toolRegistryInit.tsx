@@ -135,6 +135,32 @@ function parseDiffContent(diff: string): { oldContent: string; newContent: strin
 }
 
 /**
+ * 解析 Gemini functionResponse 格式的结果
+ * Gemini 返回格式: [{"functionResponse":{"id":"...","name":"...","response":{"output":"..."}}}]
+ * @param result 原始结果对象
+ * @returns 解析后的结果对象，如果无法解析则返回原结果
+ */
+function parseGeminiResult(result: any): any {
+  if (!result?.content) return result;
+
+  const content = result.content;
+
+  // 如果是字符串且看起来是 JSON 数组
+  if (typeof content === 'string' && content.trim().startsWith('[{')) {
+    try {
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed) && parsed[0]?.functionResponse?.response?.output !== undefined) {
+        return { content: parsed[0].functionResponse.response.output };
+      }
+    } catch {
+      // 解析失败，保持原样
+    }
+  }
+
+  return result;
+}
+
+/**
  * 注册所有内置工具
  */
 export function initializeToolRegistry(): void {
@@ -250,7 +276,7 @@ export function initializeToolRegistry(): void {
       pattern: /^(?:ls|list[-_]?directory)$/i,
       render: createToolAdapter(LSWidget, (props) => ({
         path: props.input?.path || props.input?.directory_path || '.',
-        result: props.result,
+        result: parseGeminiResult(props.result),
       })),
       description: '目录列表工具',
     },
@@ -262,7 +288,7 @@ export function initializeToolRegistry(): void {
       pattern: /^(?:read|read[-_]?file)$/i,
       render: createToolAdapter(ReadWidget, (props) => ({
         filePath: props.input?.file_path || props.input?.path || '',
-        result: props.result,
+        result: parseGeminiResult(props.result),
       })),
       description: '文件读取工具',
     },
@@ -294,6 +320,7 @@ export function initializeToolRegistry(): void {
       pattern: /^(?:edit|replace)$/i,
       render: createToolAdapter(EditWidget, (props) => {
         const input = props.input || {};
+        const result = parseGeminiResult(props.result);
 
         // Claude Code 格式：old_string + new_string
         if (input.old_string !== undefined || input.new_string !== undefined) {
@@ -301,7 +328,7 @@ export function initializeToolRegistry(): void {
             file_path: input.file_path || '',
             old_string: input.old_string || '',
             new_string: input.new_string || '',
-            result: props.result,
+            result,
           };
         }
 
@@ -317,7 +344,7 @@ export function initializeToolRegistry(): void {
             file_path: input.file_path || '',
             old_string: oldContent,
             new_string: newContent,
-            result: props.result,
+            result,
           };
         }
 
@@ -328,14 +355,14 @@ export function initializeToolRegistry(): void {
             file_path: input.file_path || '',
             old_string: '',
             new_string: content,
-            result: props.result,
+            result,
           };
         } else if (changeType === 'delete') {
           return {
             file_path: input.file_path || '',
             old_string: content,
             new_string: '',
-            result: props.result,
+            result,
           };
         }
 
@@ -344,7 +371,7 @@ export function initializeToolRegistry(): void {
           file_path: input.file_path || '',
           old_string: '',
           new_string: content,
-          result: props.result,
+          result,
         };
       }),
       description: '文件编辑工具（搜索替换）',
@@ -375,7 +402,7 @@ export function initializeToolRegistry(): void {
         return {
           command,
           description: input.description,
-          result: props.result,
+          result: parseGeminiResult(props.result),
         };
       }),
       description: 'Bash 命令执行工具',
@@ -405,7 +432,7 @@ export function initializeToolRegistry(): void {
         path: props.input?.path || props.input?.directory,
         include: props.input?.include || props.input?.file_pattern,
         exclude: props.input?.exclude,
-        result: props.result,
+        result: parseGeminiResult(props.result),
       })),
       description: '代码搜索工具',
     },
@@ -418,7 +445,7 @@ export function initializeToolRegistry(): void {
       render: createToolAdapter(GlobWidget, (props) => ({
         pattern: props.input?.pattern || props.input?.file_pattern || '',
         path: props.input?.path || props.input?.directory,
-        result: props.result,
+        result: parseGeminiResult(props.result),
       })),
       description: '文件匹配查找工具',
     },
@@ -442,7 +469,7 @@ export function initializeToolRegistry(): void {
         return {
           filePath,
           content,
-          result: props.result,
+          result: parseGeminiResult(props.result),
         };
       }),
       description: '文件写入工具',
@@ -455,7 +482,7 @@ export function initializeToolRegistry(): void {
       pattern: /^(?:web[-_]?search|search[-_]?web)$/i,
       render: createToolAdapter(WebSearchWidget, (props) => ({
         query: props.input?.query || props.input?.search_query || '',
-        result: props.result,
+        result: parseGeminiResult(props.result),
       })),
       description: '网络搜索工具',
     },
@@ -468,7 +495,7 @@ export function initializeToolRegistry(): void {
       render: createToolAdapter(WebFetchWidget, (props) => ({
         url: props.input?.url || '',
         prompt: props.input?.prompt,
-        result: props.result,
+        result: parseGeminiResult(props.result),
       })),
       description: '网页获取工具',
     },
