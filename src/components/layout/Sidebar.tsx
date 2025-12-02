@@ -5,7 +5,6 @@ import {
   BarChart2,
   Terminal,
   Layers,
-  Zap,
   FileText,
   Package,
   FileCode,
@@ -143,7 +142,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Logo 区域 */}
       <div className={cn("mb-6", isExpanded ? "px-1" : "")}>
         <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 ring-1 ring-white/10">
-          <Zap className="w-6 h-6 text-primary-foreground" fill="currentColor" />
         </div>
       </div>
 
