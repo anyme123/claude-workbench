@@ -203,6 +203,54 @@ pub fn convert_raw_to_unified_message(raw: &Value) -> Value {
                     }
                 });
             }
+            "tool_use" => {
+                let tool_name = raw.get("tool_name").and_then(|t| t.as_str()).unwrap_or("");
+                let tool_id = raw.get("tool_id").and_then(|t| t.as_str()).unwrap_or("");
+                let parameters = raw.get("parameters").cloned().unwrap_or(json!({}));
+                return json!({
+                    "type": "assistant",
+                    "message": {
+                        "content": [{
+                            "type": "tool_use",
+                            "id": tool_id,
+                            "name": tool_name,
+                            "input": parameters
+                        }],
+                        "role": "assistant"
+                    },
+                    "geminiMetadata": {
+                        "provider": "gemini",
+                        "eventType": "tool_use",
+                        "toolName": tool_name,
+                        "toolId": tool_id,
+                        "raw": raw
+                    }
+                });
+            }
+            "tool_result" => {
+                let tool_id = raw.get("tool_id").and_then(|t| t.as_str()).unwrap_or("");
+                let status = raw.get("status").and_then(|s| s.as_str()).unwrap_or("unknown");
+                let output = raw.get("output").and_then(|o| o.as_str()).unwrap_or("");
+                return json!({
+                    "type": "user",
+                    "message": {
+                        "content": [{
+                            "type": "tool_result",
+                            "tool_use_id": tool_id,
+                            "content": output,
+                            "is_error": status != "success"
+                        }],
+                        "role": "user"
+                    },
+                    "geminiMetadata": {
+                        "provider": "gemini",
+                        "eventType": "tool_result",
+                        "toolId": tool_id,
+                        "status": status,
+                        "raw": raw
+                    }
+                });
+            }
             "result" => {
                 return json!({
                     "type": "result",
