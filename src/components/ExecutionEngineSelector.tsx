@@ -491,34 +491,78 @@ export const ExecutionEngineSelector: React.FC<ExecutionEngineSelectorProps> = (
               {/* Model Selection */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">模型</Label>
-                <Select
-                  value={value.geminiModel || 'gemini-2.5-pro'}
-                  onValueChange={handleGeminiModelChange}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="gemini-2.5-pro">
-                      <div>
-                        <div className="font-medium">Gemini 2.5 Pro</div>
-                        <div className="text-xs text-muted-foreground">最强大，1M 上下文</div>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="gemini-2.5-flash">
-                      <div>
-                        <div className="font-medium">Gemini 2.5 Flash</div>
-                        <div className="text-xs text-muted-foreground">快速高效</div>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="gemini-2.0-flash-exp">
-                      <div>
-                        <div className="font-medium">Gemini 2.0 Flash (实验)</div>
-                        <div className="text-xs text-muted-foreground">实验性版本</div>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2">
+                  {/* Preset model selector */}
+                  <Select
+                    value={
+                      ['gemini-3-pro-preview', 'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash-exp'].includes(value.geminiModel || '')
+                        ? value.geminiModel
+                        : '__custom__'
+                    }
+                    onValueChange={(val) => {
+                      if (val === '__custom__') {
+                        // Switch to custom input mode
+                        onChange({
+                          ...value,
+                          geminiModel: '',
+                        });
+                      } else {
+                        handleGeminiModelChange(val);
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="gemini-3-pro-preview">
+                        <div>
+                          <div className="font-medium">Gemini 3 Pro (Preview)</div>
+                          <div className="text-xs text-muted-foreground">最新实验模型</div>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="gemini-2.5-pro">
+                        <div>
+                          <div className="font-medium">Gemini 2.5 Pro</div>
+                          <div className="text-xs text-muted-foreground">稳定版，1M 上下文</div>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="gemini-2.5-flash">
+                        <div>
+                          <div className="font-medium">Gemini 2.5 Flash</div>
+                          <div className="text-xs text-muted-foreground">快速高效</div>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="gemini-2.0-flash-exp">
+                        <div>
+                          <div className="font-medium">Gemini 2.0 Flash (实验)</div>
+                          <div className="text-xs text-muted-foreground">实验性版本</div>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="__custom__">
+                        <div>
+                          <div className="font-medium">✏️ 自定义模型</div>
+                          <div className="text-xs text-muted-foreground">手动输入模型名称</div>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {/* Custom model input (always visible for transparency) */}
+                  {!['gemini-3-pro-preview', 'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash-exp'].includes(value.geminiModel || '') && (
+                    <div>
+                      <Input
+                        placeholder="输入自定义模型名称"
+                        value={value.geminiModel || ''}
+                        onChange={(e) => handleGeminiModelChange(e.target.value)}
+                        className="text-sm font-mono"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        💡 查看可用模型: <a href="https://ai.google.dev/gemini-api/docs/models" target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">Gemini 文档</a>
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Approval Mode */}
