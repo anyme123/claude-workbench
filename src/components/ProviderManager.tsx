@@ -270,8 +270,8 @@ export default function ProviderManager({ onBack }: ProviderManagerProps) {
           ) : (
             presets.map((config) => (
             <Card key={config.id} className={`p-4 ${isCurrentProvider(config) ? 'ring-2 ring-primary' : ''}`}>
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0 overflow-hidden">
                   <div className="flex items-center gap-3 mb-2">
                     <div className="flex items-center gap-2">
                       <Globe className="h-4 w-4 text-muted-foreground" />
@@ -286,26 +286,26 @@ export default function ProviderManager({ onBack }: ProviderManagerProps) {
                   </div>
                   
                   <div className="space-y-1 text-sm text-muted-foreground">
-                    <p><span className="font-medium">描述：</span>{config.description}</p>
-                    <p><span className="font-medium">API地址：</span>{config.base_url}</p>
+                    <p className="truncate"><span className="font-medium">描述：</span>{config.description}</p>
+                    <p className="truncate"><span className="font-medium">API地址：</span>{config.base_url}</p>
                     {config.auth_token && (
-                      <p><span className="font-medium">认证Token：</span>
+                      <p className="truncate"><span className="font-medium">认证Token：</span>
                         {showTokens ? config.auth_token : maskToken(config.auth_token)}
                       </p>
                     )}
                     {config.api_key && (
-                      <p><span className="font-medium">API Key：</span>
+                      <p className="truncate"><span className="font-medium">API Key：</span>
                         {showTokens ? config.api_key : maskToken(config.api_key)}
                       </p>
                     )}
                     {config.model && (
-                      <p><span className="font-medium">模型：</span>{config.model}</p>
+                      <p className="truncate"><span className="font-medium">模型：</span>{config.model}</p>
                     )}
                     {config.api_key_helper && (
-                      <p><span className="font-medium">Key Helper：</span>
+                      <p className="truncate"><span className="font-medium">Key Helper：</span>
                         <code className="text-xs bg-muted px-1 py-0.5 rounded ml-1">
-                          {config.api_key_helper.length > 50 ? 
-                            config.api_key_helper.substring(0, 47) + '...' : 
+                          {config.api_key_helper.length > 50 ?
+                            config.api_key_helper.substring(0, 47) + '...' :
                             config.api_key_helper}
                         </code>
                       </p>
@@ -313,7 +313,7 @@ export default function ProviderManager({ onBack }: ProviderManagerProps) {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   <Button
                     variant="outline"
                     size="sm"
