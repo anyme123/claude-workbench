@@ -457,6 +457,10 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
 
         let currentSessionId: string | null = claudeSessionId || effectiveSession?.id || null;
 
+        // 🔧 FIX: Track whether we've switched to session-specific listeners
+        // Only ignore generic messages AFTER we've attached session-specific listeners
+        let hasAttachedSessionListeners = false;
+
         // 🔧 FIX: Track processed message IDs to prevent duplicates from global and session-specific channels
         const processedClaudeMessages = new Set<string>();
 
@@ -485,6 +489,9 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
         // ====================================================================
         const attachSessionSpecificListeners = async (sid: string) => {
           console.log('[usePromptExecution] Attaching session-specific listeners for', sid);
+
+          // 🔧 FIX: Mark that we've attached session-specific listeners
+          hasAttachedSessionListeners = true;
 
           const specificOutputUnlisten = await listen<string>(`claude-output:${sid}`, async (evt) => {
             handleStreamMessage(evt.payload, userInputTranslation || undefined);
@@ -647,13 +654,12 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
           if (!hasActiveSessionRef.current) return;
 
           // 🔒 CRITICAL FIX: Session Isolation
-          // If we already have a session ID and have attached specific listeners,
-          // we must IGNORE generic messages to prevent cross-talk/duplication.
-          // The only exception is the initial 'system:init' which might be needed to switch sessions.
-          if (currentSessionId && unlistenRefs.current.length > 0) {
+          // Only ignore generic messages AFTER we've attached session-specific listeners.
+          // Before that, we must process all messages through the generic listener.
+          if (hasAttachedSessionListeners) {
              try {
                 const msg = JSON.parse(event.payload) as ClaudeStreamMessage;
-                // Only process if it's a NEW session init
+                // Only process if it's a NEW session init (different session_id)
                 if (msg.type === 'system' && msg.subtype === 'init' && msg.session_id && msg.session_id !== currentSessionId) {
                    console.log('[usePromptExecution] Detected NEW session_id from generic listener:', msg.session_id);
                    // Fall through to processing below
