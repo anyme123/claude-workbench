@@ -705,9 +705,9 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
               await processGeminiComplete();
             });
 
-            // Replace existing listeners with session-specific ones
-            unlistenRefs.current.forEach((u) => u && typeof u === 'function' && u());
-            unlistenRefs.current = [specificOutputUnlisten, specificCompleteUnlisten];
+            // 🔧 FIX: Append session-specific listeners instead of replacing all
+            // This preserves global listeners like geminiCliSessionIdUnlisten
+            unlistenRefs.current.push(specificOutputUnlisten, specificCompleteUnlisten);
           };
 
           // Listen for session init event (backend emits this with backend channel ID)
