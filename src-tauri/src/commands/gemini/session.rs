@@ -355,6 +355,7 @@ async fn execute_gemini_process(
     // Spawn task to read stdout (JSONL events)
     tokio::spawn(async move {
         let mut reader = BufReader::new(stdout).lines();
+        let mut real_cli_session_id_emitted = false;
 
         while let Ok(Some(line)) = reader.next_line().await {
             if line.trim().is_empty() {
@@ -365,8 +366,39 @@ async fn execute_gemini_process(
 
             // Try to parse and convert to unified format
             let unified_message = if let Ok(event) = parse_gemini_line(&line) {
+                // 🔧 FIX: Check if this is an init event with real Gemini CLI session ID
+                if !real_cli_session_id_emitted {
+                    if let super::types::GeminiStreamEvent::Init { session_id: Some(ref cli_session_id), .. } = event {
+                        // Emit the real Gemini CLI session ID to frontend
+                        log::info!("[Gemini] Detected real CLI session ID: {}", cli_session_id);
+                        let cli_session_payload = serde_json::json!({
+                            "backend_session_id": session_id_stdout,
+                            "cli_session_id": cli_session_id,
+                        });
+                        if let Err(e) = app_handle_stdout.emit("gemini-cli-session-id", &cli_session_payload) {
+                            log::error!("Failed to emit gemini-cli-session-id: {}", e);
+                        }
+                        real_cli_session_id_emitted = true;
+                    }
+                }
                 convert_to_unified_message(&event)
             } else if let Ok(raw) = parse_gemini_line_flexible(&line) {
+                // 🔧 FIX: Also check raw JSON for init event with session_id
+                if !real_cli_session_id_emitted {
+                    if raw.get("type").and_then(|t| t.as_str()) == Some("init") {
+                        if let Some(cli_session_id) = raw.get("session_id").and_then(|s| s.as_str()) {
+                            log::info!("[Gemini] Detected real CLI session ID (raw): {}", cli_session_id);
+                            let cli_session_payload = serde_json::json!({
+                                "backend_session_id": session_id_stdout,
+                                "cli_session_id": cli_session_id,
+                            });
+                            if let Err(e) = app_handle_stdout.emit("gemini-cli-session-id", &cli_session_payload) {
+                                log::error!("Failed to emit gemini-cli-session-id: {}", e);
+                            }
+                            real_cli_session_id_emitted = true;
+                        }
+                    }
+                }
                 convert_raw_to_unified_message(&raw)
             } else {
                 // Fallback: emit raw line as system message

@@ -635,47 +635,9 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
                 setMessages(prev => [...prev, message]);
                 setRawJsonlOutput((prev) => [...prev, payload]);
 
-                // Extract session_id from init message (real Gemini CLI session ID)
-                if (message.type === 'system' && message.subtype === 'init' && data.session_id) {
-                  const geminiSessionId = data.session_id; // Real Gemini CLI session ID
-                  setClaudeSessionId(geminiSessionId);
-
-                  // Save session info
-                  const projectId = projectPath.replace(/[^a-zA-Z0-9]/g, '-');
-                  setExtractedSessionInfo({ sessionId: geminiSessionId, projectId, engine: 'gemini' });
-                  setIsFirstPrompt(false);
-
-                  // 🔧 FIX: Record prompt sent for new Gemini session (use real Gemini session ID)
-                  if (isUserInitiated && geminiPendingInfo && geminiPendingInfo.promptIndex === undefined) {
-                    pendingGeminiPromptRecordingPromise = api.recordGeminiPromptSent(geminiSessionId, projectPath, geminiPendingInfo.promptText)
-                      .then((idx) => {
-                        geminiPendingInfo.promptIndex = idx;
-                        geminiPendingInfo.sessionId = geminiSessionId;
-                        window.__geminiPendingPrompt = {
-                          sessionId: geminiSessionId,
-                          projectPath,
-                          promptIndex: idx
-                        };
-                        console.log('[Gemini Revert] Recorded prompt after init with index', idx);
-                      })
-                      .catch(err => {
-                        console.warn('[Gemini Revert] Failed to record prompt after init:', err);
-                      });
-                  } else if (geminiPendingInfo && geminiPendingInfo.promptIndex !== undefined) {
-                    // Update pending sessionId for completion handler
-                    window.__geminiPendingPrompt = {
-                      sessionId: geminiSessionId,
-                      projectPath,
-                      promptIndex: geminiPendingInfo.promptIndex
-                    };
-                  }
-
-                  // Store pending session info
-                  window.__geminiPendingSession = {
-                    sessionId: geminiSessionId,
-                    projectPath
-                  };
-                }
+                // 🔧 NOTE: Session ID handling moved to gemini-cli-session-id event listener
+                // The init message from gemini-output may contain backend's temporary ID (gemini-{uuid})
+                // We now use the dedicated gemini-cli-session-id event which provides the REAL CLI session ID
               }
             } catch (err) {
               console.error('[usePromptExecution] Failed to process Gemini output:', err, payload);
@@ -758,11 +720,52 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
             if (data.session_id && !currentGeminiSessionId) {
               const backendSessionId = data.session_id as string; // e.g., gemini-{uuid}
               currentGeminiSessionId = backendSessionId;
-              // Note: Don't set claudeSessionId yet, wait for real Gemini CLI session ID from init event
+              // Note: Don't set claudeSessionId yet, wait for real Gemini CLI session ID from gemini-cli-session-id event
 
               // Switch to session-specific listeners
               await attachGeminiSessionListeners(backendSessionId);
             }
+          });
+
+          // 🔧 FIX: Listen for real Gemini CLI session ID (emitted when CLI returns init event)
+          // This is the REAL session ID that should be used for prompt recording
+          const geminiCliSessionIdUnlisten = await listen<{ backend_session_id: string; cli_session_id: string }>('gemini-cli-session-id', async (evt) => {
+            if (!hasActiveSessionRef.current) return;
+            console.log('[usePromptExecution] Received gemini-cli-session-id:', evt.payload);
+
+            const { cli_session_id: realCliSessionId } = evt.payload;
+            if (!realCliSessionId) return;
+
+            // Update state with real CLI session ID
+            setClaudeSessionId(realCliSessionId);
+            const projectId = projectPath.replace(/[^a-zA-Z0-9]/g, '-');
+            setExtractedSessionInfo({ sessionId: realCliSessionId, projectId, engine: 'gemini' });
+            setIsFirstPrompt(false);
+
+            // 🔧 FIX: Record prompt sent using REAL Gemini CLI session ID
+            if (isUserInitiated && geminiPendingInfo && geminiPendingInfo.promptIndex === undefined) {
+              console.log('[Gemini Revert] Recording prompt with REAL CLI session ID:', realCliSessionId);
+              pendingGeminiPromptRecordingPromise = api.recordGeminiPromptSent(realCliSessionId, projectPath, geminiPendingInfo.promptText)
+                .then((idx) => {
+                  geminiPendingInfo.promptIndex = idx;
+                  geminiPendingInfo.sessionId = realCliSessionId;
+                  window.__geminiPendingPrompt = {
+                    sessionId: realCliSessionId,
+                    projectPath,
+                    promptIndex: idx
+                  };
+                  console.log('[Gemini Revert] Recorded prompt with REAL CLI session ID, index:', idx);
+                })
+                .catch(err => {
+                  console.warn('[Gemini Revert] Failed to record prompt with real CLI session ID:', err);
+                });
+            }
+
+            // Store pending session info with real CLI session ID
+            window.__geminiPendingSession = {
+              sessionId: realCliSessionId,
+              projectPath
+            };
           });
 
           // Listen for Gemini output (global fallback)
@@ -790,7 +793,7 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
             await processGeminiComplete();
           });
 
-          unlistenRefs.current = [geminiSessionInitUnlisten, geminiOutputUnlisten, geminiErrorUnlisten, geminiCompleteUnlisten];
+          unlistenRefs.current = [geminiSessionInitUnlisten, geminiCliSessionIdUnlisten, geminiOutputUnlisten, geminiErrorUnlisten, geminiCompleteUnlisten];
         } else {
           // --------------------------------------------------------------------
           // Claude Code Event Listener Setup Strategy
