@@ -76,27 +76,74 @@ export function useSessionLifecycle(config: UseSessionLifecycleConfig): UseSessi
           const geminiDetail = await api.getGeminiSessionDetail(session.project_path, session.id);
 
           // Convert Gemini messages to ClaudeStreamMessage format
-          history = geminiDetail.messages.map((msg) => {
+          history = geminiDetail.messages.flatMap((msg) => {
+            const messages: ClaudeStreamMessage[] = [];
+
             if (msg.type === 'user') {
-              return {
+              messages.push({
                 type: 'user' as const,
                 message: {
-                  content: [{ type: 'text', text: msg.content }]
+                  content: msg.content ? [{ type: 'text', text: msg.content }] : []
                 },
                 timestamp: msg.timestamp,
                 engine: 'gemini' as const,
-              };
+              });
             } else {
               // Gemini assistant message
-              return {
+              const content: any[] = [];
+
+              // Add tool calls if present
+              if (msg.toolCalls && msg.toolCalls.length > 0) {
+                for (const toolCall of msg.toolCalls) {
+                  // Add tool_use content block
+                  content.push({
+                    type: 'tool_use',
+                    id: toolCall.id,
+                    name: toolCall.name,
+                    input: toolCall.args,
+                  });
+
+                  // If there's a result, add it as a separate user message (tool_result)
+                  if (toolCall.result !== undefined) {
+                    messages.push({
+                      type: 'user' as const,
+                      message: {
+                        content: [{
+                          type: 'tool_result',
+                          tool_use_id: toolCall.id,
+                          content: toolCall.resultDisplay || JSON.stringify(toolCall.result),
+                          is_error: toolCall.status === 'error',
+                        }]
+                      },
+                      timestamp: toolCall.timestamp || msg.timestamp,
+                      engine: 'gemini' as const,
+                    });
+                  }
+                }
+              }
+
+              // Add text content if present
+              if (msg.content) {
+                content.push({
+                  type: 'text',
+                  text: msg.content,
+                });
+              }
+
+              // Add assistant message
+              messages.push({
                 type: 'assistant' as const,
                 message: {
-                  content: [{ type: 'text', text: msg.content }]
+                  content: content.length > 0 ? content : [{ type: 'text', text: '' }],
+                  role: 'assistant'
                 },
                 timestamp: msg.timestamp,
                 engine: 'gemini' as const,
-              };
+                model: msg.model,
+              });
             }
+
+            return messages;
           });
           console.log('[useSessionLifecycle] Loaded Gemini messages:', history.length);
         } catch (geminiErr) {
