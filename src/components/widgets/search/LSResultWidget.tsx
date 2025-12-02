@@ -34,20 +34,55 @@ export const LSResultWidget: React.FC<LSResultWidgetProps> = ({ content }) => {
 
   /**
    * 解析目录树结构
-   * 支持两种格式:
+   * 支持多种格式:
    * 1. Claude Code 树形格式 (带 "- " 前缀)
    * 2. Gemini 简单列表格式 ("Directory listing for...\nFile1\nFile2")
+   * 3. 纯文件列表 (每行一个文件名)
+   * 4. JSON 格式 (数组或对象)
    */
   const parseDirectoryTree = (rawContent: string): DirectoryEntry[] => {
-    const lines = rawContent.split('\n');
+    const trimmedContent = rawContent.trim();
     const entries: DirectoryEntry[] = [];
 
+    // 尝试解析 JSON 格式
+    if (trimmedContent.startsWith('[') || trimmedContent.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(trimmedContent);
+        const items = Array.isArray(parsed) ? parsed : (parsed.files || parsed.entries || []);
+        if (Array.isArray(items)) {
+          items.forEach((item: any) => {
+            const name = typeof item === 'string' ? item : (item.name || item.path || String(item));
+            const isDirectory = name.endsWith('/') ||
+              item.type === 'directory' ||
+              item.isDirectory === true;
+            entries.push({
+              path: name.replace(/\/$/, ''),
+              name: name.replace(/\/$/, ''),
+              type: isDirectory ? 'directory' : 'file',
+              level: 0,
+            });
+          });
+          return entries;
+        }
+      } catch {
+        // JSON 解析失败，继续尝试其他格式
+      }
+    }
+
+    const lines = rawContent.split('\n');
     let currentPath: string[] = [];
     let isGeminiFormat = false;
+    let isPlainList = false;
 
-    // 检测是否是 Gemini 格式
-    if (lines.length > 0 && lines[0].trim().startsWith('Directory listing for')) {
-      isGeminiFormat = true;
+    // 检测格式类型
+    if (lines.length > 0) {
+      const firstLine = lines[0].trim();
+      if (firstLine.startsWith('Directory listing for')) {
+        isGeminiFormat = true;
+      } else if (!firstLine.startsWith('-') && !firstLine.match(/^\s+-/)) {
+        // 第一行不是以 "- " 开头，可能是纯文件列表
+        isPlainList = true;
+      }
     }
 
     for (let i = 0; i < lines.length; i++) {
@@ -72,10 +107,28 @@ export const LSResultWidget: React.FC<LSResultWidgetProps> = ({ content }) => {
         const name = line.trim();
         if (!name) continue;
 
-        // 检测是否是目录 (Gemini 使用 [DIR] 前缀)
+        // 检测是否是目录 (Gemini 使用 [DIR] 前缀 或以 / 结尾)
         const isDirMatch = name.match(/^\[DIR\]\s*(.+)$/);
         const isDirectory = !!isDirMatch || name.endsWith('/');
         const cleanName = isDirMatch ? isDirMatch[1] : name.replace(/\/$/, '');
+
+        entries.push({
+          path: cleanName,
+          name: cleanName,
+          type: isDirectory ? 'directory' : 'file',
+          level: 0,
+        });
+        continue;
+      }
+
+      // 纯文件列表格式
+      if (isPlainList) {
+        const name = line.trim();
+        if (!name) continue;
+
+        // 检测是否是目录
+        const isDirectory = name.endsWith('/');
+        const cleanName = name.replace(/\/$/, '');
 
         entries.push({
           path: cleanName,
@@ -231,6 +284,30 @@ export const LSResultWidget: React.FC<LSResultWidgetProps> = ({ content }) => {
 
   // 获取根条目
   const rootEntries = entries.filter(e => e.level === 0);
+
+  // 如果解析后没有条目，显示原始内容
+  if (rootEntries.length === 0) {
+    // 检查是否有内容但解析失败
+    const hasContent = content.trim().length > 0;
+
+    if (hasContent) {
+      // 显示原始内容作为 fallback
+      return (
+        <div className="rounded-lg border bg-muted/20 p-3">
+          <pre className="text-xs font-mono whitespace-pre-wrap break-words text-muted-foreground">
+            {content}
+          </pre>
+        </div>
+      );
+    }
+
+    // 完全没有内容
+    return (
+      <div className="rounded-lg border bg-muted/20 p-3 text-sm text-muted-foreground">
+        目录为空
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-lg border bg-muted/20 p-3">

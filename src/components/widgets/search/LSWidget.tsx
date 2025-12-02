@@ -6,7 +6,7 @@
  */
 
 import React from "react";
-import { FolderOpen } from "lucide-react";
+import { FolderOpen, AlertCircle } from "lucide-react";
 import { LSResultWidget } from './LSResultWidget';
 
 export interface LSWidgetProps {
@@ -17,6 +17,55 @@ export interface LSWidgetProps {
 }
 
 /**
+ * 从多种可能的结果格式中提取内容
+ */
+function extractResultContent(result: any): string {
+  if (!result) return '';
+
+  // 直接字符串内容
+  if (typeof result.content === 'string') {
+    return result.content;
+  }
+
+  // 嵌套的 text 字段
+  if (result.content?.text) {
+    return result.content.text;
+  }
+
+  // 数组格式
+  if (Array.isArray(result.content)) {
+    return result.content
+      .map((c: any) => (typeof c === 'string' ? c : c.text || JSON.stringify(c)))
+      .join('\n');
+  }
+
+  // 对象格式 - 尝试提取常见字段
+  if (result.content && typeof result.content === 'object') {
+    // Gemini 可能返回 { output: "..." } 格式
+    if (result.content.output) {
+      return result.content.output;
+    }
+    // 或者 { result: "..." }
+    if (result.content.result) {
+      return result.content.result;
+    }
+    return JSON.stringify(result.content, null, 2);
+  }
+
+  // 直接检查 result 本身
+  if (typeof result === 'string') {
+    return result;
+  }
+
+  // result.output (Gemini 格式)
+  if (result.output) {
+    return result.output;
+  }
+
+  return '';
+}
+
+/**
  * 目录列表 Widget
  *
  * 展示目录的文件列表，支持加载状态和结果展示
@@ -24,19 +73,12 @@ export interface LSWidgetProps {
 export const LSWidget: React.FC<LSWidgetProps> = ({ path, result }) => {
   // 如果有结果，使用 LSResultWidget 显示
   if (result) {
-    let resultContent = '';
-    if (typeof result.content === 'string') {
-      resultContent = result.content;
-    } else if (result.content && typeof result.content === 'object') {
-      if (result.content.text) {
-        resultContent = result.content.text;
-      } else if (Array.isArray(result.content)) {
-        resultContent = result.content
-          .map((c: any) => (typeof c === 'string' ? c : c.text || JSON.stringify(c)))
-          .join('\n');
-      } else {
-        resultContent = JSON.stringify(result.content, null, 2);
-      }
+    const resultContent = extractResultContent(result);
+
+    // 调试日志
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[LSWidget] result:', result);
+      console.log('[LSWidget] extractedContent:', resultContent?.substring(0, 200));
     }
 
     return (
@@ -48,7 +90,14 @@ export const LSWidget: React.FC<LSWidgetProps> = ({ path, result }) => {
             {path}
           </code>
         </div>
-        {resultContent && <LSResultWidget content={resultContent} />}
+        {resultContent ? (
+          <LSResultWidget content={resultContent} />
+        ) : (
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30 text-sm text-muted-foreground">
+            <AlertCircle className="h-4 w-4" />
+            <span>目录内容为空或无法解析</span>
+          </div>
+        )}
       </div>
     );
   }

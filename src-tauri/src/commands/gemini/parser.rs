@@ -230,7 +230,14 @@ pub fn convert_raw_to_unified_message(raw: &Value) -> Value {
             "tool_result" => {
                 let tool_id = raw.get("tool_id").and_then(|t| t.as_str()).unwrap_or("");
                 let status = raw.get("status").and_then(|s| s.as_str()).unwrap_or("unknown");
-                let output = raw.get("output").and_then(|o| o.as_str()).unwrap_or("");
+                // output 可能是字符串或对象，灵活处理
+                let output = raw.get("output").map(|o| {
+                    if let Some(s) = o.as_str() {
+                        s.to_string()
+                    } else {
+                        serde_json::to_string(o).unwrap_or_default()
+                    }
+                }).unwrap_or_default();
                 return json!({
                     "type": "user",
                     "message": {

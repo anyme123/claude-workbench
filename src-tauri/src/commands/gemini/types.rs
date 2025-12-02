@@ -92,7 +92,15 @@ impl GeminiStreamEvent {
             "tool_result" => Some(Self::ToolResult {
                 tool_id: value.get("tool_id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
                 status: value.get("status").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                output: value.get("output").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                // output 可能是字符串或对象，需要灵活处理
+                output: value.get("output").map(|v| {
+                    if let Some(s) = v.as_str() {
+                        s.to_string()
+                    } else {
+                        // 如果不是字符串，序列化为 JSON
+                        serde_json::to_string(v).unwrap_or_default()
+                    }
+                }).unwrap_or_default(),
                 timestamp: value.get("timestamp").and_then(|v| v.as_str()).map(String::from),
             }),
             "error" => Some(Self::Error {
