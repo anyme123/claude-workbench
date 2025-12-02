@@ -13,7 +13,12 @@ import type { GeminiSessionDetail } from '@/types/gemini';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { X, User, Bot, Wrench, Clock, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger
+} from '@/components/ui/collapsible';
+import { X, User, Bot, Wrench, Clock, CheckCircle, XCircle, RefreshCw, ChevronDown, ChevronRight, Cpu } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 interface GeminiSessionDetailViewerProps {
@@ -74,12 +79,52 @@ export const GeminiSessionDetailViewer: React.FC<GeminiSessionDetailViewerProps>
     }
   };
 
-  const renderToolCall = (toolCall: any) => {
+  // Check if a tool is a subagent (e.g., codebase_investigator, code_executor)
+  const isSubagentTool = (toolName: string) => {
+    const subagentTools = [
+      'codebase_investigator',
+      'code_executor',
+      'task',
+      'subagent',
+      'analyst',
+      'planner'
+    ];
+    return subagentTools.some(name =>
+      toolName.toLowerCase().includes(name.toLowerCase())
+    );
+  };
+
+  // Component for a single tool call with collapsible support
+  const ToolCallItem: React.FC<{ toolCall: any; index: number }> = ({ toolCall }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [argsOpen, setArgsOpen] = useState(false);
+
+    const isSubagent = isSubagentTool(toolCall.name);
+    const hasLongResult = toolCall.resultDisplay && toolCall.resultDisplay.length > 500;
+
     return (
-      <div key={toolCall.id} className="rounded-md border p-3 mt-2 bg-muted/30">
+      <div
+        className={`rounded-md border p-3 mt-2 ${
+          isSubagent
+            ? 'bg-purple-500/5 border-purple-500/30'
+            : 'bg-muted/30'
+        }`}
+      >
+        {/* Tool Header */}
         <div className="flex items-center gap-2 mb-2">
-          <Wrench className="h-4 w-4 text-blue-500" />
-          <span className="text-sm font-medium">{toolCall.displayName || toolCall.name}</span>
+          {isSubagent ? (
+            <Cpu className="h-4 w-4 text-purple-500" />
+          ) : (
+            <Wrench className="h-4 w-4 text-blue-500" />
+          )}
+          <span className="text-sm font-medium">
+            {toolCall.displayName || toolCall.name}
+          </span>
+          {isSubagent && (
+            <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-600 border-purple-500/30">
+              子代理
+            </Badge>
+          )}
           {toolCall.status === 'success' && (
             <CheckCircle className="h-3 w-3 text-green-500" />
           )}
@@ -88,37 +133,85 @@ export const GeminiSessionDetailViewer: React.FC<GeminiSessionDetailViewerProps>
           )}
         </div>
 
+        {/* Tool Description */}
         {toolCall.description && (
-          <p className="text-xs text-muted-foreground mb-2">{toolCall.description}</p>
+          <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
+            {toolCall.description}
+          </p>
         )}
 
-        {/* Tool Arguments */}
+        {/* Tool Arguments - Collapsible */}
         {toolCall.args && Object.keys(toolCall.args).length > 0 && (
-          <div className="mb-2">
-            <p className="text-xs font-medium mb-1">参数:</p>
-            <pre className="text-xs bg-background p-2 rounded overflow-x-auto">
-              {JSON.stringify(toolCall.args, null, 2)}
-            </pre>
-          </div>
+          <Collapsible open={argsOpen} onOpenChange={setArgsOpen}>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs mb-1">
+                {argsOpen ? (
+                  <ChevronDown className="h-3 w-3 mr-1" />
+                ) : (
+                  <ChevronRight className="h-3 w-3 mr-1" />
+                )}
+                参数 ({Object.keys(toolCall.args).length})
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <pre className="text-xs bg-background p-2 rounded overflow-x-auto max-h-40 overflow-y-auto">
+                {JSON.stringify(toolCall.args, null, 2)}
+              </pre>
+            </CollapsibleContent>
+          </Collapsible>
         )}
 
-        {/* Tool Result */}
+        {/* Tool Result - Collapsible for long results */}
         {toolCall.resultDisplay && (
-          <div>
-            <p className="text-xs font-medium mb-1">结果:</p>
-            {toolCall.renderOutputAsMarkdown ? (
-              <div className="text-xs prose prose-sm dark:prose-invert max-w-none">
-                <ReactMarkdown>{toolCall.resultDisplay}</ReactMarkdown>
-              </div>
+          <div className="mt-2">
+            {hasLongResult ? (
+              <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+                    {isOpen ? (
+                      <ChevronDown className="h-3 w-3 mr-1" />
+                    ) : (
+                      <ChevronRight className="h-3 w-3 mr-1" />
+                    )}
+                    结果 {!isOpen && `(${toolCall.resultDisplay.length} 字符)`}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="mt-1 max-h-96 overflow-y-auto">
+                    {toolCall.renderOutputAsMarkdown ? (
+                      <div className="text-xs prose prose-sm dark:prose-invert max-w-none bg-background p-2 rounded">
+                        <ReactMarkdown>{toolCall.resultDisplay}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      <pre className="text-xs bg-background p-2 rounded whitespace-pre-wrap break-words">
+                        {toolCall.resultDisplay}
+                      </pre>
+                    )}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             ) : (
-              <p className="text-xs bg-background p-2 rounded whitespace-pre-wrap">
-                {toolCall.resultDisplay}
-              </p>
+              <div>
+                <p className="text-xs font-medium mb-1">结果:</p>
+                {toolCall.renderOutputAsMarkdown ? (
+                  <div className="text-xs prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown>{toolCall.resultDisplay}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <p className="text-xs bg-background p-2 rounded whitespace-pre-wrap">
+                    {toolCall.resultDisplay}
+                  </p>
+                )}
+              </div>
             )}
           </div>
         )}
       </div>
     );
+  };
+
+  const renderToolCall = (toolCall: any, index: number) => {
+    return <ToolCallItem key={toolCall.id || index} toolCall={toolCall} index={index} />;
   };
 
   const renderMessage = (message: any, index: number) => {
@@ -157,8 +250,11 @@ export const GeminiSessionDetailViewer: React.FC<GeminiSessionDetailViewerProps>
 
           {/* Tool Calls */}
           {message.toolCalls && message.toolCalls.length > 0 && (
-            <div className="mt-2 space-y-2">
-              {message.toolCalls.map(renderToolCall)}
+            <div className="mt-3 space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">
+                工具调用 ({message.toolCalls.length})
+              </p>
+              {message.toolCalls.map((tc: any, idx: number) => renderToolCall(tc, idx))}
             </div>
           )}
 
