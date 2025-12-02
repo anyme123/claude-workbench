@@ -543,6 +543,64 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
 
             try {
               const data = JSON.parse(payload);
+
+              // 🔧 FIX: Skip user messages from Gemini - already added by frontend
+              // Gemini CLI echoes back user messages, but we already display them
+              if (data.type === 'user' && !data.message?.content?.some((c: any) => c.type === 'tool_result')) {
+                console.log('[usePromptExecution] Skipping Gemini user message (already shown)');
+                return;
+              }
+
+              // 🔧 FIX: Handle delta messages - merge with last message of same type
+              const isDelta = data.geminiMetadata?.delta || data.delta;
+              const msgType = data.type;
+
+              if (isDelta && msgType === 'assistant') {
+                // Delta message - merge with last assistant message
+                setMessages(prev => {
+                  const lastIdx = prev.length - 1;
+                  const lastMsg = prev[lastIdx];
+
+                  // Check if last message is assistant and can be merged
+                  if (lastMsg && lastMsg.type === 'assistant') {
+                    const lastContent = lastMsg.message?.content;
+                    const newContent = data.message?.content;
+
+                    if (Array.isArray(lastContent) && Array.isArray(newContent)) {
+                      // Find text blocks to merge
+                      const lastTextIdx = lastContent.findIndex((c: any) => c.type === 'text');
+                      const newText = newContent.find((c: any) => c.type === 'text')?.text || '';
+
+                      if (lastTextIdx >= 0 && newText) {
+                        // Merge text content
+                        const updatedContent = [...lastContent];
+                        updatedContent[lastTextIdx] = {
+                          ...updatedContent[lastTextIdx],
+                          text: (updatedContent[lastTextIdx].text || '') + newText
+                        };
+
+                        const updatedMsg = {
+                          ...lastMsg,
+                          message: {
+                            ...lastMsg.message,
+                            content: updatedContent
+                          }
+                        };
+
+                        return [...prev.slice(0, lastIdx), updatedMsg];
+                      }
+                    }
+                  }
+
+                  // Cannot merge, add as new message
+                  const message = convertGeminiToClaudeMessage(data);
+                  return message ? [...prev, message] : prev;
+                });
+                setRawJsonlOutput((prev) => [...prev, payload]);
+                return;
+              }
+
+              // Non-delta message - add normally
               const message = convertGeminiToClaudeMessage(data);
 
               if (message) {
