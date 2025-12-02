@@ -45,7 +45,7 @@ export default defineConfig(async () => ({
     
     // Additional optimizations for smaller bundle size
     minify: 'esbuild',
-    target: 'es2020',
+    target: 'es2015',
     cssMinify: true,
     
     rollupOptions: {
