@@ -206,3 +206,59 @@ export const DEFAULT_GEMINI_CONFIG: GeminiConfig = {
   defaultModel: "gemini-2.5-pro",
   approvalMode: "auto_edit",
 };
+
+// ============================================================================
+// Session History Types
+// ============================================================================
+
+/**
+ * Session log entry from logs.json
+ */
+export interface GeminiSessionLog {
+  sessionId: string;
+  messageId: number;
+  type: string;
+  message: string;
+  timestamp: string;
+}
+
+/**
+ * Complete session detail from chats/session-*.json
+ */
+export interface GeminiSessionDetail {
+  sessionId: string;
+  projectHash: string;
+  startTime: string;
+  lastUpdated: string;
+  messages: Array<{
+    id: string;
+    timestamp: string;
+    type: "user" | "gemini";
+    content: string;
+    toolCalls?: Array<{
+      id: string;
+      name: string;
+      args: Record<string, unknown>;
+      result?: unknown;
+      status?: string;
+      timestamp?: string;
+      resultDisplay?: string;
+      displayName?: string;
+      description?: string;
+      renderOutputAsMarkdown?: boolean;
+    }>;
+    thoughts?: unknown[];
+    model?: string;
+    tokens?: unknown;
+  }>;
+}
+
+/**
+ * Session file info (simplified for listing)
+ */
+export interface GeminiSessionInfo {
+  sessionId: string;
+  fileName: string;
+  startTime: string;
+  firstMessage?: string;
+}

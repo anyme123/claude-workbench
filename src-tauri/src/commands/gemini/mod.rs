@@ -19,5 +19,13 @@ pub mod types;
 pub use types::GeminiProcessState;
 
 // Re-export Tauri commands
-pub use config::{get_gemini_config, get_gemini_models, update_gemini_config};
+pub use config::{
+    get_gemini_config,
+    get_gemini_models,
+    update_gemini_config,
+    // Session history commands
+    get_gemini_session_logs,
+    list_gemini_sessions,
+    get_gemini_session_detail,
+};
 pub use session::{cancel_gemini, check_gemini_installed, execute_gemini};

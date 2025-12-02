@@ -155,13 +155,17 @@ pub async fn execute_gemini(
     // Load configuration
     let config = load_gemini_config().unwrap_or_default();
 
-    // Build command arguments
+    // Build command arguments (prompt must be last as positional argument)
     let mut args = vec![
-        "--prompt".to_string(),
-        options.prompt.clone(),
         "--output-format".to_string(),
         "stream-json".to_string(),
     ];
+
+    // Add session ID for resuming (if specified)
+    if let Some(session_id) = &options.session_id {
+        args.push("--session".to_string());
+        args.push(session_id.clone());
+    }
 
     // Add model if specified (or use default from config)
     let model = options.model.as_ref().unwrap_or(&config.default_model);
@@ -189,6 +193,9 @@ pub async fn execute_gemini(
     if options.debug {
         args.push("--debug".to_string());
     }
+
+    // Add prompt as positional argument (must be last)
+    args.push(options.prompt.clone());
 
     log::info!("Gemini command: {} {:?}", gemini_path, args);
 

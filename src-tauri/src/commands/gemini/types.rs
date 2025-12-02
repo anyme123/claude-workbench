@@ -232,3 +232,40 @@ pub struct GeminiInstallStatus {
     pub version: Option<String>,
     pub error: Option<String>,
 }
+
+// ============================================================================
+// Session History Types (for reading Gemini CLI history from ~/.gemini/tmp)
+// ============================================================================
+
+/// Session log entry from logs.json
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GeminiSessionLog {
+    pub session_id: String,
+    pub message_id: i32,
+    #[serde(rename = "type")]
+    pub msg_type: String,
+    pub message: String,
+    pub timestamp: String,
+}
+
+/// Complete session detail from chats/session-*.json
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GeminiSessionDetail {
+    pub session_id: String,
+    pub project_hash: String,
+    pub start_time: String,
+    pub last_updated: String,
+    pub messages: Vec<serde_json::Value>,
+}
+
+/// Session file info (simplified for listing)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GeminiSessionInfo {
+    pub session_id: String,
+    pub file_name: String,
+    pub start_time: String,
+    pub first_message: Option<String>,
+}

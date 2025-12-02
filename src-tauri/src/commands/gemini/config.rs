@@ -211,3 +211,151 @@ pub fn build_gemini_env(config: &GeminiConfig) -> std::collections::HashMap<Stri
 
     env
 }
+
+// ============================================================================
+// Session History Functions
+// ============================================================================
+
+use sha2::{Sha256, Digest};
+use crate::commands::gemini::types::{GeminiSessionLog, GeminiSessionDetail, GeminiSessionInfo};
+
+/// Generate SHA256 hash for project path (matching Gemini CLI behavior)
+pub fn hash_project_path(project_path: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(project_path.as_bytes());
+    format!("{:x}", hasher.finalize())
+}
+
+/// Get Gemini session directory for a project
+pub fn get_project_session_dir(project_path: &str) -> Result<PathBuf, String> {
+    let gemini_dir = get_gemini_dir()?;
+    let project_hash = hash_project_path(project_path);
+    Ok(gemini_dir.join("tmp").join(project_hash))
+}
+
+/// Read logs.json for a project (session index)
+pub fn read_session_logs(project_path: &str) -> Result<Vec<GeminiSessionLog>, String> {
+    let session_dir = get_project_session_dir(project_path)?;
+    let logs_path = session_dir.join("logs.json");
+
+    if !logs_path.exists() {
+        return Ok(Vec::new());
+    }
+
+    let content = fs::read_to_string(&logs_path)
+        .map_err(|e| format!("Failed to read logs.json: {}", e))?;
+
+    serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse logs.json: {}", e))
+}
+
+/// List all session files in chats/ directory
+pub fn list_session_files(project_path: &str) -> Result<Vec<GeminiSessionInfo>, String> {
+    let session_dir = get_project_session_dir(project_path)?;
+    let chats_dir = session_dir.join("chats");
+
+    if !chats_dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    let entries = fs::read_dir(&chats_dir)
+        .map_err(|e| format!("Failed to read chats directory: {}", e))?;
+
+    let mut sessions = Vec::new();
+
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
+        let path = entry.path();
+
+        if path.extension().and_then(|s| s.to_str()) == Some("json") {
+            let file_name = path
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or("")
+                .to_string();
+
+            // Try to read basic info from file
+            if let Ok(detail) = read_session_detail_from_path(&path) {
+                let first_message = detail.messages.first()
+                    .and_then(|m| m.get("content"))
+                    .and_then(|c| c.as_str())
+                    .map(|s| s.to_string());
+
+                sessions.push(GeminiSessionInfo {
+                    session_id: detail.session_id,
+                    file_name,
+                    start_time: detail.start_time,
+                    first_message,
+                });
+            }
+        }
+    }
+
+    // Sort by start_time descending (most recent first)
+    sessions.sort_by(|a, b| b.start_time.cmp(&a.start_time));
+
+    Ok(sessions)
+}
+
+/// Read a complete session detail from chats/session-*.json
+pub fn read_session_detail(project_path: &str, session_id: &str) -> Result<GeminiSessionDetail, String> {
+    let session_dir = get_project_session_dir(project_path)?;
+    let chats_dir = session_dir.join("chats");
+
+    if !chats_dir.exists() {
+        return Err("No chats directory found".to_string());
+    }
+
+    // Find session file by session_id
+    let entries = fs::read_dir(&chats_dir)
+        .map_err(|e| format!("Failed to read chats directory: {}", e))?;
+
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
+        let path = entry.path();
+
+        if path.extension().and_then(|s| s.to_str()) == Some("json") {
+            if let Ok(detail) = read_session_detail_from_path(&path) {
+                if detail.session_id == session_id {
+                    return Ok(detail);
+                }
+            }
+        }
+    }
+
+    Err(format!("Session {} not found", session_id))
+}
+
+/// Helper function to read session detail from a specific file path
+fn read_session_detail_from_path(path: &PathBuf) -> Result<GeminiSessionDetail, String> {
+    let content = fs::read_to_string(path)
+        .map_err(|e| format!("Failed to read session file: {}", e))?;
+
+    serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse session file: {}", e))
+}
+
+// ============================================================================
+// Tauri Commands for Session History
+// ============================================================================
+
+/// Get session logs for a project
+#[tauri::command]
+pub async fn get_gemini_session_logs(project_path: String) -> Result<Vec<GeminiSessionLog>, String> {
+    read_session_logs(&project_path)
+}
+
+/// List all sessions for a project
+#[tauri::command]
+pub async fn list_gemini_sessions(project_path: String) -> Result<Vec<GeminiSessionInfo>, String> {
+    list_session_files(&project_path)
+}
+
+/// Get detailed session information
+#[tauri::command]
+pub async fn get_gemini_session_detail(
+    project_path: String,
+    session_id: String,
+) -> Result<GeminiSessionDetail, String> {
+    read_session_detail(&project_path, &session_id)
+}

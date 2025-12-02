@@ -3138,4 +3138,54 @@ export const api = {
     }
   },
 
+  // ============================================================================
+  // Gemini Session History
+  // ============================================================================
+
+  /**
+   * Gets session logs for a project (from logs.json)
+   * @param projectPath - Project path to get session logs for
+   * @returns Promise resolving to array of session logs
+   */
+  async getGeminiSessionLogs(projectPath: string): Promise<import('@/types/gemini').GeminiSessionLog[]> {
+    try {
+      return await invoke("get_gemini_session_logs", { projectPath });
+    } catch (error) {
+      console.error("Failed to get Gemini session logs:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Lists all sessions for a project (from chats/ directory)
+   * @param projectPath - Project path to list sessions for
+   * @returns Promise resolving to array of session info
+   */
+  async listGeminiSessions(projectPath: string): Promise<import('@/types/gemini').GeminiSessionInfo[]> {
+    try {
+      return await invoke("list_gemini_sessions", { projectPath });
+    } catch (error) {
+      console.error("Failed to list Gemini sessions:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Gets detailed session information
+   * @param projectPath - Project path
+   * @param sessionId - Session ID to get details for
+   * @returns Promise resolving to complete session detail
+   */
+  async getGeminiSessionDetail(
+    projectPath: string,
+    sessionId: string
+  ): Promise<import('@/types/gemini').GeminiSessionDetail> {
+    try {
+      return await invoke("get_gemini_session_detail", { projectPath, sessionId });
+    } catch (error) {
+      console.error("Failed to get Gemini session detail:", error);
+      throw error;
+    }
+  },
+
 };
