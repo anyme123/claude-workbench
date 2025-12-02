@@ -711,10 +711,18 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
 
       const sessionEngine = effectiveSession.engine || executionEngineConfig.engine || 'claude';
       const isCodex = sessionEngine === 'codex';
+      const isGemini = sessionEngine === 'gemini';
 
       // 调用后端撤回（返回提示词文本）
       const promptText = isCodex
         ? await api.revertCodexToPrompt(
+            effectiveSession.id,
+            projectPath,
+            promptIndex,
+            mode
+          )
+        : isGemini
+        ? await api.revertGeminiToPrompt(
             effectiveSession.id,
             projectPath,
             promptIndex,

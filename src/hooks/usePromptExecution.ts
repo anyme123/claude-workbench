@@ -33,6 +33,11 @@ declare global {
       projectPath: string;
       promptIndex: number;
     };
+    __geminiPendingPrompt?: {
+      sessionId: string;
+      projectPath: string;
+      promptIndex: number;
+    };
     __geminiPendingSession?: {
       sessionId: string;
       projectPath: string;
@@ -213,6 +218,12 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
         promptText: prompt,
         promptIndex: undefined as number | undefined,
       } : undefined;
+      const geminiPendingInfo = executionEngine === 'gemini' ? {
+        sessionId: effectiveSession?.id || null,
+        projectPath,
+        promptText: prompt,
+        promptIndex: undefined as number | undefined,
+      } : undefined;
       
       // 对于已有会话，立即记录；对于新会话，在收到 session_id 后记录
       if (effectiveSession && isUserInitiated) {
@@ -228,6 +239,18 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
             if (codexPendingInfo) {
               codexPendingInfo.promptIndex = recordedPromptIndex;
               codexPendingInfo.sessionId = effectiveSession.id;
+            }
+          } else if (executionEngine === 'gemini') {
+            // ✅ Gemini 使用专用的记录 API（写入 ~/.gemini/git-records/）
+            recordedPromptIndex = await api.recordGeminiPromptSent(
+              effectiveSession.id,
+              projectPath,
+              prompt
+            );
+            console.log('[Gemini Revert] [OK] Recorded Gemini prompt #', recordedPromptIndex, '(existing session)');
+            if (geminiPendingInfo) {
+              geminiPendingInfo.promptIndex = recordedPromptIndex;
+              geminiPendingInfo.sessionId = effectiveSession.id;
             }
           } else {
             // Claude Code 使用原有的记录 API（写入 .claude-sessions/）
@@ -468,6 +491,8 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
           let currentGeminiSessionId: string | null = null;
           // 🔧 Track processed message IDs to prevent duplicates
           const processedGeminiMessages = new Set<string>();
+          // 🔧 FIX: Track pending prompt recording Promise to avoid race condition
+          let pendingGeminiPromptRecordingPromise: Promise<void> | null = null;
 
           // Helper function to generate message ID for deduplication
           const getGeminiMessageId = (payload: string): string => {
@@ -649,6 +674,30 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
             unlistenRefs.current.forEach(u => u && typeof u === 'function' && u());
             unlistenRefs.current = [];
 
+            // 🔧 FIX: Wait for pending prompt recording to complete (race condition fix)
+            if (pendingGeminiPromptRecordingPromise) {
+              console.log('[usePromptExecution] Waiting for pending Gemini prompt recording to complete...');
+              await pendingGeminiPromptRecordingPromise;
+              pendingGeminiPromptRecordingPromise = null;
+            }
+
+            // 🆕 Record prompt completion for rewind support
+            if (window.__geminiPendingPrompt) {
+              const pendingPrompt = window.__geminiPendingPrompt;
+              try {
+                await api.recordGeminiPromptCompleted(
+                  pendingPrompt.sessionId,
+                  pendingPrompt.projectPath,
+                  pendingPrompt.promptIndex
+                );
+                console.log('[usePromptExecution] Recorded Gemini prompt completion #', pendingPrompt.promptIndex);
+              } catch (err) {
+                console.warn('[usePromptExecution] Failed to record Gemini prompt completion:', err);
+              }
+              // Clear the pending prompt
+              delete window.__geminiPendingPrompt;
+            }
+
             // Clear pending session
             delete window.__geminiPendingSession;
 
@@ -691,6 +740,32 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
                 const sessionId = data.session_id as string;
                 currentGeminiSessionId = sessionId;
                 setClaudeSessionId(sessionId);
+
+                // 🔧 FIX: Record prompt sent for new Gemini session
+                if (isUserInitiated && geminiPendingInfo && geminiPendingInfo.promptIndex === undefined) {
+                  pendingGeminiPromptRecordingPromise = api.recordGeminiPromptSent(sessionId, projectPath, geminiPendingInfo.promptText)
+                    .then((idx) => {
+                      geminiPendingInfo.promptIndex = idx;
+                      geminiPendingInfo.sessionId = sessionId;
+                      window.__geminiPendingPrompt = {
+                        sessionId: sessionId,
+                        projectPath,
+                        promptIndex: idx
+                      };
+                      console.log('[usePromptExecution] Recorded Gemini prompt after init with index', idx);
+                    })
+                    .catch(err => {
+                      console.warn('[usePromptExecution] Failed to record Gemini prompt after init:', err);
+                    });
+                } else if (geminiPendingInfo && geminiPendingInfo.promptIndex !== undefined) {
+                  // Update pending sessionId for completion handler
+                  window.__geminiPendingPrompt = {
+                    sessionId: sessionId,
+                    projectPath,
+                    promptIndex: geminiPendingInfo.promptIndex
+                  };
+                }
+
                 // Switch to session-specific listeners
                 await attachGeminiSessionListeners(sessionId);
               }

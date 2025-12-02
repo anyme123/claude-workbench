@@ -67,6 +67,7 @@ export const RevertPromptPicker: React.FC<RevertPromptPickerProps> = ({
   const listRef = useRef<HTMLDivElement>(null);
   const selectedItemRef = useRef<HTMLDivElement>(null);
   const isCodex = engine === 'codex';
+  const isGemini = engine === 'gemini';
 
   // 从后端加载准确的提示词列表
   useEffect(() => {
@@ -75,6 +76,8 @@ export const RevertPromptPicker: React.FC<RevertPromptPickerProps> = ({
         // 调用后端获取准确的提示词列表（包含正确的 index）
         const promptRecords = isCodex
           ? await api.getCodexPromptList(sessionId)
+          : isGemini
+          ? await api.getGeminiPromptList(sessionId, projectId)
           : await api.getPromptList(sessionId, projectId);
 
         console.log('[RevertPromptPicker] Loaded prompts from backend:', promptRecords);
@@ -102,7 +105,7 @@ export const RevertPromptPicker: React.FC<RevertPromptPickerProps> = ({
     };
 
     loadPrompts();
-  }, [sessionId, projectId, onClose, isCodex]);
+  }, [sessionId, projectId, onClose, isCodex, isGemini]);
 
   // 异步加载每个提示词的撤回能力
   useEffect(() => {
@@ -112,6 +115,8 @@ export const RevertPromptPicker: React.FC<RevertPromptPickerProps> = ({
           try {
             const capabilities = isCodex
               ? await api.checkCodexRewindCapabilities(sessionId, prompt.index)
+              : isGemini
+              ? await api.checkGeminiRewindCapabilities(sessionId, projectId, prompt.index)
               : await api.checkRewindCapabilities(
                   sessionId,
                   projectId,

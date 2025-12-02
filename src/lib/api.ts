@@ -2847,6 +2847,126 @@ export const api = {
   },
 
   // ============================================================================
+  // Gemini Rewind Commands
+  // ============================================================================
+
+  /**
+   * Records a Gemini prompt being sent (called before execution)
+   * @param sessionId - The Gemini session ID
+   * @param projectPath - The project path
+   * @param promptText - The prompt text
+   * @returns Promise resolving to the prompt index
+   */
+  async recordGeminiPromptSent(
+    sessionId: string,
+    projectPath: string,
+    promptText: string
+  ): Promise<number> {
+    try {
+      return await invoke<number>("record_gemini_prompt_sent", {
+        sessionId,
+        projectPath,
+        promptText
+      });
+    } catch (error) {
+      console.error("Failed to record Gemini prompt sent:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Records a Gemini prompt completion (called after AI response)
+   * @param sessionId - The Gemini session ID
+   * @param projectPath - The project path
+   * @param promptIndex - The prompt index to complete
+   */
+  async recordGeminiPromptCompleted(
+    sessionId: string,
+    projectPath: string,
+    promptIndex: number
+  ): Promise<void> {
+    try {
+      await invoke("record_gemini_prompt_completed", {
+        sessionId,
+        projectPath,
+        promptIndex
+      });
+    } catch (error) {
+      console.error("Failed to record Gemini prompt completed:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Gets Gemini prompt list for a session (used by revert picker)
+   */
+  async getGeminiPromptList(sessionId: string, projectPath: string): Promise<PromptRecord[]> {
+    try {
+      return await invoke<PromptRecord[]>("get_gemini_prompt_list", { sessionId, projectPath });
+    } catch (error) {
+      console.error("Failed to get Gemini prompt list:", error);
+      return [];
+    }
+  },
+
+  /**
+   * Checks rewind capabilities for a Gemini prompt
+   * @param sessionId - Gemini session ID
+   * @param projectPath - The project path
+   * @param promptIndex - Prompt index to check
+   */
+  async checkGeminiRewindCapabilities(
+    sessionId: string,
+    projectPath: string,
+    promptIndex: number
+  ): Promise<RewindCapabilities> {
+    try {
+      return await invoke<RewindCapabilities>("check_gemini_rewind_capabilities", {
+        sessionId,
+        projectPath,
+        promptIndex,
+      });
+    } catch (error) {
+      console.error("Failed to check Gemini rewind capabilities:", error);
+      // Fallback to conversation-only to keep UI functional
+      return {
+        conversation: true,
+        code: false,
+        both: false,
+        warning: "无法获取 Gemini 撤回能力，只能删除对话记录。",
+        source: "project",
+      };
+    }
+  },
+
+  /**
+   * Reverts a Gemini session to a specific prompt
+   * @param sessionId - The Gemini session ID
+   * @param projectPath - The project path
+   * @param promptIndex - The prompt index to revert to
+   * @param mode - The rewind mode (conversation_only, code_only, or both)
+   * @returns Promise resolving to success message
+   */
+  async revertGeminiToPrompt(
+    sessionId: string,
+    projectPath: string,
+    promptIndex: number,
+    mode: RewindMode = "both"
+  ): Promise<string> {
+    try {
+      return await invoke<string>("revert_gemini_to_prompt", {
+        sessionId,
+        projectPath,
+        promptIndex,
+        mode
+      });
+    } catch (error) {
+      console.error("Failed to revert Gemini to prompt:", error);
+      throw error;
+    }
+  },
+
+  // ============================================================================
   // CODEX PROVIDER MANAGEMENT
   // ============================================================================
 

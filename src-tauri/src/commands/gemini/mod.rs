@@ -11,6 +11,7 @@
 //! - **Multi-Auth Support**: Google OAuth, API Key, and Vertex AI authentication
 
 pub mod config;
+pub mod git_ops;
 pub mod parser;
 pub mod session;
 pub mod types;
@@ -30,3 +31,12 @@ pub use config::{
     delete_gemini_session,
 };
 pub use session::{cancel_gemini, check_gemini_installed, execute_gemini};
+
+// Re-export Gemini Rewind commands
+pub use git_ops::{
+    get_gemini_prompt_list,
+    check_gemini_rewind_capabilities,
+    record_gemini_prompt_sent,
+    record_gemini_prompt_completed,
+    revert_gemini_to_prompt,
+};
