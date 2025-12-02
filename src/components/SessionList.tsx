@@ -163,9 +163,22 @@ export const SessionList: React.FC<SessionListProps> = ({
   // 🆕 根据筛选器过滤会话类型
   const filteredSessions = validSessions.filter(session => {
     if (sessionFilter === 'all') return true;
-    if (sessionFilter === 'claude') return session.engine !== 'codex' && session.engine !== 'gemini';
-    if (sessionFilter === 'codex') return session.engine === 'codex';
-    if (sessionFilter === 'gemini') return session.engine === 'gemini';
+
+    // Claude: explicitly 'claude' or undefined (legacy sessions)
+    if (sessionFilter === 'claude') {
+      return !session.engine || session.engine === 'claude';
+    }
+
+    // Codex: only 'codex'
+    if (sessionFilter === 'codex') {
+      return session.engine === 'codex';
+    }
+
+    // Gemini: only 'gemini'
+    if (sessionFilter === 'gemini') {
+      return session.engine === 'gemini';
+    }
+
     return true;
   });
 
@@ -372,9 +385,9 @@ export const SessionList: React.FC<SessionListProps> = ({
           <TabsTrigger value="claude" className="flex items-center gap-2">
             <Zap className="h-3.5 w-3.5" />
             Claude
-            {validSessions.filter(s => s.engine !== 'codex' && s.engine !== 'gemini').length > 0 && (
+            {validSessions.filter(s => !s.engine || s.engine === 'claude').length > 0 && (
               <span className="text-xs opacity-70">
-                ({validSessions.filter(s => s.engine !== 'codex' && s.engine !== 'gemini').length})
+                ({validSessions.filter(s => !s.engine || s.engine === 'claude').length})
               </span>
             )}
           </TabsTrigger>
