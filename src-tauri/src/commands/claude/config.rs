@@ -218,7 +218,6 @@ pub async fn check_claude_version(app: AppHandle) -> Result<ClaudeVersionStatus,
     #[cfg(target_os = "windows")]
     {
         platform::apply_no_window(&mut cmd);
-        platform::apply_no_window(&mut cmd);
     }
     
     let output = cmd.output();

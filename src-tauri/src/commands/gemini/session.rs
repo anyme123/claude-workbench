@@ -73,9 +73,17 @@ pub fn find_gemini_binary() -> Result<String, String> {
     #[cfg(not(target_os = "windows"))]
     let which_cmd = "which";
 
-    if let Ok(output) = std::process::Command::new(which_cmd)
-        .arg("gemini")
-        .output()
+    let mut cmd = std::process::Command::new(which_cmd);
+    cmd.arg("gemini");
+
+    // Add CREATE_NO_WINDOW flag on Windows to prevent terminal window popup
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
+
+    if let Ok(output) = cmd.output()
     {
         if output.status.success() {
             let path = String::from_utf8_lossy(&output.stdout)
@@ -96,10 +104,17 @@ pub fn find_gemini_binary() -> Result<String, String> {
 
 /// Get Gemini CLI version
 pub fn get_gemini_version(gemini_path: &str) -> Option<String> {
-    let output = std::process::Command::new(gemini_path)
-        .arg("--version")
-        .output()
-        .ok()?;
+    let mut cmd = std::process::Command::new(gemini_path);
+    cmd.arg("--version");
+
+    // Add CREATE_NO_WINDOW flag on Windows to prevent terminal window popup
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
+
+    let output = cmd.output().ok()?;
 
     if output.status.success() {
         let version = String::from_utf8_lossy(&output.stdout)
