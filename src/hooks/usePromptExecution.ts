@@ -1137,22 +1137,32 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
         // ====================================================================
         const { geminiModel, geminiApprovalMode } = config;
 
+        // Determine if we're resuming a session
+        const resumingSession = effectiveSession && !isFirstPrompt;
+        const sessionId = resumingSession ? effectiveSession.id : undefined;
+
         console.log('[usePromptExecution] Executing Gemini with:', {
           projectPath,
           prompt: processedPrompt.substring(0, 100) + '...',
           model: geminiModel || 'gemini-2.5-pro',
-          approvalMode: geminiApprovalMode || 'auto_edit'
+          approvalMode: geminiApprovalMode || 'auto_edit',
+          resumingSession,
+          sessionId
         });
 
-        // Gemini CLI does not support session resumption yet
-        // Always start a new execution
-        setIsFirstPrompt(false);
+        if (resumingSession) {
+          console.log('[usePromptExecution] Resuming Gemini session:', sessionId);
+        } else {
+          console.log('[usePromptExecution] Starting new Gemini session');
+          setIsFirstPrompt(false);
+        }
 
         await api.executeGemini({
           projectPath,
           prompt: processedPrompt,
           model: geminiModel || 'gemini-2.5-pro',
           approvalMode: geminiApprovalMode || 'auto_edit',
+          sessionId: sessionId,  // 🔑 Pass session ID for resumption
           debug: false
         });
 
