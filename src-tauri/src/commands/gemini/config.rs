@@ -366,3 +366,44 @@ pub async fn get_gemini_session_detail(
 ) -> Result<GeminiSessionDetail, String> {
     read_session_detail(&project_path, &session_id)
 }
+
+/// Delete a Gemini session
+#[tauri::command]
+pub async fn delete_gemini_session(
+    project_path: String,
+    session_id: String,
+) -> Result<(), String> {
+    delete_session(&project_path, &session_id)
+}
+
+/// Delete a session file by session_id
+pub fn delete_session(project_path: &str, session_id: &str) -> Result<(), String> {
+    let session_dir = get_project_session_dir(project_path)?;
+    let chats_dir = session_dir.join("chats");
+
+    if !chats_dir.exists() {
+        return Err("No chats directory found".to_string());
+    }
+
+    // Find and delete session file by session_id
+    let entries = fs::read_dir(&chats_dir)
+        .map_err(|e| format!("Failed to read chats directory: {}", e))?;
+
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
+        let path = entry.path();
+
+        if path.extension().and_then(|s| s.to_str()) == Some("json") {
+            if let Ok(detail) = read_session_detail_from_path(&path) {
+                if detail.session_id == session_id {
+                    fs::remove_file(&path)
+                        .map_err(|e| format!("Failed to delete session file: {}", e))?;
+                    log::info!("Deleted Gemini session: {} at {:?}", session_id, path);
+                    return Ok(());
+                }
+            }
+        }
+    }
+
+    Err(format!("Session {} not found", session_id))
+}

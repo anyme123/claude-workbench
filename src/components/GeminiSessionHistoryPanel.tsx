@@ -71,8 +71,7 @@ export const GeminiSessionHistoryPanel: React.FC<GeminiSessionHistoryPanelProps>
     }
 
     try {
-      // TODO: Implement delete session API
-      console.log('Delete session:', sessionId);
+      await api.deleteGeminiSession(projectPath, sessionId);
       // Refresh list after deletion
       await loadSessions();
     } catch (err) {

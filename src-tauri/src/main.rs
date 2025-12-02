@@ -93,6 +93,7 @@ use commands::gemini::{
     execute_gemini, cancel_gemini, check_gemini_installed,
     get_gemini_config, update_gemini_config, get_gemini_models,
     get_gemini_session_logs, list_gemini_sessions, get_gemini_session_detail,
+    delete_gemini_session,
     GeminiProcessState,
 };
 use process::ProcessRegistryState;
@@ -413,6 +414,7 @@ fn main() {
             get_gemini_session_logs,
             list_gemini_sessions,
             get_gemini_session_detail,
+            delete_gemini_session,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

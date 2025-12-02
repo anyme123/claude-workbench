@@ -3188,4 +3188,18 @@ export const api = {
     }
   },
 
+  /**
+   * Delete a Gemini session
+   * @param projectPath - Project path
+   * @param sessionId - Session ID to delete
+   */
+  async deleteGeminiSession(projectPath: string, sessionId: string): Promise<void> {
+    try {
+      await invoke("delete_gemini_session", { projectPath, sessionId });
+    } catch (error) {
+      console.error("Failed to delete Gemini session:", error);
+      throw error;
+    }
+  },
+
 };
