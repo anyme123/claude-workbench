@@ -288,6 +288,13 @@ pub fn list_session_files(project_path: &str) -> Result<Vec<GeminiSessionInfo>, 
                     .and_then(|c| c.as_str())
                     .map(|s| s.to_string());
 
+                // Skip subagent/task sessions - they start with "Your task is to"
+                if let Some(ref msg) = first_message {
+                    if msg.trim_start().starts_with("Your task is to") {
+                        continue;
+                    }
+                }
+
                 sessions.push(GeminiSessionInfo {
                     session_id: detail.session_id,
                     file_name,
