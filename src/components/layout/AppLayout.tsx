@@ -1,6 +1,8 @@
 import React, { ReactNode, useState } from 'react';
 import { Sidebar } from "@/components/layout/Sidebar";
 import { useNavigation } from '@/contexts/NavigationContext';
+import { useUpdate } from '@/contexts/UpdateContext';
+import { message } from '@tauri-apps/plugin-dialog';
 import { UpdateDialog } from '@/components/dialogs/UpdateDialog';
 import { AboutDialog } from '@/components/dialogs/AboutDialog';
 
@@ -10,8 +12,23 @@ interface AppLayoutProps {
 
 export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const { currentView, navigateTo } = useNavigation();
+  const { checkUpdate } = useUpdate();
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
   const [showAboutDialog, setShowAboutDialog] = useState(false);
+
+  const handleCheckUpdate = async () => {
+    setShowAboutDialog(false);
+    
+    // 强制检查更新
+    const hasUpdate = await checkUpdate(true);
+    
+    if (hasUpdate) {
+      setShowUpdateDialog(true);
+    } else {
+      // 如果没有更新，显示提示
+      await message('当前已是最新版本', { title: '检查更新', kind: 'info' });
+    }
+  };
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-background flex text-foreground selection:bg-primary/20 selection:text-primary relative">
@@ -52,10 +69,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       <AboutDialog
         open={showAboutDialog}
         onClose={() => setShowAboutDialog(false)}
-        onCheckUpdate={() => {
-          setShowAboutDialog(false);
-          setShowUpdateDialog(true);
-        }}
+        onCheckUpdate={handleCheckUpdate}
       />
     </div>
   );
