@@ -163,7 +163,7 @@ pub async fn execute_gemini(
 
     // Add session ID for resuming (if specified)
     if let Some(session_id) = &options.session_id {
-        args.push("--session".to_string());
+        args.push("--resume".to_string());
         args.push(session_id.clone());
     }
 
