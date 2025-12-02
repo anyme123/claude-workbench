@@ -278,6 +278,8 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
           let currentCodexSessionId: string | null = null;
           // 🔧 FIX: Track processed message IDs to prevent duplicates
           const processedCodexMessages = new Set<string>();
+          // 🔧 FIX: Track pending prompt recording Promise to avoid race condition
+          let pendingPromptRecordingPromise: Promise<void> | null = null;
 
           // Helper function to generate message ID for deduplication
           const getCodexMessageId = (payload: string): string => {
@@ -326,7 +328,8 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
 
                 // If this is a new Codex session and prompt not yet recorded, record now
                 if (isUserInitiated && codexPendingInfo && codexPendingInfo.promptIndex === undefined) {
-                  api.recordCodexPromptSent(codexThreadId, projectPath, codexPendingInfo.promptText)
+                  // 🔧 FIX: Store Promise to allow processCodexComplete to wait for it
+                  pendingPromptRecordingPromise = api.recordCodexPromptSent(codexThreadId, projectPath, codexPendingInfo.promptText)
                     .then((idx) => {
                       codexPendingInfo.promptIndex = idx;
                       codexPendingInfo.sessionId = codexThreadId;
@@ -361,6 +364,13 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
             // 🆕 Clean up listeners to prevent memory leak
             unlistenRefs.current.forEach(u => u && typeof u === 'function' && u());
             unlistenRefs.current = [];
+
+            // 🔧 FIX: Wait for pending prompt recording to complete (race condition fix)
+            if (pendingPromptRecordingPromise) {
+              console.log('[usePromptExecution] Waiting for pending prompt recording to complete...');
+              await pendingPromptRecordingPromise;
+              pendingPromptRecordingPromise = null;
+            }
 
             // 🆕 Record prompt completion for rewind support
             if (window.__codexPendingPrompt) {
