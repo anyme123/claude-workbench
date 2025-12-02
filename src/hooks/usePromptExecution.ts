@@ -748,6 +748,9 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
         // 🔧 FIX: Track processed message IDs to prevent duplicates from global and session-specific channels
         const processedClaudeMessages = new Set<string>();
 
+        // 🔧 FIX: Track pending prompt recording Promise to avoid race condition
+        let pendingClaudePromptRecordingPromise: Promise<void> | null = null;
+
         // Helper function to generate message ID for deduplication
         const getClaudeMessageId = (payload: string): string => {
           try {
@@ -805,21 +808,24 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
                 
                 if (isOurMessage) {
                   const projectId = extractedSessionInfo?.projectId || projectPath.replace(/[^a-zA-Z0-9]/g, '-');
-                  try {
-                    // 添加延迟以确保文件写入完成
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    
-                    recordedPromptIndex = await api.recordPromptSent(
-                      sid,
-                      projectId,
-                      projectPath,
-                      prompt
-                    );
-                    hasRecordedPrompt = true;
-                    console.log('[Prompt Revert] [OK] Recorded user prompt #', recordedPromptIndex, '(session-specific listener)');
-                  } catch (err) {
-                    console.error('[Prompt Revert] [ERROR] Failed to record prompt:', err);
-                  }
+                  // 🔧 FIX: Store Promise to allow processComplete to wait for it
+                  pendingClaudePromptRecordingPromise = (async () => {
+                    try {
+                      // 添加延迟以确保文件写入完成
+                      await new Promise(resolve => setTimeout(resolve, 100));
+
+                      recordedPromptIndex = await api.recordPromptSent(
+                        sid,
+                        projectId,
+                        projectPath,
+                        prompt
+                      );
+                      hasRecordedPrompt = true;
+                      console.log('[Prompt Revert] [OK] Recorded user prompt #', recordedPromptIndex, '(session-specific listener)');
+                    } catch (err) {
+                      console.error('[Prompt Revert] [ERROR] Failed to record prompt:', err);
+                    }
+                  })();
                 }
               }
             } catch {
@@ -879,7 +885,14 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
           // Calculate API execution time
           const apiDuration = (Date.now() - apiStartTime) / 1000; // seconds
           console.log('[usePromptExecution] API duration:', apiDuration.toFixed(1), 'seconds');
-          
+
+          // 🔧 FIX: Wait for pending prompt recording to complete (race condition fix)
+          if (pendingClaudePromptRecordingPromise) {
+            console.log('[usePromptExecution] Waiting for pending Claude prompt recording to complete...');
+            await pendingClaudePromptRecordingPromise;
+            pendingClaudePromptRecordingPromise = null;
+          }
+
           // Mark prompt as completed (record Git state after completion)
           if (recordedPromptIndex >= 0) {
             // Use currentSessionId and extractedSessionInfo for new sessions
@@ -979,21 +992,24 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
                 // Record prompt after system:init (user message already written to JSONL)
                 if (!hasRecordedPrompt && isUserInitiated) {
                   const projectId = projectPath.replace(/[^a-zA-Z0-9]/g, '-');
-                  try {
-                    // Delay 200ms to ensure file is written
-                    await new Promise(resolve => setTimeout(resolve, 200));
-                    
-                    recordedPromptIndex = await api.recordPromptSent(
-                      msg.session_id,
-                      projectId,
-                      projectPath,
-                      prompt
-                    );
-                    hasRecordedPrompt = true;
-                    console.log('[Prompt Revert] [OK] Recorded user prompt #', recordedPromptIndex, '(after system:init)');
-                  } catch (err) {
-                    console.error('[Prompt Revert] [ERROR] Failed to record prompt:', err);
-                  }
+                  // 🔧 FIX: Store Promise to allow processComplete to wait for it
+                  pendingClaudePromptRecordingPromise = (async () => {
+                    try {
+                      // Delay 200ms to ensure file is written
+                      await new Promise(resolve => setTimeout(resolve, 200));
+
+                      recordedPromptIndex = await api.recordPromptSent(
+                        msg.session_id,
+                        projectId,
+                        projectPath,
+                        prompt
+                      );
+                      hasRecordedPrompt = true;
+                      console.log('[Prompt Revert] [OK] Recorded user prompt #', recordedPromptIndex, '(after system:init)');
+                    } catch (err) {
+                      console.error('[Prompt Revert] [ERROR] Failed to record prompt:', err);
+                    }
+                  })();
                 }
 
                 // Switch to session-specific listeners
@@ -1023,21 +1039,24 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
               
               if (isOurMessage) {
                 const projectId = extractedSessionInfo?.projectId || projectPath.replace(/[^a-zA-Z0-9]/g, '-');
-                try {
-                  // 添加延迟以确保文件写入完成
-                  await new Promise(resolve => setTimeout(resolve, 100));
-                  
-                  recordedPromptIndex = await api.recordPromptSent(
-                    currentSessionId,
-                    projectId,
-                    projectPath,
-                    prompt
-                  );
-                  hasRecordedPrompt = true;
-                  console.log('[Prompt Revert] [OK] Recorded user prompt #', recordedPromptIndex, '(after user message in JSONL)');
-                } catch (err) {
-                  console.error('[Prompt Revert] [ERROR] Failed to record prompt:', err);
-                }
+                // 🔧 FIX: Store Promise to allow processComplete to wait for it
+                pendingClaudePromptRecordingPromise = (async () => {
+                  try {
+                    // 添加延迟以确保文件写入完成
+                    await new Promise(resolve => setTimeout(resolve, 100));
+
+                    recordedPromptIndex = await api.recordPromptSent(
+                      currentSessionId,
+                      projectId,
+                      projectPath,
+                      prompt
+                    );
+                    hasRecordedPrompt = true;
+                    console.log('[Prompt Revert] [OK] Recorded user prompt #', recordedPromptIndex, '(after user message in JSONL)');
+                  } catch (err) {
+                    console.error('[Prompt Revert] [ERROR] Failed to record prompt:', err);
+                  }
+                })();
               }
             }
           } catch {
