@@ -23,6 +23,8 @@ interface UserMessageProps {
   sessionId?: string;
   /** Project ID */
   projectId?: string;
+  /** Project Path (for Gemini rewind) */
+  projectPath?: string;
   /** 撤回回调 */
   onRevert?: (promptIndex: number, mode: RewindMode) => void;
 }
@@ -131,6 +133,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
   promptIndex,
   sessionId,
   projectId,
+  projectPath,
   onRevert
 }) => {
   const engine = (message as any).engine || 'claude';
@@ -192,12 +195,15 @@ export const UserMessage: React.FC<UserMessageProps> = ({
   useEffect(() => {
     const loadCapabilities = async () => {
       if (promptIndex === undefined || !sessionId) return;
-      if (engine !== 'codex' && !projectId) return;
+      if (engine === 'gemini' && !projectPath) return;
+      if (engine !== 'codex' && engine !== 'gemini' && !projectId) return;
 
       setIsLoadingCapabilities(true);
       try {
         const caps = engine === 'codex'
           ? await api.checkCodexRewindCapabilities(sessionId, promptIndex)
+          : engine === 'gemini'
+          ? await api.checkGeminiRewindCapabilities(sessionId, projectPath!, promptIndex)
           : await api.checkRewindCapabilities(sessionId, projectId!, promptIndex);
         setCapabilities(caps);
       } catch (error) {

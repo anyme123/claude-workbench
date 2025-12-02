@@ -19,6 +19,7 @@ interface StreamMessageV2Props {
   promptIndex?: number;
   sessionId?: string;
   projectId?: string;
+  projectPath?: string;
   onRevert?: (promptIndex: number, mode: RewindMode) => void;
 }
 
@@ -59,6 +60,7 @@ const StreamMessageV2Component: React.FC<StreamMessageV2Props> = ({
   promptIndex,
   sessionId,
   projectId,
+  projectPath,
   onRevert
 }) => {
   // 如果提供了 messageGroup，优先使用分组渲染
@@ -172,6 +174,7 @@ const StreamMessageV2Component: React.FC<StreamMessageV2Props> = ({
     promptIndex,
     sessionId,
     projectId,
+    projectPath,
     onRevert
   } : messageType === 'assistant' ? {
     isStreaming,
@@ -243,6 +246,7 @@ export const StreamMessageV2 = React.memo(
       prevProps.promptIndex === nextProps.promptIndex &&
       prevProps.sessionId === nextProps.sessionId &&
       prevProps.projectId === nextProps.projectId &&
+      prevProps.projectPath === nextProps.projectPath &&
       // claudeSettings is usually stable, but check showSystemInitialization
       prevProps.claudeSettings?.showSystemInitialization === nextProps.claudeSettings?.showSystemInitialization
       // Note: onLinkDetected and onRevert are assumed to be stable via useCallback

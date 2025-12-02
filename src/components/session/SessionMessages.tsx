@@ -172,6 +172,7 @@ export const SessionMessages = forwardRef<SessionMessagesRef, SessionMessagesPro
                   promptIndex={promptIndex}
                   sessionId={effectiveSession?.id}
                   projectId={effectiveSession?.project_id}
+                  projectPath={effectiveSession?.project_path}
                   onRevert={handleRevert}
                 />
               </motion.div>
