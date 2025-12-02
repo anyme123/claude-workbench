@@ -66,27 +66,66 @@ export function useSessionLifecycle(config: UseSessionLifecycleConfig): UseSessi
 
       console.log('[useSessionLifecycle] Loading session:', session.id, 'engine:', (session as any).engine);
       const engine = (session as any).engine;
-      
-      let history = await api.loadSessionHistory(
-        session.id,
-        session.project_id,
-        engine
-      );
 
-      // If Codex, convert events to messages
-      if (engine === 'codex') {
-        console.log('[useSessionLifecycle] Converting Codex events:', history.length);
-        codexConverter.reset();
-        const convertedMessages: ClaudeStreamMessage[] = [];
-        
-        for (const event of history) {
-            const msg = codexConverter.convertEventObject(event);
-            if (msg) {
-                convertedMessages.push(msg);
+      let history: ClaudeStreamMessage[] = [];
+
+      // Handle Gemini sessions differently
+      if (engine === 'gemini') {
+        console.log('[useSessionLifecycle] Loading Gemini session detail...');
+        try {
+          const geminiDetail = await api.getGeminiSessionDetail(session.project_path, session.id);
+
+          // Convert Gemini messages to ClaudeStreamMessage format
+          history = geminiDetail.messages.map((msg) => {
+            if (msg.type === 'user') {
+              return {
+                type: 'user' as const,
+                message: {
+                  content: [{ type: 'text', text: msg.content }]
+                },
+                timestamp: msg.timestamp,
+                engine: 'gemini' as const,
+              };
+            } else {
+              // Gemini assistant message
+              return {
+                type: 'assistant' as const,
+                message: {
+                  content: [{ type: 'text', text: msg.content }]
+                },
+                timestamp: msg.timestamp,
+                engine: 'gemini' as const,
+              };
             }
+          });
+          console.log('[useSessionLifecycle] Loaded Gemini messages:', history.length);
+        } catch (geminiErr) {
+          console.error('[useSessionLifecycle] Failed to load Gemini session:', geminiErr);
+          throw geminiErr;
         }
-        history = convertedMessages;
-        console.log('[useSessionLifecycle] Converted to messages:', history.length);
+      } else {
+        // Load Claude/Codex sessions
+        history = await api.loadSessionHistory(
+          session.id,
+          session.project_id,
+          engine
+        );
+
+        // If Codex, convert events to messages
+        if (engine === 'codex') {
+          console.log('[useSessionLifecycle] Converting Codex events:', history.length);
+          codexConverter.reset();
+          const convertedMessages: ClaudeStreamMessage[] = [];
+
+          for (const event of history) {
+              const msg = codexConverter.convertEventObject(event);
+              if (msg) {
+                  convertedMessages.push(msg);
+              }
+          }
+          history = convertedMessages;
+          console.log('[useSessionLifecycle] Converted to messages:', history.length);
+        }
       }
 
       // Convert history to messages format

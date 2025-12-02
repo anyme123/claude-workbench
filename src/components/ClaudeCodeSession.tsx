@@ -401,6 +401,11 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
           ...prev,
           engine: 'codex' as const,
         }));
+      } else if (sessionEngine === 'gemini') {
+        setExecutionEngineConfig(prev => ({
+          ...prev,
+          engine: 'gemini' as const,
+        }));
       } else {
         setExecutionEngineConfig(prev => ({
           ...prev,
