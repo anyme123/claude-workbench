@@ -505,10 +505,12 @@ export const SessionList: React.FC<SessionListProps> = ({
             : session.message_timestamp
             ? formatISOTimestamp(session.message_timestamp)
             : formatUnixTimestamp(session.created_at);
+          // Use engine + id as unique key to avoid conflicts between engines
+          const uniqueKey = `${session.engine || 'claude'}-${session.id}`;
 
           return (
             <div
-              key={session.id}
+              key={uniqueKey}
               role="listitem"
               className={cn(
                 "relative flex items-center group hover:bg-muted/30 transition-colors",
