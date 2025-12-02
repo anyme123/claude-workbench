@@ -79,6 +79,18 @@ const FloatingPromptInputInner = (
     }
   }, []);
 
+  // Initialize thinking mode from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('thinking_mode');
+      if (stored === 'off' || stored === 'on') {
+        dispatch({ type: "SET_THINKING_MODE", payload: stored });
+      }
+    } catch {
+      // Ignore error
+    }
+  }, []);
+
   // Sync external config changes
   useEffect(() => {
     if (externalEngineConfig && externalEngineConfig.engine !== state.executionEngineConfig.engine) {
@@ -240,6 +252,13 @@ const FloatingPromptInputInner = (
     const newMode: ThinkingMode = state.selectedThinkingMode === "off" ? "on" : "off";
     dispatch({ type: "SET_THINKING_MODE", payload: newMode });
 
+    // Persist to localStorage
+    try {
+      localStorage.setItem('thinking_mode', newMode);
+    } catch {
+      // Ignore localStorage errors
+    }
+
     try {
       const thinkingMode = THINKING_MODES.find(m => m.id === newMode);
       const enabled = newMode === "on";
@@ -247,7 +266,14 @@ const FloatingPromptInputInner = (
       await api.updateThinkingMode(enabled, tokens);
     } catch (error) {
       console.error("Failed to update thinking mode:", error);
-      dispatch({ type: "SET_THINKING_MODE", payload: state.selectedThinkingMode === "off" ? "on" : "off" });
+      // Revert state and localStorage on API error
+      const revertedMode = state.selectedThinkingMode === "off" ? "on" : "off";
+      dispatch({ type: "SET_THINKING_MODE", payload: revertedMode });
+      try {
+        localStorage.setItem('thinking_mode', revertedMode);
+      } catch {
+        // Ignore localStorage errors
+      }
     }
   };
 

@@ -29,15 +29,17 @@ export const ThinkingModeToggle: React.FC<ThinkingModeToggleProps> = ({
             disabled={disabled}
             onClick={onToggle}
             className={cn(
-              "gap-2 transition-colors",
-              isEnabled && "bg-primary text-primary-foreground"
+              "gap-2 transition-all duration-200",
+              isEnabled
+                ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-sm shadow-emerald-500/20"
+                : "bg-muted/50 hover:bg-muted text-muted-foreground border-muted-foreground/20"
             )}
           >
             <Brain className={cn(
-              "h-4 w-4 transition-transform",
-              isEnabled && "animate-pulse"
+              "h-4 w-4 transition-all duration-200",
+              isEnabled ? "animate-pulse text-white" : "text-muted-foreground"
             )} />
-            <span className="text-sm">
+            <span className="text-sm font-medium">
               {isEnabled ? "思考: 开" : "思考: 关"}
             </span>
           </Button>
