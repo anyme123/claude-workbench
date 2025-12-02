@@ -375,8 +375,11 @@ async fn execute_gemini_process(
                             "backend_session_id": session_id_stdout,
                             "cli_session_id": cli_session_id,
                         });
+                        log::info!("[Gemini] Emitting gemini-cli-session-id event with payload: {:?}", cli_session_payload);
                         if let Err(e) = app_handle_stdout.emit("gemini-cli-session-id", &cli_session_payload) {
                             log::error!("Failed to emit gemini-cli-session-id: {}", e);
+                        } else {
+                            log::info!("[Gemini] Successfully emitted gemini-cli-session-id event");
                         }
                         real_cli_session_id_emitted = true;
                     }
@@ -392,8 +395,11 @@ async fn execute_gemini_process(
                                 "backend_session_id": session_id_stdout,
                                 "cli_session_id": cli_session_id,
                             });
+                            log::info!("[Gemini] Emitting gemini-cli-session-id event with payload (raw): {:?}", cli_session_payload);
                             if let Err(e) = app_handle_stdout.emit("gemini-cli-session-id", &cli_session_payload) {
                                 log::error!("Failed to emit gemini-cli-session-id: {}", e);
+                            } else {
+                                log::info!("[Gemini] Successfully emitted gemini-cli-session-id event (raw)");
                             }
                             real_cli_session_id_emitted = true;
                         }
