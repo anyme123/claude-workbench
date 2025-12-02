@@ -780,32 +780,40 @@ fn extract_prompts_from_jsonl(
 
     let mut prompts = Vec::new();
     let mut prompt_index = 0;
-    // First pass: collect all queue-operation records (prompts sent from project interface)
-    let mut queue_operations = std::collections::HashSet::new();
-    for line in content.lines() {
+
+    // 🔧 FIX: Track line indices where "dequeue" operations occur
+    // Claude CLI writes {"type":"queue-operation","operation":"dequeue"} before user messages
+    // We'll mark the next user message after a dequeue as from "project" source
+    let mut dequeue_line_indices = std::collections::HashSet::new();
+    let lines_vec: Vec<&str> = content.lines().collect();
+
+    for (line_idx, line) in lines_vec.iter().enumerate() {
         if let Ok(msg) = serde_json::from_str::<serde_json::Value>(line) {
             let msg_type = msg.get("type").and_then(|t| t.as_str());
             if msg_type == Some("queue-operation") {
                 let operation = msg.get("operation").and_then(|o| o.as_str());
-                if operation == Some("enqueue") {
-                    // Record the content and timestamp of queue-operation
-                    if let (Some(content_text), Some(ts)) = (
-                        msg.get("content").and_then(|c| c.as_str()),
-                        msg.get("timestamp").and_then(|t| t.as_str())
-                    ) {
-                        // Store a hash of content + timestamp (within 10 second window) for matching
-                        queue_operations.insert(content_text.to_string());
-                        log::debug!("[Prompt Source] Found queue-operation: content_preview={}, ts={}", 
-                            content_text.chars().take(20).collect::<String>(), ts);
-                    }
+                // 🔧 FIX: Match "dequeue" instead of "enqueue" (Claude CLI uses "dequeue")
+                if operation == Some("dequeue") {
+                    dequeue_line_indices.insert(line_idx);
+                    log::debug!("[Prompt Source] Found dequeue operation at line {}", line_idx);
                 }
             }
         }
     }
-    log::info!("[Prompt Source] Found {} queue-operation records", queue_operations.len());
+    log::info!("[Prompt Source] Found {} dequeue operations", dequeue_line_indices.len());
 
 
-    for line in content.lines() {
+    // 🔧 FIX: Track which line indices have dequeue before them
+    let mut user_messages_after_dequeue = std::collections::HashSet::new();
+    for (line_idx, _line) in lines_vec.iter().enumerate() {
+        // Check if previous line (line_idx - 1) is a dequeue operation
+        if line_idx > 0 && dequeue_line_indices.contains(&(line_idx - 1)) {
+            user_messages_after_dequeue.insert(line_idx);
+            log::debug!("[Prompt Source] Line {} is a user message after dequeue", line_idx);
+        }
+    }
+
+    for (line_idx, line) in lines_vec.iter().enumerate() {
         if let Ok(msg) = serde_json::from_str::<serde_json::Value>(line) {
             let msg_type = msg.get("type").and_then(|t| t.as_str());
 
@@ -884,12 +892,12 @@ fn extract_prompts_from_jsonl(
                 .map(|dt| dt.timestamp())
                 .unwrap_or_else(|| Utc::now().timestamp());
 
-            // Determine source: check if this prompt has a matching queue-operation record
-            let source = if queue_operations.contains(&extracted_text) {
-                log::debug!("[Prompt Source] Prompt #{} matched queue-operation -> source=project", prompt_index);
+            // 🔧 FIX: Determine source by checking if this user message follows a dequeue operation
+            let source = if user_messages_after_dequeue.contains(&line_idx) {
+                log::debug!("[Prompt Source] Prompt #{} at line {} follows dequeue -> source=project", prompt_index, line_idx);
                 "project".to_string()
             } else {
-                log::debug!("[Prompt Source] Prompt #{} no queue-operation -> source=cli", prompt_index);
+                log::debug!("[Prompt Source] Prompt #{} at line {} no dequeue -> source=cli", prompt_index, line_idx);
                 "cli".to_string()
             };
 
