@@ -43,17 +43,45 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
     try {
       setLoading(true);
       setError(null);
-      const sessionList = await api.getProjectSessions(project.id, project.path);
-      console.log('[ProjectContext] Loaded sessions:', sessionList.length);
+
+      // Load Claude/Codex sessions
+      const claudeCodexSessions = await api.getProjectSessions(project.id, project.path);
+
+      // Load Gemini sessions
+      let geminiSessions: Session[] = [];
+      try {
+        const geminiSessionInfos = await api.listGeminiSessions(project.path);
+
+        // Convert GeminiSessionInfo to Session format
+        geminiSessions = geminiSessionInfos.map(info => ({
+          id: info.sessionId,
+          project_id: project.id,
+          project_path: project.path,
+          created_at: new Date(info.startTime).getTime() / 1000, // Convert to Unix timestamp
+          first_message: info.firstMessage,
+          message_timestamp: info.startTime,
+          last_message_timestamp: info.startTime,
+          engine: 'gemini' as const,
+        }));
+      } catch (geminiErr) {
+        console.warn('[ProjectContext] Failed to load Gemini sessions (may not exist):', geminiErr);
+        // Continue without Gemini sessions if loading fails
+      }
+
+      // Merge all sessions
+      const allSessions = [...claudeCodexSessions, ...geminiSessions];
+
+      console.log('[ProjectContext] Loaded sessions:', allSessions.length);
       console.log('[ProjectContext] Session engines:', {
-        claude: sessionList.filter(s => s.engine === 'claude').length,
-        codex: sessionList.filter(s => s.engine === 'codex').length,
-        undefined: sessionList.filter(s => !s.engine).length,
+        claude: allSessions.filter(s => s.engine === 'claude').length,
+        codex: allSessions.filter(s => s.engine === 'codex').length,
+        gemini: allSessions.filter(s => s.engine === 'gemini').length,
+        undefined: allSessions.filter(s => !s.engine).length,
       });
-      console.log('[ProjectContext] First Codex session:', sessionList.find(s => s.engine === 'codex'));
-      setSessions(sessionList);
+
+      setSessions(allSessions);
       setSelectedProject(project);
-      
+
       // Background indexing
       api.preindexProject(project.path).catch(console.error);
     } catch (err) {
@@ -67,8 +95,32 @@ export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children })
   const refreshSessions = useCallback(async () => {
     if (selectedProject) {
       try {
-        const sessionList = await api.getProjectSessions(selectedProject.id, selectedProject.path);
-        setSessions(sessionList);
+        // Load Claude/Codex sessions
+        const claudeCodexSessions = await api.getProjectSessions(selectedProject.id, selectedProject.path);
+
+        // Load Gemini sessions
+        let geminiSessions: Session[] = [];
+        try {
+          const geminiSessionInfos = await api.listGeminiSessions(selectedProject.path);
+
+          // Convert GeminiSessionInfo to Session format
+          geminiSessions = geminiSessionInfos.map(info => ({
+            id: info.sessionId,
+            project_id: selectedProject.id,
+            project_path: selectedProject.path,
+            created_at: new Date(info.startTime).getTime() / 1000,
+            first_message: info.firstMessage,
+            message_timestamp: info.startTime,
+            last_message_timestamp: info.startTime,
+            engine: 'gemini' as const,
+          }));
+        } catch (geminiErr) {
+          console.warn('[ProjectContext] Failed to refresh Gemini sessions:', geminiErr);
+        }
+
+        // Merge all sessions
+        const allSessions = [...claudeCodexSessions, ...geminiSessions];
+        setSessions(allSessions);
       } catch (err) {
         console.error("Failed to refresh sessions:", err);
       }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, Clock, Plus, Trash2, CheckSquare, Square, FilePenLine, Loader2, Zap, Bot, RefreshCw } from "lucide-react";
+import { ArrowLeft, Clock, Plus, Trash2, CheckSquare, Square, FilePenLine, Loader2, Zap, Bot, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -66,7 +66,7 @@ const ITEMS_PER_PAGE = 20;
 /**
  * Session filter type
  */
-type SessionFilter = 'all' | 'claude' | 'codex';
+type SessionFilter = 'all' | 'claude' | 'codex' | 'gemini';
 
 /**
  * SessionList component - Displays paginated sessions for a specific project
@@ -163,8 +163,9 @@ export const SessionList: React.FC<SessionListProps> = ({
   // 🆕 根据筛选器过滤会话类型
   const filteredSessions = validSessions.filter(session => {
     if (sessionFilter === 'all') return true;
-    if (sessionFilter === 'claude') return session.engine !== 'codex';
+    if (sessionFilter === 'claude') return session.engine !== 'codex' && session.engine !== 'gemini';
     if (sessionFilter === 'codex') return session.engine === 'codex';
+    if (sessionFilter === 'gemini') return session.engine === 'gemini';
     return true;
   });
 
@@ -361,7 +362,7 @@ export const SessionList: React.FC<SessionListProps> = ({
         setSessionFilter(value as SessionFilter);
         setCurrentPage(1); // Reset to first page when filter changes
       }}>
-        <TabsList className="grid w-full grid-cols-3 max-w-md">
+        <TabsList className="grid w-full grid-cols-4 max-w-2xl">
           <TabsTrigger value="all" className="flex items-center gap-2">
             全部
             {validSessions.length > 0 && (
@@ -371,9 +372,9 @@ export const SessionList: React.FC<SessionListProps> = ({
           <TabsTrigger value="claude" className="flex items-center gap-2">
             <Zap className="h-3.5 w-3.5" />
             Claude
-            {validSessions.filter(s => s.engine !== 'codex').length > 0 && (
+            {validSessions.filter(s => s.engine !== 'codex' && s.engine !== 'gemini').length > 0 && (
               <span className="text-xs opacity-70">
-                ({validSessions.filter(s => s.engine !== 'codex').length})
+                ({validSessions.filter(s => s.engine !== 'codex' && s.engine !== 'gemini').length})
               </span>
             )}
           </TabsTrigger>
@@ -383,6 +384,15 @@ export const SessionList: React.FC<SessionListProps> = ({
             {validSessions.filter(s => s.engine === 'codex').length > 0 && (
               <span className="text-xs opacity-70">
                 ({validSessions.filter(s => s.engine === 'codex').length})
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="gemini" className="flex items-center gap-2">
+            <Sparkles className="h-3.5 w-3.5" />
+            Gemini
+            {validSessions.filter(s => s.engine === 'gemini').length > 0 && (
+              <span className="text-xs opacity-70">
+                ({validSessions.filter(s => s.engine === 'gemini').length})
               </span>
             )}
           </TabsTrigger>
@@ -528,6 +538,11 @@ export const SessionList: React.FC<SessionListProps> = ({
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 shrink-0">
                         <Bot className="h-3 w-3" />
                         Codex
+                      </span>
+                    ) : session.engine === 'gemini' ? (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 shrink-0">
+                        <Sparkles className="h-3 w-3" />
+                        Gemini
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20 shrink-0">
