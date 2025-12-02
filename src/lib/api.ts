@@ -353,6 +353,33 @@ export interface CurrentCodexConfig {
 }
 
 /**
+ * Gemini provider configuration for Gemini API switching
+ */
+export interface GeminiProviderConfig {
+  id: string;
+  name: string;
+  description?: string;
+  websiteUrl?: string;
+  category?: 'official' | 'third_party' | 'custom';
+  env: Record<string, string>; // 环境变量，写入 ~/.gemini/.env
+  isOfficial?: boolean;
+  isPartner?: boolean;
+  createdAt?: number;
+}
+
+/**
+ * Current Gemini provider configuration from ~/.gemini directory
+ */
+export interface CurrentGeminiProviderConfig {
+  env: Record<string, string>; // ~/.gemini/.env 内容
+  settings: Record<string, any>; // ~/.gemini/settings.json 内容
+  apiKey?: string; // 从 env 中提取的 API Key
+  baseUrl?: string; // 从 env 中提取的 Base URL
+  model?: string; // 从 env 中提取的模型
+  selectedAuthType?: string; // 认证类型
+}
+
+/**
  * Represents an MCP server configuration
  */
 export interface MCPServer {
@@ -3091,6 +3118,135 @@ export const api = {
       return await invoke<string>("test_codex_provider_connection", { baseUrl, apiKey });
     } catch (error) {
       console.error("Failed to test Codex provider connection:", error);
+      throw error;
+    }
+  },
+
+  // ============================================================================
+  // GEMINI PROVIDER MANAGEMENT
+  // ============================================================================
+
+  /**
+   * Gets the list of Gemini provider presets
+   * @returns Promise resolving to array of Gemini provider configurations
+   */
+  async getGeminiProviderPresets(): Promise<GeminiProviderConfig[]> {
+    try {
+      return await invoke<GeminiProviderConfig[]>("get_gemini_provider_presets");
+    } catch (error) {
+      console.error("Failed to get Gemini provider presets:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Gets the current Gemini provider configuration from ~/.gemini directory
+   * @returns Promise resolving to current Gemini configuration
+   */
+  async getCurrentGeminiProviderConfig(): Promise<CurrentGeminiProviderConfig> {
+    try {
+      return await invoke<CurrentGeminiProviderConfig>("get_current_gemini_provider_config");
+    } catch (error) {
+      console.error("Failed to get current Gemini provider config:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Switches to a Gemini provider configuration
+   * Writes env to ~/.gemini/.env and updates settings.json
+   * @param config - The Gemini provider configuration to switch to
+   * @returns Promise resolving to success message
+   */
+  async switchGeminiProvider(config: GeminiProviderConfig): Promise<string> {
+    try {
+      return await invoke<string>("switch_gemini_provider", { config });
+    } catch (error) {
+      console.error("Failed to switch Gemini provider:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Adds a new Gemini provider configuration
+   * @param config - The Gemini provider configuration to add
+   * @returns Promise resolving to success message
+   */
+  async addGeminiProviderConfig(config: Omit<GeminiProviderConfig, 'id'>): Promise<string> {
+    // Generate ID from name
+    const id = config.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+
+    const fullConfig: GeminiProviderConfig = {
+      ...config,
+      id,
+      createdAt: Date.now(),
+    };
+
+    try {
+      return await invoke<string>("add_gemini_provider_config", { config: fullConfig });
+    } catch (error) {
+      console.error("Failed to add Gemini provider config:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Updates an existing Gemini provider configuration
+   * @param config - The Gemini provider configuration to update (with id)
+   * @returns Promise resolving to success message
+   */
+  async updateGeminiProviderConfig(config: GeminiProviderConfig): Promise<string> {
+    try {
+      return await invoke<string>("update_gemini_provider_config", { config });
+    } catch (error) {
+      console.error("Failed to update Gemini provider config:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Deletes a Gemini provider configuration by ID
+   * @param id - The ID of the Gemini provider configuration to delete
+   * @returns Promise resolving to success message
+   */
+  async deleteGeminiProviderConfig(id: string): Promise<string> {
+    try {
+      return await invoke<string>("delete_gemini_provider_config", { id });
+    } catch (error) {
+      console.error("Failed to delete Gemini provider config:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Clears Gemini provider configuration (resets to official OAuth)
+   * Clears .env and sets auth type to oauth-personal
+   * @returns Promise resolving to success message
+   */
+  async clearGeminiProviderConfig(): Promise<string> {
+    try {
+      return await invoke<string>("clear_gemini_provider_config");
+    } catch (error) {
+      console.error("Failed to clear Gemini provider config:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Tests Gemini provider connection
+   * @param baseUrl - The base URL to test
+   * @param apiKey - The API key to use for testing
+   * @returns Promise resolving to test result message
+   */
+  async testGeminiProviderConnection(baseUrl: string, apiKey?: string): Promise<string> {
+    try {
+      return await invoke<string>("test_gemini_provider_connection", { baseUrl, apiKey });
+    } catch (error) {
+      console.error("Failed to test Gemini provider connection:", error);
       throw error;
     }
   },

@@ -13,6 +13,7 @@
 pub mod config;
 pub mod git_ops;
 pub mod parser;
+pub mod provider;
 pub mod session;
 pub mod types;
 
@@ -39,4 +40,16 @@ pub use git_ops::{
     record_gemini_prompt_sent,
     record_gemini_prompt_completed,
     revert_gemini_to_prompt,
+};
+
+// Re-export Gemini Provider commands
+pub use provider::{
+    get_gemini_provider_presets,
+    get_current_gemini_provider_config,
+    switch_gemini_provider,
+    add_gemini_provider_config,
+    update_gemini_provider_config,
+    delete_gemini_provider_config,
+    clear_gemini_provider_config,
+    test_gemini_provider_connection,
 };

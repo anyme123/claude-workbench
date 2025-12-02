@@ -98,6 +98,10 @@ use commands::gemini::{
     get_gemini_prompt_list, check_gemini_rewind_capabilities,
     record_gemini_prompt_sent, record_gemini_prompt_completed,
     revert_gemini_to_prompt,
+    // Gemini Provider commands
+    get_gemini_provider_presets, get_current_gemini_provider_config,
+    switch_gemini_provider, add_gemini_provider_config, update_gemini_provider_config,
+    delete_gemini_provider_config, clear_gemini_provider_config, test_gemini_provider_connection,
     GeminiProcessState,
 };
 use process::ProcessRegistryState;
@@ -425,6 +429,15 @@ fn main() {
             record_gemini_prompt_sent,
             record_gemini_prompt_completed,
             revert_gemini_to_prompt,
+            // Gemini Provider Commands
+            get_gemini_provider_presets,
+            get_current_gemini_provider_config,
+            switch_gemini_provider,
+            add_gemini_provider_config,
+            update_gemini_provider_config,
+            delete_gemini_provider_config,
+            clear_gemini_provider_config,
+            test_gemini_provider_connection,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
