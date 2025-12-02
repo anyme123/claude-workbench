@@ -312,6 +312,8 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
     executionEngine: executionEngineConfig.engine, // 🆕 Codex integration
     codexMode: executionEngineConfig.codexMode,    // 🆕 Codex integration
     codexModel: executionEngineConfig.codexModel,  // 🆕 Codex integration
+    geminiModel: executionEngineConfig.geminiModel,           // 🆕 Gemini integration
+    geminiApprovalMode: executionEngineConfig.geminiApprovalMode, // 🆕 Gemini integration
     hasActiveSessionRef,
     unlistenRefs,
     isMountedRef,

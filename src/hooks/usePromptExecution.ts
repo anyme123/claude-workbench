@@ -1193,7 +1193,7 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
         // ====================================================================
         // 🆕 Gemini Execution Branch
         // ====================================================================
-        const { geminiModel, geminiApprovalMode } = config;
+        // Note: geminiModel and geminiApprovalMode come from hook parameters
 
         // Determine if we're resuming a session
         const resumingSession = effectiveSession && !isFirstPrompt;
