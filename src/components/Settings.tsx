@@ -29,6 +29,7 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { useNavigation } from "@/contexts/NavigationContext";
 import ProviderManager from "./ProviderManager";
 import CodexProviderManager from "./CodexProviderManager";
+import GeminiProviderManager from "./GeminiProviderManager";
 import { TranslationSettings } from "./TranslationSettings";
 import { GeneralSettings } from "./settings/GeneralSettings";
 import { PermissionsSettings } from "./settings/PermissionsSettings";
@@ -493,15 +494,19 @@ export const Settings: React.FC<SettingsProps> = ({
             {/* Provider Tab */}
             <TabsContent value="provider" className="space-y-4">
               <Tabs value={providerSubTab} onValueChange={setProviderSubTab} className="w-full">
-                <TabsList className="grid grid-cols-2 w-64">
+                <TabsList className="grid grid-cols-3 w-96">
                   <TabsTrigger value="claude">Claude 代理商</TabsTrigger>
                   <TabsTrigger value="codex">Codex 代理商</TabsTrigger>
+                  <TabsTrigger value="gemini">Gemini 代理商</TabsTrigger>
                 </TabsList>
                 <TabsContent value="claude">
                   <ProviderManager onBack={() => {}} />
                 </TabsContent>
                 <TabsContent value="codex">
                   <CodexProviderManager />
+                </TabsContent>
+                <TabsContent value="gemini">
+                  <GeminiProviderManager />
                 </TabsContent>
               </Tabs>
             </TabsContent>
