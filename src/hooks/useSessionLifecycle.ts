@@ -240,9 +240,17 @@ export function useSessionLifecycle(config: UseSessionLifecycleConfig): UseSessi
       console.log('[useSessionLifecycle] Received claude-complete on reconnect:', event.payload);
       if (isMountedRef.current) {
         setIsLoading(false);
-        // 🔧 FIX: Reset hasActiveSessionRef when session completes
+        // 🔧 FIX: Reset all session state when session completes
+        // This allows usePromptExecution to set up new listeners for the next prompt
         hasActiveSessionRef.current = false;
-        console.log('[useSessionLifecycle] Reconnect session completed - ready for new input');
+        isListeningRef.current = false;
+
+        // 🔧 FIX: Clean up listeners to allow new ones to be set up
+        // The old session-specific listeners won't work if a new session ID is assigned
+        unlistenRefs.current.forEach(u => u && typeof u === 'function' && u());
+        unlistenRefs.current = [];
+
+        console.log('[useSessionLifecycle] Reconnect session completed - reset listener state for new input');
       }
     });
 
