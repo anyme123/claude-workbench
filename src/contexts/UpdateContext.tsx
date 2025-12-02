@@ -4,10 +4,9 @@ import React, {
   useState,
   useEffect,
   useCallback,
-  useRef,
 } from "react";
 import type { UpdateInfo, UpdateHandle } from "../lib/updater";
-import { checkForUpdate } from "../lib/updater";
+import { useUpdateCheck } from "../hooks/useUpdateCheck";
 
 interface UpdateContextValue {
   // 更新状态
@@ -16,13 +15,14 @@ interface UpdateContextValue {
   updateHandle: UpdateHandle | null;
   isChecking: boolean;
   error: string | null;
+  lastChecked: Date | null;
 
   // 提示状态
   isDismissed: boolean;
   dismissUpdate: () => void;
 
   // 操作方法
-  checkUpdate: () => Promise<boolean>;
+  checkUpdate: (force?: boolean) => Promise<boolean>;
   resetDismiss: () => void;
 }
 
@@ -32,11 +32,12 @@ export function UpdateProvider({ children }: { children: React.ReactNode }) {
   const DISMISSED_VERSION_KEY = "claudeworkbench:update:dismissedVersion";
   const LEGACY_DISMISSED_KEY = "dismissedUpdateVersion"; // 兼容旧键
 
+  // 使用自定义 Hook 处理检查逻辑
+  const { isChecking, error, lastChecked, checkUpdate: performCheck } = useUpdateCheck();
+
   const [hasUpdate, setHasUpdate] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [updateHandle, setUpdateHandle] = useState<UpdateHandle | null>(null);
-  const [isChecking, setIsChecking] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [isDismissed, setIsDismissed] = useState(false);
 
   // 从 localStorage 读取已关闭的版本
@@ -58,60 +59,47 @@ export function UpdateProvider({ children }: { children: React.ReactNode }) {
     setIsDismissed(dismissedVersion === current);
   }, [updateInfo?.availableVersion]);
 
-  const isCheckingRef = useRef(false);
+  const checkUpdate = useCallback(async (force: boolean = false) => {
+    const result = await performCheck(force);
 
-  const checkUpdate = useCallback(async () => {
-    if (isCheckingRef.current) return false;
-    isCheckingRef.current = true;
-    setIsChecking(true);
-    setError(null);
+    if (result.status === "available") {
+      setHasUpdate(true);
+      setUpdateInfo(result.info);
+      setUpdateHandle(result.update);
 
-    try {
-      const result = await checkForUpdate({ timeout: 30000 });
-
-      if (result.status === "error") {
-        // 处理错误状态
-        console.error("检查更新失败:", result.error);
-        setError(result.error);
-        setHasUpdate(false);
-        setUpdateInfo(null);
-        setUpdateHandle(null);
-        return false;
-      } else if (result.status === "available") {
-        setHasUpdate(true);
-        setUpdateInfo(result.info);
-        setUpdateHandle(result.update);
-
-        // 检查是否已经关闭过这个版本的提醒
-        let dismissedVersion = localStorage.getItem(DISMISSED_VERSION_KEY);
-        if (!dismissedVersion) {
-          const legacy = localStorage.getItem(LEGACY_DISMISSED_KEY);
-          if (legacy) {
-            localStorage.setItem(DISMISSED_VERSION_KEY, legacy);
-            localStorage.removeItem(LEGACY_DISMISSED_KEY);
-            dismissedVersion = legacy;
-          }
+      // 检查是否已经关闭过这个版本的提醒
+      let dismissedVersion = localStorage.getItem(DISMISSED_VERSION_KEY);
+      if (!dismissedVersion) {
+        const legacy = localStorage.getItem(LEGACY_DISMISSED_KEY);
+        if (legacy) {
+          localStorage.setItem(DISMISSED_VERSION_KEY, legacy);
+          localStorage.removeItem(LEGACY_DISMISSED_KEY);
+          dismissedVersion = legacy;
         }
-        setIsDismissed(dismissedVersion === result.info.availableVersion);
-        return true; // 有更新
-      } else {
-        setHasUpdate(false);
-        setUpdateInfo(null);
-        setUpdateHandle(null);
-        setIsDismissed(false);
-        return false; // 已是最新
       }
-    } catch (err) {
-      console.error("检查更新失败:", err);
-      setError(err instanceof Error ? err.message : "检查更新失败");
-      setHasUpdate(false);
-      // 不抛出错误，静默失败
+      // 仅在非强制检查时考虑 isDismissed；如果是用户手动强制检查，即使之前 dismiss 过也应该显示
+      const isDismissedVersion = dismissedVersion === result.info.availableVersion;
+      if (force) {
+        setIsDismissed(false); // 强制检查时重置忽略状态
+      } else {
+        setIsDismissed(isDismissedVersion);
+      }
+      
+      return true; // 有更新
+    } else {
+      // up-to-date or error
+      if (result.status === "up-to-date" || result.status === "error") {
+         // 如果检查结果是没有更新或出错，清除之前的更新状态
+         // 注意：如果是 error，可能不应该清除旧的可用更新信息？
+         // 这里选择清除，因为我们无法确定之前的更新是否仍然有效
+         setHasUpdate(false);
+         setUpdateInfo(null);
+         setUpdateHandle(null);
+         setIsDismissed(false);
+      }
       return false;
-    } finally {
-      setIsChecking(false);
-      isCheckingRef.current = false;
     }
-  }, []);
+  }, [performCheck]);
 
   const dismissUpdate = useCallback(() => {
     setIsDismissed(true);
@@ -132,7 +120,7 @@ export function UpdateProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // 延迟2秒后检查，避免影响启动体验
     const timer = setTimeout(() => {
-      checkUpdate().catch(console.error);
+      checkUpdate(false).catch(console.error);
     }, 2000);
 
     return () => clearTimeout(timer);
@@ -144,6 +132,7 @@ export function UpdateProvider({ children }: { children: React.ReactNode }) {
     updateHandle,
     isChecking,
     error,
+    lastChecked,
     isDismissed,
     dismissUpdate,
     checkUpdate,
@@ -162,6 +151,7 @@ export function useUpdate() {
   }
   return context;
 }
+
 
 
 

@@ -6,16 +6,6 @@ import type { Update } from "@tauri-apps/plugin-updater";
 
 export type UpdateChannel = "stable" | "beta";
 
-export type UpdaterPhase =
-  | "idle"
-  | "checking"
-  | "available"
-  | "downloading"
-  | "installing"
-  | "restarting"
-  | "upToDate"
-  | "error";
-
 export interface UpdateInfo {
   currentVersion: string;
   availableVersion: string;
@@ -44,6 +34,11 @@ export interface CheckOptions {
   timeout?: number;
   channel?: UpdateChannel;
 }
+
+export type CheckResult =
+  | { status: "up-to-date"; currentVersion: string }
+  | { status: "available"; info: UpdateInfo; update: UpdateHandle }
+  | { status: "error"; error: string };
 
 function mapUpdateHandle(raw: Update): UpdateHandle {
   return {
@@ -82,17 +77,13 @@ export async function getCurrentVersion(): Promise<string> {
   try {
     return await getVersion();
   } catch {
-    return "";
+    return "0.0.0";
   }
 }
 
 export async function checkForUpdate(
   opts: CheckOptions = {},
-): Promise<
-  | { status: "up-to-date" }
-  | { status: "available"; info: UpdateInfo; update: UpdateHandle }
-  | { status: "error"; error: string }
-> {
+): Promise<CheckResult> {
   try {
     // 动态引入，避免在未安装插件时导致打包期问题
     const { check } = await import("@tauri-apps/plugin-updater");
@@ -102,10 +93,10 @@ export async function checkForUpdate(
     console.log('[Updater] Current version:', currentVersion);
 
     const update = await check({ timeout: opts.timeout ?? 30000 } as any);
-    console.log('[Updater] Check result:', update ? 'Update available' : 'Up to date');
+    console.log('[Updater] Check result:', update ? `Update available: ${update.version}` : 'Up to date');
 
     if (!update) {
-      return { status: "up-to-date" };
+      return { status: "up-to-date", currentVersion };
     }
 
     const mapped = mapUpdateHandle(update);
@@ -116,7 +107,6 @@ export async function checkForUpdate(
       pubDate: mapped.date,
     };
 
-    console.log('[Updater] Available version:', mapped.version);
     return { status: "available", info, update: mapped };
   } catch (error) {
     console.error('[Updater] Check failed:', error);
@@ -134,6 +124,8 @@ export async function checkForUpdate(
         errorMessage = '网络连接超时，请检查网络连接';
       } else if (errorMessage.includes('signature') || errorMessage.includes('verify')) {
         errorMessage = '更新签名验证失败';
+      } else if (errorMessage.includes('Failed to check for update')) {
+         errorMessage = '检查更新服务失败，请稍后重试';
       }
     }
 
@@ -145,6 +137,7 @@ export async function relaunchApp(): Promise<void> {
   const { relaunch } = await import("@tauri-apps/plugin-process");
   await relaunch();
 }
+
 
 
 
