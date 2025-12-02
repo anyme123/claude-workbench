@@ -1,11 +1,16 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { View } from '@/types/navigation';
 
+interface HistoryItem {
+  view: View;
+  params: Record<string, any>;
+}
+
 interface NavigationContextType {
   currentView: View;
   viewParams: Record<string, any>;
   previousView: View | null;
-  history: View[];
+  history: HistoryItem[];
   navigateTo: (view: View, params?: Record<string, any>) => void;
   goBack: () => void;
   canGoBack: boolean;
@@ -17,7 +22,8 @@ const NavigationContext = createContext<NavigationContextType | undefined>(undef
 export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentView, setCurrentView] = useState<View>("projects");
   const [viewParams, setViewParams] = useState<Record<string, any>>({});
-  const [history, setHistory] = useState<View[]>(["projects"]);
+  // Initialize history with the default view and empty params
+  const [history, setHistory] = useState<HistoryItem[]>([{ view: "projects", params: {} }]);
   const [previousView, setPreviousView] = useState<View | null>(null);
   const [navigationInterceptor, setNavigationInterceptor] = useState<((nextView: View) => boolean) | null>(null);
 
@@ -28,57 +34,56 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
       if (!shouldProceed) return;
     }
 
+    const newParams = params || {};
+
     // If staying on same view but params change, we still update
-    if (newView === currentView && JSON.stringify(params) === JSON.stringify(viewParams)) return;
+    if (newView === currentView && JSON.stringify(newParams) === JSON.stringify(viewParams)) return;
 
     setPreviousView(currentView);
     setCurrentView(newView);
-    if (params) {
-      setViewParams(params);
-    } else if (newView !== currentView) {
-      // Clear params if navigating to a new view without params
-      // But if staying on same view (e.g. refresh), maybe keep them? 
-      // For now, assume clean slate if not provided on view change
-      setViewParams({});
-    }
+    setViewParams(newParams);
     
     setHistory(prev => {
-      // Avoid duplicate consecutive entries
-      if (prev[prev.length - 1] !== newView) {
-        return [...prev, newView];
+      const lastItem = prev[prev.length - 1];
+      // Avoid duplicate consecutive entries (check both view and params)
+      if (lastItem.view !== newView || JSON.stringify(lastItem.params) !== JSON.stringify(newParams)) {
+        return [...prev, { view: newView, params: newParams }];
       }
       return prev;
     });
-  }, [currentView, viewParams]);
+  }, [currentView, viewParams, navigationInterceptor]);
 
   const goBack = useCallback(() => {
     if (history.length > 1) {
       const newHistory = [...history];
-      const prevView = newHistory[newHistory.length - 2]; // Target view
+      newHistory.pop(); // Remove current
+      
+      const prevItem = newHistory[newHistory.length - 1]; // Target item
       
       if (navigationInterceptor) {
-        const shouldProceed = navigationInterceptor(prevView || "projects");
+        const shouldProceed = navigationInterceptor(prevItem.view);
         if (!shouldProceed) return;
       }
 
-      newHistory.pop(); // Remove current
-      
       setHistory(newHistory);
-      setCurrentView(prevView);
-      setPreviousView(newHistory[newHistory.length - 2] || null);
-      // Note: goBack doesn't restore params perfectly unless we store them in history. 
-      // For now, we reset params on back.
-      setViewParams({}); 
+      setCurrentView(prevItem.view);
+      setViewParams(prevItem.params);
+      
+      // Update previous view reference (optional, effectively the one we just popped)
+      // But conceptually 'previous' usually means 'where we just came from' before this action.
+      // In a browser, 'back' moves you to previous state. 
+      // Let's keep previousView as the one we are leaving (which was current).
+      setPreviousView(currentView); 
     } else {
+      // Fallback if history is empty (shouldn't happen with init state)
       if (navigationInterceptor) {
         const shouldProceed = navigationInterceptor("projects");
         if (!shouldProceed) return;
       }
-      // Fallback
       setCurrentView("projects");
       setViewParams({});
     }
-  }, [history, navigationInterceptor]);
+  }, [history, navigationInterceptor, currentView]);
 
   return (
     <NavigationContext.Provider value={{
