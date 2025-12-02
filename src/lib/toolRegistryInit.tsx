@@ -208,9 +208,17 @@ export function initializeToolRegistry(): void {
       return undefined;
     }
 
-    const regex = new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'i');
-    const match = content.match(regex);
-    return match?.[1]?.trim() || undefined;
+    try {
+      // 转义 tag 中可能存在的正则表达式特殊字符
+      const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`<${escapedTag}>([\\s\\S]*?)<\\/${escapedTag}>`, 'i');
+      const match = content.match(regex);
+      return match?.[1]?.trim() || undefined;
+    } catch (error) {
+      // 如果正则表达式无效，记录错误并返回 undefined
+      console.error('[extractTaggedValue] Invalid regex for tag:', tag, error);
+      return undefined;
+    }
   };
 
   const tools: ToolRenderer[] = [

@@ -209,30 +209,41 @@ export function useImageHandling({
   // Remove embedded image from prompt
   const handleRemoveEmbeddedImage = (index: number) => {
     const imagePath = embeddedImages[index];
-    
+
     if (imagePath.startsWith('data:')) {
       const quotedPath = `@"${imagePath}"`;
       const newPrompt = prompt.replace(quotedPath, '').trim();
       onPromptChange(newPrompt);
       return;
     }
-    
-    const escapedPath = imagePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const escapedRelativePath = imagePath.replace(projectPath + '/', '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    
-    const patterns = [
-      new RegExp(`@"${escapedPath}"\\s?`, 'g'),
-      new RegExp(`@${escapedPath}\\s?`, 'g'),
-      new RegExp(`@"${escapedRelativePath}"\\s?`, 'g'),
-      new RegExp(`@${escapedRelativePath}\\s?`, 'g')
-    ];
 
-    let newPrompt = prompt;
-    for (const pattern of patterns) {
-      newPrompt = newPrompt.replace(pattern, '');
+    try {
+      const escapedPath = imagePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const escapedRelativePath = imagePath.replace(projectPath + '/', '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+      const patterns = [
+        new RegExp(`@"${escapedPath}"\\s?`, 'g'),
+        new RegExp(`@${escapedPath}\\s?`, 'g'),
+        new RegExp(`@"${escapedRelativePath}"\\s?`, 'g'),
+        new RegExp(`@${escapedRelativePath}\\s?`, 'g')
+      ];
+
+      let newPrompt = prompt;
+      for (const pattern of patterns) {
+        newPrompt = newPrompt.replace(pattern, '');
+      }
+
+      onPromptChange(newPrompt.trim());
+    } catch (error) {
+      // 如果正则表达式创建失败，使用简单的字符串替换
+      console.error('[handleRemoveEmbeddedImage] Regex error:', error);
+      const simplePatterns = [`@"${imagePath}"`, `@${imagePath}`];
+      let newPrompt = prompt;
+      for (const pattern of simplePatterns) {
+        newPrompt = newPrompt.split(pattern).join('');
+      }
+      onPromptChange(newPrompt.trim());
     }
-
-    onPromptChange(newPrompt.trim());
   };
 
   // Browser drag and drop handlers
