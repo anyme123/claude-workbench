@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Bot, BrainCircuit } from "lucide-react";
 import { MessageBubble } from "./MessageBubble";
 import { MessageContent } from "./MessageContent";
@@ -7,6 +7,35 @@ import { cn } from "@/lib/utils";
 import { tokenExtractor } from "@/lib/tokenExtractor";
 import { formatTimestamp } from "@/lib/messageUtils";
 import type { ClaudeStreamMessage } from '@/types/claude';
+
+// 全局 Set 跟踪已经完成打字效果的消息
+// 使用消息的 timestamp 作为唯一标识
+const completedTypewriterMessages = new Set<string>();
+
+/**
+ * 获取消息的唯一标识
+ */
+const getMessageId = (message: ClaudeStreamMessage): string => {
+  const timestamp = (message as any).receivedAt ?? (message as any).timestamp ?? '';
+  const textLength = extractAITextForId(message).length;
+  return `${timestamp}-${textLength}`;
+};
+
+/**
+ * 用于生成消息ID的文本提取（避免循环依赖）
+ */
+const extractAITextForId = (message: ClaudeStreamMessage): string => {
+  if (!message.message?.content) return '';
+  const content = message.message.content;
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .filter((item: any) => item.type === 'text')
+      .map((item: any) => item.text)
+      .join('');
+  }
+  return '';
+};
 
 interface AIMessageProps {
   /** 消息数据 */
@@ -86,6 +115,11 @@ const extractThinkingContent = (message: ClaudeStreamMessage): string => {
 /**
  * AI消息组件（重构版）
  * 左对齐卡片样式，支持工具调用展示和思考块
+ *
+ * 打字机效果逻辑：
+ * - Claude 引擎：依赖 isStreaming prop（流式输出时启用）
+ * - Codex 引擎：检测新消息并启用打字机效果
+ * - 使用全局 Set 跟踪已完成的消息，避免重复触发
  */
 export const AIMessage: React.FC<AIMessageProps> = ({
   message,
@@ -97,6 +131,43 @@ export const AIMessage: React.FC<AIMessageProps> = ({
   const hasTools = hasToolCalls(message);
   const hasThinking = hasThinkingBlock(message);
   const thinkingContent = hasThinking ? extractThinkingContent(message) : '';
+
+  // 获取消息唯一标识
+  const messageId = getMessageId(message);
+
+  // 检测是否是新消息（尚未完成打字效果）
+  const isNewMessage = !completedTypewriterMessages.has(messageId);
+
+  // 使用 state 跟踪打字机效果是否应该启用
+  const [shouldTypewrite, setShouldTypewrite] = useState(isNewMessage);
+
+  // 使用 ref 跟踪上一个消息ID，用于检测消息切换
+  const prevMessageIdRef = useRef(messageId);
+
+  // 检测消息变化（新消息或内容更新）
+  useEffect(() => {
+    if (prevMessageIdRef.current !== messageId) {
+      // 消息发生变化
+      prevMessageIdRef.current = messageId;
+
+      if (!completedTypewriterMessages.has(messageId)) {
+        // 新消息，启用打字机效果
+        setShouldTypewrite(true);
+      }
+    }
+  }, [messageId]);
+
+  // 打字机效果完成的回调
+  const handleTypewriterComplete = () => {
+    completedTypewriterMessages.add(messageId);
+    setShouldTypewrite(false);
+  };
+
+  // 决定是否启用打字机效果：
+  // 1. Claude 引擎：isStreaming=true 时启用
+  // 2. Codex 引擎：新消息时启用（shouldTypewrite=true）
+  const isCodexMessage = (message as any).engine === 'codex';
+  const enableTypewriter = isStreaming || (isCodexMessage && shouldTypewrite && text.length > 0);
 
   // 如果既没有文本又没有工具调用又没有思考块，不渲染
   if (!text && !hasTools && !hasThinking) return null;
@@ -117,8 +188,6 @@ export const AIMessage: React.FC<AIMessageProps> = ({
     return parts.join(' | ');
   })() : null;
 
-  // Detect if this is a Codex message
-  const isCodexMessage = (message as any).engine === 'codex';
   const assistantName = isCodexMessage ? 'Codex' : 'Claude';
 
   return (
@@ -146,7 +215,9 @@ export const AIMessage: React.FC<AIMessageProps> = ({
                 <div className="prose prose-neutral dark:prose-invert max-w-none leading-relaxed text-[15px]">
                   <MessageContent
                     content={text}
-                    isStreaming={isStreaming && !hasTools && !hasThinking}
+                    isStreaming={enableTypewriter && !hasTools && !hasThinking}
+                    enableTypewriter={enableTypewriter && !hasTools && !hasThinking}
+                    onTypewriterComplete={handleTypewriterComplete}
                   />
                 </div>
               )}

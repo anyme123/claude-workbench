@@ -120,6 +120,8 @@ interface MessageContentProps {
   enableTypewriter?: boolean;
   /** 打字机速度（毫秒/字符） */
   typewriterSpeed?: number;
+  /** 打字机效果完成回调 */
+  onTypewriterComplete?: () => void;
 }
 
 /**
@@ -131,10 +133,14 @@ const MessageContentComponent: React.FC<MessageContentProps> = ({
   className,
   isStreaming = false,
   enableTypewriter = true,
-  typewriterSpeed = 8
+  typewriterSpeed = 8,
+  onTypewriterComplete
 }) => {
   const { theme } = useTheme();
   const syntaxTheme = getClaudeSyntaxTheme(theme === 'dark');
+
+  // 判断是否应该启用打字机效果
+  const shouldEnableTypewriter = enableTypewriter && isStreaming;
 
   // 使用打字机效果
   const {
@@ -142,13 +148,14 @@ const MessageContentComponent: React.FC<MessageContentProps> = ({
     isTyping,
     skipToEnd
   } = useTypewriter(content, {
-    enabled: enableTypewriter && isStreaming, // 只在流式输出时启用打字机效果
+    enabled: shouldEnableTypewriter,
     speed: typewriterSpeed,
-    isStreaming
+    isStreaming,
+    onComplete: onTypewriterComplete
   });
 
-  // 决定显示的内容：流式输出时使用打字机效果，否则直接显示全部
-  const textToDisplay = (enableTypewriter && isStreaming) ? displayedText : content;
+  // 决定显示的内容：打字机效果启用时使用 displayedText，否则直接显示全部
+  const textToDisplay = shouldEnableTypewriter ? displayedText : content;
 
   // 双击跳过打字机效果
   const handleDoubleClick = useCallback(() => {
