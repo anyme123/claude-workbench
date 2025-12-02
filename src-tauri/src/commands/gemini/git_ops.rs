@@ -75,6 +75,57 @@ pub fn get_gemini_sessions_dir(project_path: &str) -> Result<PathBuf, String> {
     Ok(gemini_dir.join("tmp").join(project_hash).join("chats"))
 }
 
+/// Find Gemini session file by session ID
+/// Gemini CLI stores session files with format: session-<date>-<session_id_prefix>.json
+/// where session_id_prefix is the first 8 characters of the full UUID
+/// This function searches by prefix and verifies by reading the internal sessionId field
+fn find_gemini_session_file(sessions_dir: &PathBuf, session_id: &str) -> Result<PathBuf, String> {
+    // Extract the first 8 characters of session_id for filename matching
+    // Gemini CLI uses this prefix in the filename
+    let session_prefix = if session_id.len() >= 8 {
+        &session_id[..8]
+    } else {
+        session_id
+    };
+
+    log::debug!("[Gemini] Searching for session file with prefix: {} in {:?}", session_prefix, sessions_dir);
+
+    let entries = fs::read_dir(sessions_dir)
+        .map_err(|e| format!("Failed to read sessions directory: {}", e))?;
+
+    // First pass: find files that match the prefix in filename
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_file() {
+            if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
+                // Check if filename contains the session_id prefix
+                if filename.contains(session_prefix) {
+                    candidates.push(path);
+                }
+            }
+        }
+    }
+
+    log::debug!("[Gemini] Found {} candidate files for prefix {}", candidates.len(), session_prefix);
+
+    // Second pass: verify by reading the sessionId field in the file
+    for candidate in candidates {
+        if let Ok(content) = fs::read_to_string(&candidate) {
+            if let Ok(data) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(file_session_id) = data.get("sessionId").and_then(|v| v.as_str()) {
+                    if file_session_id == session_id {
+                        log::info!("[Gemini] Found matching session file: {:?}", candidate);
+                        return Ok(candidate);
+                    }
+                }
+            }
+        }
+    }
+
+    Err(format!("Session file not found for: {} (searched for prefix: {})", session_id, session_prefix))
+}
+
 // ============================================================================
 // Git Records Storage
 // ============================================================================
@@ -136,25 +187,8 @@ pub fn truncate_gemini_git_records(session_id: &str, prompt_index: usize) -> Res
 fn extract_gemini_prompts(session_id: &str, project_path: &str) -> Result<Vec<PromptRecord>, String> {
     let sessions_dir = get_gemini_sessions_dir(project_path)?;
 
-    // Find session file by ID
-    let entries = fs::read_dir(&sessions_dir)
-        .map_err(|e| format!("Failed to read sessions directory: {}", e))?;
-
-    let mut session_file: Option<PathBuf> = None;
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_file() {
-            if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
-                if filename.contains(session_id) {
-                    session_file = Some(path);
-                    break;
-                }
-            }
-        }
-    }
-
-    let session_file = session_file
-        .ok_or_else(|| format!("Session file not found for: {}", session_id))?;
+    // Find session file using helper function (handles Gemini's 8-char prefix naming)
+    let session_file = find_gemini_session_file(&sessions_dir, session_id)?;
 
     let content = fs::read_to_string(&session_file)
         .map_err(|e| format!("Failed to read session file: {}", e))?;
@@ -447,25 +481,8 @@ pub fn truncate_gemini_session_to_prompt(
 ) -> Result<(), String> {
     let sessions_dir = get_gemini_sessions_dir(project_path)?;
 
-    // Find session file
-    let entries = fs::read_dir(&sessions_dir)
-        .map_err(|e| format!("Failed to read sessions directory: {}", e))?;
-
-    let mut session_file: Option<PathBuf> = None;
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_file() {
-            if let Some(filename) = path.file_name().and_then(|n| n.to_str()) {
-                if filename.contains(session_id) {
-                    session_file = Some(path);
-                    break;
-                }
-            }
-        }
-    }
-
-    let session_file = session_file
-        .ok_or_else(|| format!("Session file not found for: {}", session_id))?;
+    // Find session file using helper function (handles Gemini's 8-char prefix naming)
+    let session_file = find_gemini_session_file(&sessions_dir, session_id)?;
 
     // Read session JSON
     let content = fs::read_to_string(&session_file)
