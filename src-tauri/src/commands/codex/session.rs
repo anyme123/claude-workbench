@@ -258,7 +258,7 @@ pub async fn list_codex_sessions() -> Result<Vec<CodexSession>, String> {
                                         if path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
                                             match parse_codex_session_file(&path) {
                                                 Some(session) => {
-                                                    log::info!("Found session: {} ({})",
+                                                    log::debug!("Found session: {} ({})",
                                                         session.id, session.project_path);
                                                     sessions.push(session);
                                                 }
