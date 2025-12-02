@@ -26,6 +26,7 @@ import { Toast, ToastContainer } from "@/components/ui/toast";
 import { StorageTab } from "./StorageTab";
 import { PromptEnhancementSettings } from "./PromptEnhancementSettings";
 import { useTranslation } from "@/hooks/useTranslation";
+import { useNavigation } from "@/contexts/NavigationContext";
 import ProviderManager from "./ProviderManager";
 import CodexProviderManager from "./CodexProviderManager";
 import { TranslationSettings } from "./TranslationSettings";
@@ -35,10 +36,6 @@ import { EnvironmentSettings } from "./settings/EnvironmentSettings";
 import { HooksSettings } from "./settings/HooksSettings";
 
 interface SettingsProps {
-  /**
-   * Callback to go back to the main view
-   */
-  onBack: () => void;
   /**
    * Optional className for styling
    */
@@ -68,11 +65,11 @@ interface EnvironmentVariable {
  * Provides a no-code interface for editing the settings.json file
  */
 export const Settings: React.FC<SettingsProps> = ({
-  onBack,
   className,
   initialTab,
 }) => {
   const { t } = useTranslation();
+  const { goBack } = useNavigation();
   const [settings, setSettings] = useState<ClaudeSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -366,7 +363,7 @@ export const Settings: React.FC<SettingsProps> = ({
         <Button
           variant="ghost"
           size="icon"
-          onClick={onBack}
+          onClick={goBack}
           className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
           aria-label="返回"
         >
@@ -568,4 +565,4 @@ export const Settings: React.FC<SettingsProps> = ({
       </ToastContainer>
     </div>
   );
-}; 
+};  
