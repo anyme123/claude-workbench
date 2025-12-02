@@ -198,10 +198,11 @@ pub async fn execute_gemini(
     }
 
     // Add prompt:
-    // - When resuming: must use --prompt flag (not positional argument)
+    // - When resuming: use -p flag (stdin doesn't work due to Gemini CLI bug)
     // - When starting new: use positional argument
     if is_resuming {
-        args.push("--prompt".to_string());
+        // Note: -p is deprecated but stdin/positional don't work for resume
+        args.push("-p".to_string());
         args.push(options.prompt.clone());
     } else {
         // Add prompt as positional argument (must be last for new sessions)
@@ -275,7 +276,7 @@ async fn execute_gemini_process(
     app_handle: AppHandle,
 ) -> Result<(), String> {
     // Setup stdio
-    cmd.stdin(Stdio::null()); // Gemini uses --prompt flag, not stdin
+    cmd.stdin(Stdio::null());
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
 
