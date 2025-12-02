@@ -155,16 +155,19 @@ pub async fn execute_gemini(
     // Load configuration
     let config = load_gemini_config().unwrap_or_default();
 
-    // Build command arguments (prompt must be last as positional argument)
+    // Build command arguments
     let mut args = vec![
         "--output-format".to_string(),
         "stream-json".to_string(),
     ];
 
-    // Add session ID for resuming (if specified)
-    if let Some(session_id) = &options.session_id {
+    // Check if we're resuming a session
+    // Note: Gemini CLI --resume accepts "latest" or index number (e.g. "5"), not UUID
+    // For simplicity, we use "latest" when session_id is provided
+    let is_resuming = options.session_id.is_some();
+    if is_resuming {
         args.push("--resume".to_string());
-        args.push(session_id.clone());
+        args.push("latest".to_string());
     }
 
     // Add model if specified (or use default from config)
@@ -194,8 +197,16 @@ pub async fn execute_gemini(
         args.push("--debug".to_string());
     }
 
-    // Add prompt as positional argument (must be last)
-    args.push(options.prompt.clone());
+    // Add prompt:
+    // - When resuming: must use --prompt flag (not positional argument)
+    // - When starting new: use positional argument
+    if is_resuming {
+        args.push("--prompt".to_string());
+        args.push(options.prompt.clone());
+    } else {
+        // Add prompt as positional argument (must be last for new sessions)
+        args.push(options.prompt.clone());
+    }
 
     log::info!("Gemini command: {} {:?}", gemini_path, args);
 
