@@ -48,7 +48,6 @@ export function useSmartAutoScroll(config: SmartAutoScrollConfig): SmartAutoScro
 
   // Refs
   const parentRef = useRef<HTMLDivElement>(null);
-  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastScrollPositionRef = useRef(0);
   const isAutoScrollingRef = useRef(false); // 🆕 Track if scroll was initiated by code
 

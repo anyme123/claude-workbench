@@ -6,8 +6,7 @@
  */
 
 import React, { useState } from "react";
-import { FileEdit, FileText, ChevronUp, ChevronDown, Loader2, CheckCircle2, XCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { FileEdit, ChevronUp, ChevronDown, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import * as Diff from 'diff';
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";

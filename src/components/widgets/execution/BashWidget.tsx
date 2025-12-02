@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from "react";
-import { Terminal, ChevronRight, ChevronUp, ChevronDown, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { Terminal, ChevronUp, ChevronDown, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface BashWidgetProps {

@@ -44,6 +44,10 @@ interface SettingsProps {
    * Optional initial tab to display
    */
   initialTab?: string;
+  /**
+   * Optional callback when back is triggered
+   */
+  onBack?: () => void;
 }
 
 interface PermissionRule {

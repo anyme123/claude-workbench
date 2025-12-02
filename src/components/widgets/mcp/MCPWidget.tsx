@@ -6,8 +6,7 @@
  */
 
 import React, { useState, useRef, useEffect } from "react";
-import { Package2, Sparkles, Code, ChevronRight, ChevronUp, ChevronDown, Zap, CheckCircle2, XCircle, Loader2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Package2, Sparkles, Code, ChevronUp, ChevronDown, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { getClaudeSyntaxTheme } from "@/lib/claudeSyntaxTheme";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -44,7 +43,6 @@ export const MCPWidget: React.FC<MCPWidgetProps> = ({
 }) => {
   const { theme } = useTheme();
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isParametersExpanded, setIsParametersExpanded] = useState(false);
   const [isResultExpanded, setIsResultExpanded] = useState(false);
   const [shouldCollapseResult, setShouldCollapseResult] = useState(false);
   const resultRef = useRef<HTMLDivElement>(null);
@@ -97,7 +95,6 @@ export const MCPWidget: React.FC<MCPWidgetProps> = ({
 
   const hasInput = input && Object.keys(input).length > 0;
   const inputString = hasInput ? JSON.stringify(input, null, 2) : '';
-  const isLargeInput = inputString.length > 200;
 
   /**
    * Token 估算（粗略估计: ~4字符/token）

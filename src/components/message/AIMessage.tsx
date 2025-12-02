@@ -1,5 +1,5 @@
 import React from "react";
-import { Bot, Clock, BrainCircuit } from "lucide-react";
+import { Bot, BrainCircuit } from "lucide-react";
 import { MessageBubble } from "./MessageBubble";
 import { MessageContent } from "./MessageContent";
 import { ToolCallsGroup } from "./ToolCallsGroup";
@@ -123,7 +123,7 @@ export const AIMessage: React.FC<AIMessageProps> = ({
 
   return (
     <div className={cn("relative group", className)}>
-      <MessageBubble variant="assistant" isStreaming={isStreaming}>
+      <MessageBubble variant="assistant">
         <div className="flex gap-4 items-start">
           {/* Left Column: Avatar */}
           <div className="flex-shrink-0 mt-0.5 select-none">

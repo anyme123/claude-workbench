@@ -11,8 +11,6 @@ interface MessageBubbleProps {
   className?: string;
   /** 自定义气泡类名 */
   bubbleClassName?: string;
-  /** 是否正在流式输出 */
-  isStreaming?: boolean;
   /** 气泡侧边内容 (显示在气泡外侧，用户消息在左侧，AI消息在右侧) */
   sideContent?: React.ReactNode;
 }
@@ -28,7 +26,6 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   children,
   className,
   bubbleClassName,
-  isStreaming = false,
   sideContent
 }) => {
   const isUser = variant === "user";

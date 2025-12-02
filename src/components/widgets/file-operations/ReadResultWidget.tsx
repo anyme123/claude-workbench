@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from "react";
-import { FileText, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
+import { FileText, ChevronUp, ChevronDown } from "lucide-react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { getClaudeSyntaxTheme } from "@/lib/claudeSyntaxTheme";
 import { useTheme } from "@/contexts/ThemeContext";

@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from "react";
-import { Search, Code, FolderOpen, FilePlus, X, ChevronUp, ChevronDown } from "lucide-react";
+import { Search, FolderOpen, FilePlus, X, ChevronUp, ChevronDown } from "lucide-react";
 import { GrepResults } from "./components/GrepResults";
 
 export interface GrepWidgetProps {

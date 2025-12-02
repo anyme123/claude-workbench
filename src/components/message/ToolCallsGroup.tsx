@@ -264,19 +264,16 @@ const SingleToolCallComponent: React.FC<SingleToolCallProps> = ({ tool, result, 
   let StatusIcon = Loader2;
   let statusColor = 'text-blue-600';
   let statusBg = 'bg-blue-500/10';
-  let borderColor = 'border-blue-500/20';
 
   if (hasResult) {
     if (isError) {
       StatusIcon = AlertCircle;
       statusColor = 'text-red-600';
       statusBg = 'bg-red-500/10';
-      borderColor = 'border-red-500/20';
     } else {
       StatusIcon = CheckCircle;
       statusColor = 'text-green-600';
       statusBg = 'bg-green-500/10';
-      borderColor = 'border-green-500/20';
     }
   }
 

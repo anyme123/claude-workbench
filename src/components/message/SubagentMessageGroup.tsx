@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from "react";
-import { Bot, ChevronDown, ChevronRight, Sparkles, ChevronUp } from "lucide-react";
+import { Bot, ChevronDown, ChevronUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { AIMessage } from "./AIMessage";
@@ -63,8 +63,6 @@ export const SubagentMessageGroup: React.FC<SubagentMessageGroupProps> = ({
 
   // 统计子代理消息数量
   const messageCount = subagentMessages.length;
-  const userMessages = subagentMessages.filter(m => m?.type === 'user').length;
-  const assistantMessages = subagentMessages.filter(m => m?.type === 'assistant').length;
 
   // 🛡️ 如果没有 taskMessage，返回 null 防止崩溃
   if (!group.taskMessage) {

@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import type { CheckResult, UpdateInfo, UpdateHandle } from "../lib/updater";
+import type { CheckResult } from "../lib/updater";
 import { checkForUpdate } from "../lib/updater";
 
 interface UseUpdateCheckResult {

@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { Search, ChevronDown, ChevronUp, FileText } from "lucide-react";
+import { Search, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /** 自动折叠的高度阈值 (px) */
@@ -33,7 +33,6 @@ export interface GlobWidgetProps {
  */
 export const GlobWidget: React.FC<GlobWidgetProps> = ({ pattern, result, defaultCollapsed }) => {
   const resultRef = useRef<HTMLDivElement>(null);
-  const [shouldCollapse, setShouldCollapse] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(true);
 
   // 提取结果内容
@@ -70,14 +69,12 @@ export const GlobWidget: React.FC<GlobWidgetProps> = ({ pattern, result, default
   // 根据内容高度或行数判断是否需要折叠
   useEffect(() => {
     if (defaultCollapsed !== undefined) {
-      setShouldCollapse(defaultCollapsed);
       setIsCollapsed(defaultCollapsed);
       return;
     }
 
     // 基于行数判断
     if (fileCount > COLLAPSE_LINE_COUNT) {
-      setShouldCollapse(true);
       setIsCollapsed(true);
       return;
     }
@@ -86,12 +83,9 @@ export const GlobWidget: React.FC<GlobWidgetProps> = ({ pattern, result, default
     const el = resultRef.current;
     if (el) {
       const needCollapse = el.scrollHeight > COLLAPSE_HEIGHT;
-      setShouldCollapse(needCollapse);
       setIsCollapsed(needCollapse);
     }
   }, [result, fileCount, defaultCollapsed]);
-
-  const toggleCollapse = () => setIsCollapsed((v) => !v);
 
   return (
     <div className="space-y-2 w-full">
