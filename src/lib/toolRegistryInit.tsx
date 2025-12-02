@@ -36,6 +36,7 @@ import {
   // 子代理类
   TaskWidget,
   MultiEditWidget,
+  GeminiSubagentWidget,
 
   // Web 工具类
   WebFetchWidget,
@@ -533,6 +534,21 @@ export function initializeToolRegistry(): void {
         subagentType: props.input?.subagent_type ?? props.result?.content?.subagent_type,
       })),
       description: 'Claude Code 子代理工具',
+    },
+
+    // Gemini 子代理工具（codebase_investigator, code_executor 等）
+    {
+      name: 'codebase_investigator',
+      pattern: /^(?:codebase[-_]?investigator|code[-_]?executor|analyst|planner)$/i,
+      priority: 5,
+      render: createToolAdapter(GeminiSubagentWidget, (props) => ({
+        toolName: props.toolName,
+        displayName: props.input?.displayName,
+        description: props.input?.description,
+        input: props.input,
+        result: props.result,
+      })),
+      description: 'Gemini CLI 子代理工具',
     },
 
     // System Reminder - 系统提醒信息

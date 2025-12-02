@@ -34,14 +34,25 @@ export const LSResultWidget: React.FC<LSResultWidgetProps> = ({ content }) => {
 
   /**
    * 解析目录树结构
+   * 支持两种格式:
+   * 1. Claude Code 树形格式 (带 "- " 前缀)
+   * 2. Gemini 简单列表格式 ("Directory listing for...\nFile1\nFile2")
    */
   const parseDirectoryTree = (rawContent: string): DirectoryEntry[] => {
     const lines = rawContent.split('\n');
     const entries: DirectoryEntry[] = [];
 
     let currentPath: string[] = [];
+    let isGeminiFormat = false;
 
-    for (const line of lines) {
+    // 检测是否是 Gemini 格式
+    if (lines.length > 0 && lines[0].trim().startsWith('Directory listing for')) {
+      isGeminiFormat = true;
+    }
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
       // 跳过 NOTE 部分
       if (line.startsWith('NOTE:')) {
         break;
@@ -50,6 +61,32 @@ export const LSResultWidget: React.FC<LSResultWidgetProps> = ({ content }) => {
       // 跳过空行
       if (!line.trim()) continue;
 
+      // Gemini 格式: "Directory listing for...\nFile1\nFile2"
+      if (isGeminiFormat) {
+        // 跳过 "Directory listing for..." 行
+        if (line.trim().startsWith('Directory listing for')) {
+          continue;
+        }
+
+        // 每行是一个文件或目录名
+        const name = line.trim();
+        if (!name) continue;
+
+        // 检测是否是目录 (Gemini 使用 [DIR] 前缀)
+        const isDirMatch = name.match(/^\[DIR\]\s*(.+)$/);
+        const isDirectory = !!isDirMatch || name.endsWith('/');
+        const cleanName = isDirMatch ? isDirMatch[1] : name.replace(/\/$/, '');
+
+        entries.push({
+          path: cleanName,
+          name: cleanName,
+          type: isDirectory ? 'directory' : 'file',
+          level: 0,
+        });
+        continue;
+      }
+
+      // Claude Code 树形格式
       // 计算缩进级别
       const indent = line.match(/^(\s*)/)?.[1] || '';
       const level = Math.floor(indent.length / 2);

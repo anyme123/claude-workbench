@@ -79,6 +79,9 @@ export type { TaskWidgetProps } from './agent/TaskWidget';
 export { MultiEditWidget } from './agent/MultiEditWidget';
 export type { MultiEditWidgetProps } from './agent/MultiEditWidget';
 
+export { GeminiSubagentWidget } from './agent/GeminiSubagentWidget';
+export type { GeminiSubagentWidgetProps } from './agent/GeminiSubagentWidget';
+
 // ==================== Result 组件 ====================
 // Result 组件用于显示工具执行的结果
 export { ReadResultWidget } from './file-operations/ReadResultWidget';
