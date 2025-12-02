@@ -1,4 +1,4 @@
-import React, { useState, useRef, forwardRef, useImperativeHandle, useEffect, useReducer } from "react";
+import React, { useState, useRef, forwardRef, useImperativeHandle, useEffect, useReducer, useCallback } from "react";
 import { AnimatePresence } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -248,8 +248,9 @@ const FloatingPromptInputInner = (
   }));
 
   // Toggle thinking mode
-  const handleToggleThinkingMode = async () => {
-    const newMode: ThinkingMode = state.selectedThinkingMode === "off" ? "on" : "off";
+  const handleToggleThinkingMode = useCallback(async () => {
+    const currentMode = state.selectedThinkingMode;
+    const newMode: ThinkingMode = currentMode === "off" ? "on" : "off";
     dispatch({ type: "SET_THINKING_MODE", payload: newMode });
 
     // Persist to localStorage
@@ -267,7 +268,7 @@ const FloatingPromptInputInner = (
     } catch (error) {
       console.error("Failed to update thinking mode:", error);
       // Revert state and localStorage on API error
-      const revertedMode = state.selectedThinkingMode === "off" ? "on" : "off";
+      const revertedMode = currentMode;
       dispatch({ type: "SET_THINKING_MODE", payload: revertedMode });
       try {
         localStorage.setItem('thinking_mode', revertedMode);
@@ -275,7 +276,7 @@ const FloatingPromptInputInner = (
         // Ignore localStorage errors
       }
     }
-  };
+  }, [state.selectedThinkingMode]);
 
   // Focus management
   useEffect(() => {
@@ -317,7 +318,7 @@ const FloatingPromptInputInner = (
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [disabled]);
+  }, [disabled, handleToggleThinkingMode]);
 
   // Event handlers
   const handleSend = () => {

@@ -31,7 +31,7 @@ export const ThinkingModeToggle: React.FC<ThinkingModeToggleProps> = ({
             className={cn(
               "gap-2 transition-all duration-200",
               isEnabled
-                ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-sm shadow-emerald-500/20"
+                ? "bg-amber-600 hover:bg-amber-700 text-white border-amber-600 shadow-sm shadow-amber-500/20"
                 : "bg-muted/50 hover:bg-muted text-muted-foreground border-muted-foreground/20"
             )}
           >
