@@ -106,26 +106,6 @@ export const geminiProviderPresets: GeminiProviderPreset[] = [
     partnerPromotionKey: "google-official",
   },
   {
-    id: "packycode",
-    name: "PackyCode",
-    websiteUrl: "https://www.packyapi.com",
-    apiKeyUrl: "https://www.packyapi.com/register?aff=anycode",
-    env: {
-      GOOGLE_GEMINI_BASE_URL: "https://www.packyapi.com",
-      GEMINI_MODEL: "gemini-3-pro-preview",
-    },
-    baseURL: "https://www.packyapi.com",
-    model: "gemini-3-pro-preview",
-    description: "PackyCode API 服务",
-    category: "third_party",
-    isPartner: true,
-    partnerPromotionKey: "packycode",
-    endpointCandidates: [
-      "https://api-slb.packyapi.com",
-      "https://www.packyapi.com",
-    ],
-  },
-  {
     id: "custom",
     name: "自定义供应商",
     websiteUrl: "",
