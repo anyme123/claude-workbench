@@ -5,7 +5,7 @@
  * 主组件 (~120行) + CodePreview (~90行) + FullScreenPreview (~140行)
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { FilePlus, ExternalLink, ChevronUp, ChevronDown, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
@@ -44,11 +44,20 @@ export const WriteWidget: React.FC<WriteWidgetProps> = ({
   const [isMaximized, setIsMaximized] = useState(false);
   // 流式输出时默认展开，否则默认收起
   const [isExpanded, setIsExpanded] = useState(isStreaming);
+  // 跟踪前一个 isStreaming 状态，用于检测状态变化
+  const prevIsStreamingRef = useRef(isStreaming);
 
-  // 当流式输出开始时自动展开
+  // 当流式输出状态变化时自动展开/折叠
   useEffect(() => {
-    if (isStreaming) {
+    const wasStreaming = prevIsStreamingRef.current;
+    prevIsStreamingRef.current = isStreaming;
+
+    if (isStreaming && !wasStreaming) {
+      // 流式输出开始时自动展开
       setIsExpanded(true);
+    } else if (!isStreaming && wasStreaming) {
+      // 流式输出结束时自动折叠
+      setIsExpanded(false);
     }
   }, [isStreaming]);
 
