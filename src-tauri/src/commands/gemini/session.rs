@@ -212,17 +212,8 @@ pub async fn execute_gemini(
         args.push("--debug".to_string());
     }
 
-    // Add prompt:
-    // - When resuming: use -p flag (stdin doesn't work due to Gemini CLI bug)
-    // - When starting new: use positional argument
-    if is_resuming {
-        // Note: -p is deprecated but stdin/positional don't work for resume
-        args.push("-p".to_string());
-        args.push(options.prompt.clone());
-    } else {
-        // Add prompt as positional argument (must be last for new sessions)
-        args.push(options.prompt.clone());
-    }
+    // Note: Prompt will be passed via stdin to support multiline content
+    // Command line arguments have length limits and special character issues on Windows
 
     log::info!("Gemini command: {} {:?}", gemini_path, args);
 
@@ -237,8 +228,8 @@ pub async fn execute_gemini(
         cmd.env(&key, &value);
     }
 
-    // Execute process
-    execute_gemini_process(cmd, options.project_path, model.clone(), app_handle).await
+    // Execute process with prompt via stdin
+    execute_gemini_process(cmd, options.project_path, model.clone(), Some(options.prompt), app_handle).await
 }
 
 /// Cancel a running Gemini execution
@@ -288,10 +279,11 @@ async fn execute_gemini_process(
     mut cmd: Command,
     project_path: String,
     model: String,
+    prompt: Option<String>,
     app_handle: AppHandle,
 ) -> Result<(), String> {
-    // Setup stdio
-    cmd.stdin(Stdio::null());
+    // Setup stdio - use piped stdin to pass prompt (supports multiline content)
+    cmd.stdin(Stdio::piped());
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
 
@@ -302,6 +294,28 @@ async fn execute_gemini_process(
     let mut child = cmd
         .spawn()
         .map_err(|e| format!("Failed to spawn gemini: {}", e))?;
+
+    // FIX: Write prompt to stdin if provided
+    // This avoids command line length limits and special character issues (especially multiline content)
+    if let Some(prompt_text) = prompt {
+        if let Some(mut stdin) = child.stdin.take() {
+            use tokio::io::AsyncWriteExt;
+
+            log::debug!("Writing prompt to stdin ({} bytes)", prompt_text.len());
+
+            if let Err(e) = stdin.write_all(prompt_text.as_bytes()).await {
+                log::error!("Failed to write prompt to stdin: {}", e);
+                return Err(format!("Failed to write prompt to stdin: {}", e));
+            }
+
+            // Close stdin to signal end of input
+            drop(stdin);
+            log::debug!("Stdin closed successfully");
+        } else {
+            log::error!("Failed to get stdin handle");
+            return Err("Failed to get stdin handle".to_string());
+        }
+    }
 
     // Extract stdout and stderr
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
