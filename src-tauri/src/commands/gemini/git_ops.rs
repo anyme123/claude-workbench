@@ -165,16 +165,22 @@ pub fn save_gemini_git_records(session_id: &str, records: &GeminiGitRecords) -> 
     Ok(())
 }
 
-/// Truncate Git records (remove records after prompt_index)
+/// Truncate Git records (remove records at and after prompt_index)
+/// When reverting to prompt #N, we delete prompt #N and keep only prompts before it
 pub fn truncate_gemini_git_records(session_id: &str, prompt_index: usize) -> Result<(), String> {
     let mut git_records = load_gemini_git_records(session_id)?;
 
-    // Remove all records after prompt_index
-    git_records.records.retain(|r| r.prompt_index <= prompt_index);
+    let before_count = git_records.records.len();
+
+    // Remove records at and after prompt_index (keep only records BEFORE)
+    git_records.records.retain(|r| r.prompt_index < prompt_index);
+
+    let after_count = git_records.records.len();
 
     save_gemini_git_records(session_id, &git_records)?;
 
-    log::info!("[Gemini Rewind] Truncated git records after prompt #{}", prompt_index);
+    log::info!("[Gemini Rewind] Truncated git records: kept {} records before prompt #{} (removed {})",
+        after_count, prompt_index, before_count - after_count);
     Ok(())
 }
 
@@ -472,6 +478,14 @@ pub async fn record_gemini_prompt_completed(
 
 /// Truncate Gemini session file to before a specific prompt
 /// Note: Gemini stores sessions as structured JSON files, not JSONL
+///
+/// When reverting to prompt #N:
+/// - We want to DELETE prompt #N and everything after it
+/// - We want to KEEP all messages BEFORE prompt #N
+///
+/// Example: If we have prompts [#0, #1, #2] and revert to #1:
+/// - Prompt #1 and #2 should be deleted
+/// - Prompt #0 should be kept
 pub fn truncate_gemini_session_to_prompt(
     session_id: &str,
     project_path: &str,
@@ -496,21 +510,28 @@ pub fn truncate_gemini_session_to_prompt(
         .ok_or_else(|| "No messages array found in session".to_string())?;
 
     // Count user prompts to find truncation point
+    // Gemini uses "type" field (not "role"), with values "user" or "gemini"
     let mut user_prompt_count = 0;
-    let mut truncate_at_index = 0;
+    let mut truncate_at_index = messages.len(); // Default: keep all if not found
 
     for (idx, message) in messages.iter().enumerate() {
-        let role = message.get("role").and_then(|r| r.as_str());
-        if role == Some("user") {
+        // Fix: Gemini uses "type" field, not "role"
+        let msg_type = message.get("type").and_then(|t| t.as_str());
+        if msg_type == Some("user") {
             if user_prompt_count == prompt_index {
+                // Found the target prompt - truncate AT this index (not after)
                 truncate_at_index = idx;
+                log::debug!("[Gemini Rewind] Found prompt #{} at message index {}", prompt_index, idx);
                 break;
             }
             user_prompt_count += 1;
         }
     }
 
-    // Truncate messages array
+    log::info!("[Gemini Rewind] Truncating: keeping {} messages (removing from index {})",
+        truncate_at_index, truncate_at_index);
+
+    // Truncate messages array - keep only messages BEFORE the target prompt
     session_data["messages"] = serde_json::Value::Array(
         messages.iter().take(truncate_at_index).cloned().collect()
     );
@@ -522,7 +543,7 @@ pub fn truncate_gemini_session_to_prompt(
     fs::write(&session_file, new_content)
         .map_err(|e| format!("Failed to write session file: {}", e))?;
 
-    log::info!("[Gemini Rewind] Truncated session to prompt #{}", prompt_index);
+    log::info!("[Gemini Rewind] Truncated session to before prompt #{}", prompt_index);
     Ok(())
 }
 
