@@ -230,7 +230,7 @@ export const TabManager: React.FC<TabManagerProps> = ({
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.15 }}
                         className={cn(
-                          "group relative flex items-center gap-2 px-3 py-1.5 rounded-lg min-w-0 max-w-[200px] cursor-pointer",
+                          "group relative flex items-center gap-2 px-3 py-1.5 rounded-lg min-w-[100px] max-w-[200px] flex-shrink-0 cursor-pointer",
                           "transition-colors",
                           tab.isActive
                             ? "bg-muted border border-border text-foreground"
