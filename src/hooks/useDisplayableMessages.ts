@@ -53,13 +53,16 @@ function isStartupWarningMessage(message: ClaudeStreamMessage): boolean {
 
 /**
  * 检查消息是否为 Warmup 消息
+ *
+ * 真正的 Warmup 消息是系统生成的简短消息，通常以 "Warmup" 开头
+ * 需要排除用户粘贴的包含 "Warmup" 关键字的长文本（如日志内容）
  */
 function isWarmupMessage(message: ClaudeStreamMessage): boolean {
   if (message.type !== 'user') return false;
-  
+
   const content = message.message?.content;
   let text = '';
-  
+
   if (typeof content === 'string') {
     text = content;
   } else if (Array.isArray(content)) {
@@ -68,8 +71,22 @@ function isWarmupMessage(message: ClaudeStreamMessage): boolean {
       .map((item: any) => item.text || '')
       .join('');
   }
-  
-  return text.includes('Warmup');
+
+  // 修复：更精确的 Warmup 消息检测
+  // 真正的 Warmup 消息特征：
+  // 1. 消息以 "Warmup" 开头（系统生成的 Warmup 提示）
+  // 2. 消息内容较短（通常不超过 200 字符）
+  // 排除用户粘贴的包含 "Warmup" 的长日志文本
+  const trimmedText = text.trim();
+
+  // 如果消息太长（超过 200 字符），不认为是 Warmup 消息
+  // 因为真正的 Warmup 消息是简短的系统提示
+  if (trimmedText.length > 200) {
+    return false;
+  }
+
+  // 检查是否以 "Warmup" 开头（不区分大小写）
+  return trimmedText.toLowerCase().startsWith('warmup');
 }
 
 /**
