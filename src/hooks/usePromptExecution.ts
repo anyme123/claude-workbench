@@ -18,8 +18,8 @@ import { api, type Session } from '@/lib/api';
 import { translationMiddleware, isSlashCommand, type TranslationResult } from '@/lib/translationMiddleware';
 import type { ClaudeStreamMessage } from '@/types/claude';
 import type { ModelType } from '@/components/FloatingPromptInput/types';
-// 🔧 FIX: 移除全局单例导入,改为在每个会话中动态创建实例
-// import { codexConverter } from '@/lib/codexConverter'; // REMOVED - 避免全局单例污染
+// 🔧 FIX: 导入 CodexEventConverter 类，在每个会话中创建独立实例避免全局单例污染
+import { CodexEventConverter } from '@/lib/codexConverter';
 import type { CodexExecutionMode } from '@/types/codex';
 
 // ============================================================================
@@ -291,7 +291,6 @@ export function usePromptExecution(config: UsePromptExecutionConfig): UsePromptE
           // 🔧 CRITICAL FIX: 创建会话级别的转换器实例,避免全局单例污染
           // 问题: 全局 codexConverter 单例会在多个标签页间共享状态(threadId, itemMap, toolResults)
           // 解决: 每个会话创建独立的转换器实例
-          const { CodexEventConverter } = await import('@/lib/codexConverter');
           const sessionCodexConverter = new CodexEventConverter();
 
           // 🔧 FIX: Track current Codex session ID for channel isolation
