@@ -223,16 +223,20 @@ export function initializeToolRegistry(): void {
 
   const tools: ToolRenderer[] = [
     // TodoWrite / TodoRead
+    // 支持: todowrite, write_todos (Gemini)
     {
       name: 'todowrite',
+      pattern: /^(?:todowrite|write[-_]?todos?)$/i,
       render: createToolAdapter(TodoWidget, (props) => ({
         todos: Array.isArray(props.input?.todos) ? props.input.todos : [],
         result: props.result,
       })),
       description: 'Todo 列表管理工具',
     },
+    // 支持: todoread, read_todos (Gemini)
     {
       name: 'todoread',
+      pattern: /^(?:todoread|read[-_]?todos?)$/i,
       render: createToolAdapter(TodoWidget, (props) => {
         // 确保 todos 始终是数组
         let todos: any[] = [];
