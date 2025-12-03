@@ -19,7 +19,19 @@ import { api } from './api';
 // ============================================================================
 
 export const CLAUDE_PRICING = {
-  // Claude 4.5 Series (Latest - January 2025)
+  // Claude 4.5 Series (Latest - December 2025)
+  'claude-opus-4-5': {
+    input: 5.0,
+    output: 25.0,
+    cache_write: 6.25,
+    cache_read: 0.50,
+  },
+  'claude-opus-4-5-20251101': {
+    input: 5.0,
+    output: 25.0,
+    cache_write: 6.25,
+    cache_read: 0.50,
+  },
   'claude-sonnet-4-5': {
     input: 3.0,
     output: 15.0,
@@ -57,63 +69,6 @@ export const CLAUDE_PRICING = {
     cache_write: 18.75,
     cache_read: 1.50,
   },
-  // Claude 4 Series
-  'claude-opus-4': {
-    input: 15.0,
-    output: 75.0,
-    cache_write: 18.75,
-    cache_read: 1.50,
-  },
-  'claude-sonnet-4': {
-    input: 3.0,
-    output: 15.0,
-    cache_write: 3.75,
-    cache_read: 0.30,
-  },
-  // Claude 3.5 Series
-  'claude-sonnet-3-5': {
-    input: 3.0,
-    output: 15.0,
-    cache_write: 3.75,
-    cache_read: 0.30,
-  },
-  'claude-3-5-sonnet-20241022': {
-    input: 3.0,
-    output: 15.0,
-    cache_write: 3.75,
-    cache_read: 0.30,
-  },
-  'claude-3-5-sonnet-20240620': {
-    input: 3.0,
-    output: 15.0,
-    cache_write: 3.75,
-    cache_read: 0.30,
-  },
-  'claude-haiku-3-5': {
-    input: 0.80,
-    output: 4.0,
-    cache_write: 1.0,
-    cache_read: 0.08,
-  },
-  'claude-3-5-haiku-20241022': {
-    input: 0.80,
-    output: 4.0,
-    cache_write: 1.0,
-    cache_read: 0.08,
-  },
-  // Claude 3 Series (Legacy)
-  'claude-3-opus-20240229': {
-    input: 15.0,
-    output: 75.0,
-    cache_write: 18.75,
-    cache_read: 1.50,
-  },
-  'claude-3-sonnet-20240229': {
-    input: 3.0,
-    output: 15.0,
-    cache_write: 3.75,
-    cache_read: 0.30,
-  },
   // 默认值 (使用最新 Sonnet 4.5 定价)
   'default': {
     input: 3.0,
@@ -125,15 +80,17 @@ export const CLAUDE_PRICING = {
 
 // 标准化模型名称映射
 export const MODEL_ALIASES = {
-  'opus': 'claude-opus-4-1',
-  'opus4': 'claude-opus-4',
-  'opus-4': 'claude-opus-4',
+  'opus': 'claude-opus-4-5', // 默认最新版本
+  'opus4.5': 'claude-opus-4-5',
+  'opus-4.5': 'claude-opus-4-5',
+  'opus4.1': 'claude-opus-4-1',
+  'opus-4.1': 'claude-opus-4-1',
   'sonnet': 'claude-sonnet-4-5', // 默认最新版本
-  'sonnet4': 'claude-sonnet-4',
-  'sonnet-4': 'claude-sonnet-4',
+  'sonnet4.5': 'claude-sonnet-4-5',
+  'sonnet-4.5': 'claude-sonnet-4-5',
   'haiku': 'claude-haiku-4-5', // 默认最新版本
-  'haiku4': 'claude-haiku-4-5',
-  'haiku-4': 'claude-haiku-4-5',
+  'haiku4.5': 'claude-haiku-4-5',
+  'haiku-4.5': 'claude-haiku-4-5',
 } as const;
 
 /**
@@ -297,6 +254,9 @@ export class TokenCounterService {
     // Priority-based matching (order matters! MUST match backend logic)
 
     // Claude 4.5 Series (Latest)
+    if (normalized.includes('opus') && (normalized.includes('4.5') || normalized.includes('4-5'))) {
+      return 'claude-opus-4-5';
+    }
     if (normalized.includes('haiku') && (normalized.includes('4.5') || normalized.includes('4-5'))) {
       return 'claude-haiku-4-5';
     }
@@ -309,36 +269,12 @@ export class TokenCounterService {
       return 'claude-opus-4-1';
     }
 
-    // Claude 4 Series
-    if (normalized.includes('opus') && (normalized.includes('opus-4') || normalized.includes('opus_4'))) {
-      return 'claude-opus-4';
-    }
-    if (normalized.includes('sonnet') && (normalized.includes('sonnet-4') || normalized.includes('sonnet_4'))) {
-      return 'claude-sonnet-4';
-    }
-
-    // Claude 3.5 Series (check BEFORE 3.x to avoid mismatches)
-    if (normalized.includes('haiku') && (normalized.includes('3.5') || normalized.includes('3-5') || normalized.includes('35'))) {
-      return 'claude-haiku-3-5';
-    }
-    if (normalized.includes('sonnet') && (normalized.includes('3.5') || normalized.includes('3-5') || normalized.includes('35'))) {
-      return 'claude-sonnet-3-5';
-    }
-
-    // Claude 3 Series (Legacy)
-    if (normalized.includes('opus') && normalized.includes('3')) {
-      return 'claude-opus-4'; // Default to 4
-    }
-    if (normalized.includes('sonnet') && normalized.includes('3')) {
-      return 'claude-sonnet-3-5';
-    }
-
     // Generic family detection (fallback - MUST match backend)
     if (normalized.includes('haiku')) {
       return 'claude-haiku-4-5'; // Default to latest
     }
     if (normalized.includes('opus')) {
-      return 'claude-opus-4-1'; // Default to latest
+      return 'claude-opus-4-5'; // Default to latest
     }
     if (normalized.includes('sonnet')) {
       return 'claude-sonnet-4-5'; // Default to latest

@@ -47,42 +47,6 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
     cacheRead: 1.50
   },
 
-  // Claude 4 Series
-  'claude-opus-4': {
-    input: 15.0,
-    output: 75.0,
-    cacheWrite: 18.75,
-    cacheRead: 1.50
-  },
-  'claude-sonnet-4': {
-    input: 3.0,
-    output: 15.0,
-    cacheWrite: 3.75,
-    cacheRead: 0.30
-  },
-
-  // Claude 3.5 Series
-  'claude-sonnet-3.5': {
-    input: 3.0,
-    output: 15.0,
-    cacheWrite: 3.75,
-    cacheRead: 0.30
-  },
-  'claude-haiku-3.5': {
-    input: 0.80,
-    output: 4.0,
-    cacheWrite: 1.0,
-    cacheRead: 0.08
-  },
-
-  // Claude 3 Series (Legacy)
-  'claude-haiku-3': {
-    input: 0.25,
-    output: 1.25,
-    cacheWrite: 0.30,
-    cacheRead: 0.03
-  },
-
   // Default fallback (use latest Sonnet 4.5 pricing)
   'default': {
     input: 3.0,
@@ -131,33 +95,6 @@ export function getPricingForModel(model?: string): ModelPricing {
   // Claude 4.1 Series
   if (normalized.includes('opus') && (normalized.includes('4.1') || normalized.includes('4-1'))) {
     return MODEL_PRICING['claude-opus-4.1'];
-  }
-
-  // Claude 4 Series
-  if (normalized.includes('opus') && (normalized.includes('opus-4') || normalized.includes('opus_4'))) {
-    return MODEL_PRICING['claude-opus-4'];
-  }
-  if (normalized.includes('sonnet') && (normalized.includes('sonnet-4') || normalized.includes('sonnet_4'))) {
-    return MODEL_PRICING['claude-sonnet-4'];
-  }
-
-  // Claude 3.5 Series (check BEFORE 3.x to avoid mismatches)
-  if (normalized.includes('haiku') && (normalized.includes('3.5') || normalized.includes('3-5') || normalized.includes('35'))) {
-    return MODEL_PRICING['claude-haiku-3.5'];
-  }
-  if (normalized.includes('sonnet') && (normalized.includes('3.5') || normalized.includes('3-5') || normalized.includes('35'))) {
-    return MODEL_PRICING['claude-sonnet-3.5'];
-  }
-
-  // Claude 3 Series (Legacy)
-  if (normalized.includes('opus') && normalized.includes('3')) {
-    return MODEL_PRICING['claude-opus-4'];
-  }
-  if (normalized.includes('sonnet') && normalized.includes('3')) {
-    return MODEL_PRICING['claude-sonnet-3.5'];
-  }
-  if (normalized.includes('haiku') && normalized.includes('3')) {
-    return MODEL_PRICING['claude-haiku-3'];
   }
 
   // Generic family detection (fallback - MUST match backend)

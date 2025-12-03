@@ -88,13 +88,6 @@ enum ModelFamily {
     Opus41,      // Claude 4.1 Opus
     Sonnet45,    // Claude 4.5 Sonnet
     Haiku45,     // Claude 4.5 Haiku
-    Sonnet4,     // Claude 4 Sonnet
-    Opus4,       // Claude 4 Opus
-    Sonnet35,    // Claude 3.5 Sonnet
-    Haiku35,     // Claude 3.5 Haiku
-    Opus3,       // Claude 3 Opus
-    Sonnet3,     // Claude 3 Sonnet
-    Haiku3,      // Claude 3 Haiku
     Unknown,     // Unknown model
 }
 
@@ -127,51 +120,6 @@ impl ModelPricing {
                 output: 75.0,
                 cache_write: 18.75,
                 cache_read: 1.50,
-            },
-            // Claude 4 Series
-            ModelFamily::Sonnet4 => ModelPricing {
-                input: 3.0,
-                output: 15.0,
-                cache_write: 3.75,
-                cache_read: 0.30,
-            },
-            ModelFamily::Opus4 => ModelPricing {
-                input: 15.0,
-                output: 75.0,
-                cache_write: 18.75,
-                cache_read: 1.50,
-            },
-            // Claude 3.5 Series
-            ModelFamily::Sonnet35 => ModelPricing {
-                input: 3.0,
-                output: 15.0,
-                cache_write: 3.75,
-                cache_read: 0.30,
-            },
-            ModelFamily::Haiku35 => ModelPricing {
-                input: 0.80,
-                output: 4.0,
-                cache_write: 1.0,
-                cache_read: 0.08,
-            },
-            // Claude 3 Series (Legacy)
-            ModelFamily::Opus3 => ModelPricing {
-                input: 15.0,
-                output: 75.0,
-                cache_write: 18.75,
-                cache_read: 1.50,
-            },
-            ModelFamily::Sonnet3 => ModelPricing {
-                input: 3.0,
-                output: 15.0,
-                cache_write: 3.75,
-                cache_read: 0.30,
-            },
-            ModelFamily::Haiku3 => ModelPricing {
-                input: 0.25,
-                output: 1.25,
-                cache_write: 0.30,
-                cache_read: 0.03,
             },
             ModelFamily::Unknown => ModelPricing {
                 input: 0.0,
@@ -219,33 +167,6 @@ fn parse_model_family(model: &str) -> ModelFamily {
     // Claude 4.1 Series
     if normalized.contains("opus") && (normalized.contains("4.1") || normalized.contains("4-1")) {
         return ModelFamily::Opus41;
-    }
-
-    // Claude 4 Series
-    if normalized.contains("opus") && (normalized.contains("opus-4") || normalized.contains("opus_4")) {
-        return ModelFamily::Opus4;
-    }
-    if normalized.contains("sonnet") && (normalized.contains("sonnet-4") || normalized.contains("sonnet_4")) {
-        return ModelFamily::Sonnet4;
-    }
-
-    // Claude 3.5 Series (check BEFORE 3.x to avoid mismatches)
-    if normalized.contains("haiku") && (normalized.contains("3.5") || normalized.contains("3-5") || normalized.contains("35")) {
-        return ModelFamily::Haiku35;
-    }
-    if normalized.contains("sonnet") && (normalized.contains("3.5") || normalized.contains("3-5") || normalized.contains("35")) {
-        return ModelFamily::Sonnet35;
-    }
-
-    // Claude 3 Series (Legacy)
-    if normalized.contains("opus") && normalized.contains("3") {
-        return ModelFamily::Opus3;
-    }
-    if normalized.contains("sonnet") && normalized.contains("3") {
-        return ModelFamily::Sonnet3;
-    }
-    if normalized.contains("haiku") && normalized.contains("3") {
-        return ModelFamily::Haiku3;
     }
 
     // Generic family detection (fallback)
