@@ -230,23 +230,42 @@
 
 ### 返回格式对比
 
-**auggie-mcp**:
+**两个工具都提供完整的位置信息**: 文件路径 + 行号 + 代码内容 ✅
+
+**auggie-mcp 格式示例**:
 ```
 Path: src/lib/errorHandling.ts
      1  /**
      2   * Unified Error Handling System
-     ...
+     3   *
+     4   * Comprehensive error handling for both Claude SDK API and CLI integration.
+    ...
+   168      this.recoverable = options?.recoverable ?? true;
 ```
 
-**acemcp**:
+**acemcp 格式示例**:
 ```
-Path: C:/Users/.../src/lib/errorHandling.ts
-Path: C:/Users/.../src/hooks/usePromptExecution.ts#chunk2of2
+Path: C:/Users/Administrator/Desktop/claude-workbench/src/lib/errorHandling.ts
+     1  /**
+     2   * Unified Error Handling System
+     3   *
+     4   * Comprehensive error handling for both Claude SDK API and CLI integration.
+    ...
+   168      this.recoverable = options?.recoverable ?? true;
 ```
 
-**关键差异**:
-- auggie-mcp: 相对路径，无分块标记
-- acemcp: 绝对路径，包含分块标记 (#chunk1of2)
+**格式差异**:
+- **路径格式**:
+  - auggie-mcp: 相对路径 (`src/lib/errorHandling.ts`)
+  - acemcp: 绝对路径 (`C:/Users/.../errorHandling.ts`)
+
+- **分块标记**:
+  - auggie-mcp: 无分块标记
+  - acemcp: 大文件显示分块 (`#chunk1of2`, `#chunk2of2`)
+
+- **行号显示**: 两者完全一致，都使用左对齐的行号格式
+
+**实用性**: 两者都能让你精确定位到代码位置，使用 IDE 的"跳转到文件:行号"功能即可直达。
 
 ---
 
