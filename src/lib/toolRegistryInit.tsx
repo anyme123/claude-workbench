@@ -142,19 +142,27 @@ function parseDiffContent(diff: string): { oldContent: string; newContent: strin
  * @returns 解析后的结果对象，如果无法解析则返回原结果
  */
 function parseGeminiResult(result: any): any {
-  if (!result?.content) return result;
+  if (!result) return result;
 
+  // 检查 result.content
   const content = result.content;
 
-  // 如果是字符串且看起来是 JSON 数组
-  if (typeof content === 'string' && content.trim().startsWith('[{')) {
-    try {
-      const parsed = JSON.parse(content);
-      if (Array.isArray(parsed) && parsed[0]?.functionResponse?.response?.output !== undefined) {
-        return { content: parsed[0].functionResponse.response.output };
+  if (content) {
+    // 情况1: content 是数组对象 [{functionResponse: {response: {output: "..."}}}]
+    if (Array.isArray(content) && content[0]?.functionResponse?.response?.output !== undefined) {
+      return { content: content[0].functionResponse.response.output };
+    }
+
+    // 情况2: content 是 JSON 字符串
+    if (typeof content === 'string' && content.trim().startsWith('[{')) {
+      try {
+        const parsed = JSON.parse(content);
+        if (Array.isArray(parsed) && parsed[0]?.functionResponse?.response?.output !== undefined) {
+          return { content: parsed[0].functionResponse.response.output };
+        }
+      } catch {
+        // 解析失败，保持原样
       }
-    } catch {
-      // 解析失败，保持原样
     }
   }
 
@@ -288,7 +296,8 @@ export function initializeToolRegistry(): void {
       name: 'ls',
       pattern: /^(?:ls|list[-_]?directory)$/i,
       render: createToolAdapter(LSWidget, (props) => ({
-        path: props.input?.path || props.input?.directory_path || '.',
+        // 支持多种路径字段: path, directory_path, dir_path (Gemini)
+        path: props.input?.path || props.input?.directory_path || props.input?.dir_path || '.',
         result: parseGeminiResult(props.result),
       })),
       description: '目录列表工具',
