@@ -5,7 +5,7 @@
  * 主组件 (~120行) + CodePreview (~90行) + FullScreenPreview (~140行)
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FilePlus, ExternalLink, ChevronUp, ChevronDown, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
@@ -21,6 +21,8 @@ export interface WriteWidgetProps {
   content: string;
   /** 工具结果 */
   result?: any;
+  /** 是否正在流式输出 */
+  isStreaming?: boolean;
 }
 
 /**
@@ -37,9 +39,18 @@ export const WriteWidget: React.FC<WriteWidgetProps> = ({
   filePath,
   content,
   result: _result,
+  isStreaming = false,
 }) => {
   const [isMaximized, setIsMaximized] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);  // 默认收起
+  // 流式输出时默认展开，否则默认收起
+  const [isExpanded, setIsExpanded] = useState(isStreaming);
+
+  // 当流式输出开始时自动展开
+  useEffect(() => {
+    if (isStreaming) {
+      setIsExpanded(true);
+    }
+  }, [isStreaming]);
 
   const language = getLanguage(filePath);
 
@@ -133,7 +144,7 @@ export const WriteWidget: React.FC<WriteWidgetProps> = ({
             </div>
           </div>
 
-          {/* 代码预览（默认收起） */}
+          {/* 代码预览（流式时展开） */}
           {isExpanded && (
             <CodePreview
               codeContent={displayContent}
@@ -141,6 +152,7 @@ export const WriteWidget: React.FC<WriteWidgetProps> = ({
               truncated={isLargeContent}
               truncateLimit={truncateLimit}
               onMaximize={() => setIsMaximized(true)}
+              isStreaming={isStreaming}
             />
           )}
         </div>

@@ -248,6 +248,9 @@ const SingleToolCallComponent: React.FC<SingleToolCallProps> = ({ tool, result, 
       }
     : undefined;
 
+  // 判断是否正在流式输出（工具执行中）
+  const isStreaming = status === 'pending';
+
   // 构建渲染 props
   const renderProps = {
     toolName: tool.name,
@@ -255,6 +258,7 @@ const SingleToolCallComponent: React.FC<SingleToolCallProps> = ({ tool, result, 
     result: normalizedResult,
     toolId: tool.id,
     onLinkDetected,
+    isStreaming,
   };
 
   // 判断状态

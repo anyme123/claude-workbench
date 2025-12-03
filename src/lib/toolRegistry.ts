@@ -28,6 +28,9 @@ export interface ToolRenderProps {
 
   /** 可选的回调函数 */
   onLinkDetected?: (url: string) => void;
+
+  /** 是否正在流式输出（工具执行中） */
+  isStreaming?: boolean;
 }
 
 /**

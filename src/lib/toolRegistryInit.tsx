@@ -479,6 +479,7 @@ export function initializeToolRegistry(): void {
           filePath,
           content,
           result: parseGeminiResult(props.result),
+          isStreaming: props.isStreaming,
         };
       }),
       description: '文件写入工具',
