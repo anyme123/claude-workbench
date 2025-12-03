@@ -32,11 +32,10 @@ export interface ReadResultWidgetProps {
 export const ReadResultWidget: React.FC<ReadResultWidgetProps> = ({ content, filePath }) => {
   const { theme } = useTheme();
 
-  // 预先计算行数，决定默认展开状态
+  // 预先计算行数
   const lineCount = content.split('\n').filter(line => line.trim()).length;
-  const isLargeFile = lineCount > 20;
-  // 小文件默认展开，大文件默认折叠
-  const [isExpanded, setIsExpanded] = useState(!isLargeFile);
+  // 所有文件默认折叠
+  const [isExpanded, setIsExpanded] = useState(false);
 
   /**
    * 解析内容，分离行号和代码
