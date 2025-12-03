@@ -22,6 +22,14 @@ export interface LSWidgetProps {
 function extractResultContent(result: any): string {
   if (!result) return '';
 
+  // Gemini 原始数组格式: [{functionResponse: {response: {output: "..."}}}]
+  if (Array.isArray(result)) {
+    const firstItem = result[0];
+    if (firstItem?.functionResponse?.response?.output) {
+      return firstItem.functionResponse.response.output;
+    }
+  }
+
   // 直接字符串内容
   if (typeof result.content === 'string') {
     return result.content;
@@ -32,8 +40,13 @@ function extractResultContent(result: any): string {
     return result.content.text;
   }
 
-  // 数组格式
+  // 数组格式 content
   if (Array.isArray(result.content)) {
+    // 检查是否是 Gemini functionResponse 数组格式
+    const firstContent = result.content[0];
+    if (firstContent?.functionResponse?.response?.output) {
+      return firstContent.functionResponse.response.output;
+    }
     return result.content
       .map((c: any) => (typeof c === 'string' ? c : c.text || JSON.stringify(c)))
       .join('\n');
