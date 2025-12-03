@@ -572,9 +572,9 @@ pub async fn revert_gemini_to_prompt(
         log::warn!("[Gemini Rewind] Git operations are disabled in config");
     }
 
-    // Extract prompts to validate index
+    // Extract prompts to validate index and get the prompt text for return
     let prompts = extract_gemini_prompts(&session_id, &project_path)?;
-    let _prompt = prompts
+    let prompt = prompts
         .get(prompt_index)
         .ok_or_else(|| format!("Prompt #{} not found in session", prompt_index))?;
 
@@ -659,8 +659,6 @@ pub async fn revert_gemini_to_prompt(
         }
     }
 
-    Ok(format!(
-        "Successfully reverted Gemini session to prompt #{} (mode: {:?})",
-        prompt_index, mode
-    ))
+    // Return the prompt text for restoring to input (same as Claude's behavior)
+    Ok(prompt.text.clone())
 }
