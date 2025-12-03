@@ -338,7 +338,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                           <span className="text-sm font-medium">{sessionCount}</span>
                         </div>
                       </TooltipTrigger>
-                      <TooltipContent side="bottom" className="p-0">
+                      <TooltipContent side="left" className="p-0">
                         <div className="px-3 py-2 space-y-1.5 min-w-[140px]">
                           <p className="text-xs font-medium text-foreground border-b border-border pb-1.5 mb-1.5">会话明细</p>
                           {sessionBreakdown.claude > 0 && (
