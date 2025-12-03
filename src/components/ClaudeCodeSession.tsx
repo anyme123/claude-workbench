@@ -739,37 +739,115 @@ const ClaudeCodeSessionInner: React.FC<ClaudeCodeSessionProps> = ({
 
       console.log('[Prompt Revert] Revert successful, reloading messages...');
 
-      // 重新加载消息历史
-      const history = await api.loadSessionHistory(
-        effectiveSession.id,
-        effectiveSession.project_id,
-        sessionEngine as any
-      );
+      // 重新加载消息历史（根据引擎类型使用不同的 API）
+      if (isGemini) {
+        // Gemini 使用专门的 API 加载历史
+        const geminiDetail = await api.getGeminiSessionDetail(projectPath, effectiveSession.id);
 
-      if (sessionEngine === 'codex' && Array.isArray(history)) {
-        // 将 Codex 事件转换为消息格式（与 useSessionLifecycle 保持一致）
-        codexConverter.reset();
-        const convertedMessages: any[] = [];
-        for (const event of history) {
-          const msg = codexConverter.convertEventObject(event as any);
-          if (msg) convertedMessages.push(msg);
-        }
+        // 将 Gemini 消息转换为 ClaudeStreamMessage 格式（与 useSessionLifecycle 保持一致）
+        const convertedMessages: any[] = geminiDetail.messages.flatMap((msg: any) => {
+          const messages: any[] = [];
+
+          if (msg.type === 'user') {
+            messages.push({
+              type: 'user',
+              message: {
+                content: msg.content ? [{ type: 'text', text: msg.content }] : []
+              },
+              timestamp: msg.timestamp,
+              engine: 'gemini',
+            });
+          } else {
+            // Gemini assistant message
+            const content: any[] = [];
+
+            // Add tool calls if present
+            if (msg.toolCalls && msg.toolCalls.length > 0) {
+              for (const toolCall of msg.toolCalls) {
+                content.push({
+                  type: 'tool_use',
+                  id: toolCall.id,
+                  name: toolCall.name,
+                  input: toolCall.args,
+                });
+
+                if (toolCall.result !== undefined) {
+                  messages.push({
+                    type: 'user',
+                    message: {
+                      content: [{
+                        type: 'tool_result',
+                        tool_use_id: toolCall.id,
+                        content: toolCall.resultDisplay || JSON.stringify(toolCall.result),
+                        is_error: toolCall.status === 'error',
+                      }]
+                    },
+                    timestamp: toolCall.timestamp || msg.timestamp,
+                    engine: 'gemini',
+                  });
+                }
+              }
+            }
+
+            if (msg.content) {
+              content.push({
+                type: 'text',
+                text: msg.content,
+              });
+            }
+
+            messages.push({
+              type: 'assistant',
+              message: {
+                content: content.length > 0 ? content : [{ type: 'text', text: '' }],
+                role: 'assistant'
+              },
+              timestamp: msg.timestamp,
+              engine: 'gemini',
+              model: msg.model,
+            });
+          }
+
+          return messages;
+        });
+
         setMessages(convertedMessages);
-        console.log('[Prompt Revert] Loaded Codex messages:', {
+        console.log('[Prompt Revert] Loaded Gemini messages:', {
           total: convertedMessages.length,
         });
-      } else if (Array.isArray(history)) {
-        setMessages(history);
-        console.log('[Prompt Revert] Loaded messages:', {
-          total: history.length,
-          hideWarmupSetting: claudeSettings?.hideWarmupMessages
-        });
-      } else if (history && typeof history === 'object' && 'messages' in history) {
-        setMessages((history as any).messages);
-        console.log('[Prompt Revert] Loaded messages:', {
-          total: (history as any).messages.length,
-          hideWarmupSetting: claudeSettings?.hideWarmupMessages
-        });
+      } else {
+        // Claude/Codex 使用原有 API
+        const history = await api.loadSessionHistory(
+          effectiveSession.id,
+          effectiveSession.project_id,
+          sessionEngine as any
+        );
+
+        if (sessionEngine === 'codex' && Array.isArray(history)) {
+          // 将 Codex 事件转换为消息格式（与 useSessionLifecycle 保持一致）
+          codexConverter.reset();
+          const convertedMessages: any[] = [];
+          for (const event of history) {
+            const msg = codexConverter.convertEventObject(event as any);
+            if (msg) convertedMessages.push(msg);
+          }
+          setMessages(convertedMessages);
+          console.log('[Prompt Revert] Loaded Codex messages:', {
+            total: convertedMessages.length,
+          });
+        } else if (Array.isArray(history)) {
+          setMessages(history);
+          console.log('[Prompt Revert] Loaded messages:', {
+            total: history.length,
+            hideWarmupSetting: claudeSettings?.hideWarmupMessages
+          });
+        } else if (history && typeof history === 'object' && 'messages' in history) {
+          setMessages((history as any).messages);
+          console.log('[Prompt Revert] Loaded messages:', {
+            total: (history as any).messages.length,
+            hideWarmupSetting: claudeSettings?.hideWarmupMessages
+          });
+        }
       }
 
       // 恢复提示词到输入框（仅在对话撤回模式下）
