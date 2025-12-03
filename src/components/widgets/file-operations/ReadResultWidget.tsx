@@ -31,7 +31,12 @@ export interface ReadResultWidgetProps {
  */
 export const ReadResultWidget: React.FC<ReadResultWidgetProps> = ({ content, filePath }) => {
   const { theme } = useTheme();
-  const [isExpanded, setIsExpanded] = useState(false);
+
+  // 预先计算行数，决定默认展开状态
+  const lineCount = content.split('\n').filter(line => line.trim()).length;
+  const isLargeFile = lineCount > 20;
+  // 小文件默认展开，大文件默认折叠
+  const [isExpanded, setIsExpanded] = useState(!isLargeFile);
 
   /**
    * 解析内容，分离行号和代码
@@ -89,18 +94,16 @@ export const ReadResultWidget: React.FC<ReadResultWidgetProps> = ({ content, fil
 
   const language = getLanguage(filePath || '');
   const { codeContent, startLineNumber } = parseContent(content);
-  const lineCount = content.split('\n').filter(line => line.trim()).length;
-  const isLargeFile = lineCount > 20;
 
   return (
     <div className="w-full">
       {/* 头部 - Detached Header Style */}
-      <div 
+      <div
         className={cn(
           "flex items-center justify-between bg-muted/30 p-2.5 rounded-md border border-border/50 mb-2 group/header select-none transition-colors",
-          isLargeFile && "cursor-pointer hover:bg-muted/50"
+          "cursor-pointer hover:bg-muted/50"
         )}
-        onClick={() => isLargeFile && setIsExpanded(!isExpanded)}
+        onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <div className="flex items-center gap-2 min-w-0">
@@ -116,27 +119,23 @@ export const ReadResultWidget: React.FC<ReadResultWidgetProps> = ({ content, fil
               </span>
             )}
           </div>
-          {isLargeFile && (
-            <span className="text-xs text-muted-foreground ml-1 flex-shrink-0 font-mono">
-              ({lineCount} lines)
-            </span>
-          )}
+          <span className="text-xs text-muted-foreground ml-1 flex-shrink-0 font-mono">
+            ({lineCount} lines)
+          </span>
         </div>
 
-        {/* 大文件折叠按钮 */}
-        {isLargeFile && (
-          <div className="h-6 px-2 ml-2 text-muted-foreground group-hover/header:text-foreground flex items-center gap-1 transition-colors">
-            {isExpanded ? (
-              <ChevronUp className="h-3.5 w-3.5" />
-            ) : (
-              <ChevronDown className="h-3.5 w-3.5" />
-            )}
-          </div>
-        )}
+        {/* 折叠按钮 */}
+        <div className="h-6 px-2 ml-2 text-muted-foreground group-hover/header:text-foreground flex items-center gap-1 transition-colors">
+          {isExpanded ? (
+            <ChevronUp className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5" />
+          )}
+        </div>
       </div>
 
       {/* 代码内容 - Separated Box */}
-      {(!isLargeFile || isExpanded) && (
+      {isExpanded && (
         <div className="rounded-lg border overflow-hidden bg-muted border-border/50">
           <div className="relative overflow-x-auto">
             <SyntaxHighlighter
