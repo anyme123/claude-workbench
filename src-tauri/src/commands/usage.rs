@@ -68,8 +68,8 @@ pub struct ProjectUsage {
 
 // ============================================================================
 // Claude Model Pricing - Single Source of Truth
-// Source: https://docs.claude.com/en/docs/about-claude/models/overview
-// Last Updated: January 2025
+// Source: https://platform.claude.com/docs/en/about-claude/pricing
+// Last Updated: December 2025
 // ============================================================================
 
 /// Model pricing structure (prices per million tokens)
@@ -84,6 +84,7 @@ struct ModelPricing {
 /// Model family enumeration for categorization
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum ModelFamily {
+    Opus45,      // Claude 4.5 Opus
     Opus41,      // Claude 4.1 Opus
     Sonnet45,    // Claude 4.5 Sonnet
     Haiku45,     // Claude 4.5 Haiku
@@ -93,6 +94,7 @@ enum ModelFamily {
     Haiku35,     // Claude 3.5 Haiku
     Opus3,       // Claude 3 Opus
     Sonnet3,     // Claude 3 Sonnet
+    Haiku3,      // Claude 3 Haiku
     Unknown,     // Unknown model
 }
 
@@ -100,7 +102,13 @@ impl ModelPricing {
     /// Get pricing for a specific model family
     const fn for_family(family: ModelFamily) -> Self {
         match family {
-            // Claude 4.5 Series (Latest - January 2025)
+            // Claude 4.5 Series (Latest - December 2025)
+            ModelFamily::Opus45 => ModelPricing {
+                input: 5.0,
+                output: 25.0,
+                cache_write: 6.25,
+                cache_read: 0.50,
+            },
             ModelFamily::Sonnet45 => ModelPricing {
                 input: 3.0,
                 output: 15.0,
@@ -159,6 +167,12 @@ impl ModelPricing {
                 cache_write: 3.75,
                 cache_read: 0.30,
             },
+            ModelFamily::Haiku3 => ModelPricing {
+                input: 0.25,
+                output: 1.25,
+                cache_write: 0.30,
+                cache_read: 0.03,
+            },
             ModelFamily::Unknown => ModelPricing {
                 input: 0.0,
                 output: 0.0,
@@ -192,6 +206,9 @@ fn parse_model_family(model: &str) -> ModelFamily {
     // Check for specific model families in order from most to least specific
 
     // Claude 4.5 Series (Latest)
+    if normalized.contains("opus") && (normalized.contains("4.5") || normalized.contains("4-5")) {
+        return ModelFamily::Opus45;
+    }
     if normalized.contains("haiku") && (normalized.contains("4.5") || normalized.contains("4-5")) {
         return ModelFamily::Haiku45;
     }
@@ -227,13 +244,16 @@ fn parse_model_family(model: &str) -> ModelFamily {
     if normalized.contains("sonnet") && normalized.contains("3") {
         return ModelFamily::Sonnet3;
     }
+    if normalized.contains("haiku") && normalized.contains("3") {
+        return ModelFamily::Haiku3;
+    }
 
     // Generic family detection (fallback)
     if normalized.contains("haiku") {
-        return ModelFamily::Haiku35; // Default to 3.5 Haiku
+        return ModelFamily::Haiku45; // Default to latest Haiku
     }
     if normalized.contains("opus") {
-        return ModelFamily::Opus4; // Default to 4 Opus
+        return ModelFamily::Opus45; // Default to latest Opus
     }
     if normalized.contains("sonnet") {
         return ModelFamily::Sonnet45; // Default to latest Sonnet

@@ -2,9 +2,9 @@
  * 统一的 Claude 模型定价模块
  * ⚠️ MUST MATCH: src-tauri/src/commands/usage.rs::ModelPricing
  *
- * 根据官方文档：https://docs.claude.com/en/docs/about-claude/models/overview
+ * 根据官方文档：https://platform.claude.com/docs/en/about-claude/pricing
  * 价格单位：美元/百万 tokens
- * Last Updated: January 2025
+ * Last Updated: December 2025
  */
 
 export interface ModelPricing {
@@ -16,10 +16,16 @@ export interface ModelPricing {
 
 /**
  * 模型定价常量（每百万 tokens）
- * 来源：Anthrop ic 官方定价
+ * 来源：Anthropic 官方定价
  */
 export const MODEL_PRICING: Record<string, ModelPricing> = {
-  // Claude 4.5 Series (Latest - January 2025)
+  // Claude 4.5 Series (Latest - December 2025)
+  'claude-opus-4.5': {
+    input: 5.0,
+    output: 25.0,
+    cacheWrite: 6.25,
+    cacheRead: 0.50
+  },
   'claude-sonnet-4.5': {
     input: 3.0,
     output: 15.0,
@@ -69,6 +75,14 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
     cacheRead: 0.08
   },
 
+  // Claude 3 Series (Legacy)
+  'claude-haiku-3': {
+    input: 0.25,
+    output: 1.25,
+    cacheWrite: 0.30,
+    cacheRead: 0.03
+  },
+
   // Default fallback (use latest Sonnet 4.5 pricing)
   'default': {
     input: 3.0,
@@ -104,6 +118,9 @@ export function getPricingForModel(model?: string): ModelPricing {
   // Priority-based matching (order matters! MUST match backend logic)
 
   // Claude 4.5 Series (Latest)
+  if (normalized.includes('opus') && (normalized.includes('4.5') || normalized.includes('4-5'))) {
+    return MODEL_PRICING['claude-opus-4.5'];
+  }
   if (normalized.includes('haiku') && (normalized.includes('4.5') || normalized.includes('4-5'))) {
     return MODEL_PRICING['claude-haiku-4.5'];
   }
@@ -139,13 +156,16 @@ export function getPricingForModel(model?: string): ModelPricing {
   if (normalized.includes('sonnet') && normalized.includes('3')) {
     return MODEL_PRICING['claude-sonnet-3.5'];
   }
+  if (normalized.includes('haiku') && normalized.includes('3')) {
+    return MODEL_PRICING['claude-haiku-3'];
+  }
 
   // Generic family detection (fallback - MUST match backend)
   if (normalized.includes('haiku')) {
     return MODEL_PRICING['claude-haiku-4.5']; // Default to latest
   }
   if (normalized.includes('opus')) {
-    return MODEL_PRICING['claude-opus-4.1']; // Default to latest
+    return MODEL_PRICING['claude-opus-4.5']; // Default to latest
   }
   if (normalized.includes('sonnet')) {
     return MODEL_PRICING['claude-sonnet-4.5']; // Default to latest
