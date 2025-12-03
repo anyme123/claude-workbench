@@ -105,13 +105,25 @@ export function useSessionLifecycle(config: UseSessionLifecycleConfig): UseSessi
 
                   // If there's a result, add it as a separate user message (tool_result)
                   if (toolCall.result !== undefined) {
+                    // 使用实际的 result 数据，而不是 resultDisplay（摘要文本）
+                    // Gemini result 格式: [{functionResponse: {response: {output: "..."}}}]
+                    let resultContent = toolCall.result;
+
+                    // 尝试提取 Gemini functionResponse 格式的实际输出
+                    if (Array.isArray(toolCall.result)) {
+                      const firstResult = toolCall.result[0];
+                      if (firstResult?.functionResponse?.response?.output !== undefined) {
+                        resultContent = firstResult.functionResponse.response.output;
+                      }
+                    }
+
                     messages.push({
                       type: 'user' as const,
                       message: {
                         content: [{
                           type: 'tool_result',
                           tool_use_id: toolCall.id,
-                          content: toolCall.resultDisplay || JSON.stringify(toolCall.result),
+                          content: typeof resultContent === 'string' ? resultContent : JSON.stringify(resultContent),
                           is_error: toolCall.status === 'error',
                         }]
                       },
