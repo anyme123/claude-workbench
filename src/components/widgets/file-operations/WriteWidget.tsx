@@ -6,9 +6,10 @@
  */
 
 import React, { useState } from "react";
-import { FileEdit, ExternalLink, ChevronRight } from "lucide-react";
+import { FilePlus, ExternalLink, ChevronUp, ChevronDown, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { getLanguage } from "../common/languageDetector";
 import { CodePreview } from "./components/CodePreview";
 import { FullScreenPreview } from "./components/FullScreenPreview";
@@ -59,60 +60,90 @@ export const WriteWidget: React.FC<WriteWidgetProps> = ({
     }
   };
 
+  // 判断是否有结果（文件是否已成功写入）
+  const hasResult = _result !== undefined;
+  const isSuccess = hasResult && !_result?.is_error;
+
   return (
     <>
-      <div className="space-y-2">
-        {/* 头部 */}
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-          {/* 展开/收起按钮 */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-5 w-5 p-0"
+      <div className="space-y-2 w-full">
+        <div className="ml-1 space-y-2">
+          {/* 文件路径和展开按钮 - 可点击区域扩展到整行 */}
+          <div
+            className="flex items-center justify-between bg-muted/30 p-2.5 rounded-md border border-border/50 cursor-pointer hover:bg-muted/50 transition-colors group/header select-none"
             onClick={() => setIsExpanded(!isExpanded)}
-            title={isExpanded ? "收起预览" : "展开预览"}
           >
-            <ChevronRight className={`h-3.5 w-3.5 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
-          </Button>
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <FilePlus className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                <span className="text-sm font-medium text-muted-foreground">Write</span>
+                <span className="text-muted-foreground/30">|</span>
+                <code className="text-sm font-mono text-foreground/90 truncate font-medium" title={filePath}>
+                  {filePath.split(/[/\\]/).pop()}
+                </code>
+                <span className="text-xs text-muted-foreground truncate hidden sm:inline-block max-w-[200px] opacity-70">
+                  {filePath}
+                </span>
+              </div>
 
-          <FileEdit className="h-4 w-4 text-primary" />
-          <span className="text-sm">写入文件：</span>
-          <code
-            className="text-sm font-mono bg-background px-2 py-0.5 rounded flex-1 truncate cursor-pointer hover:bg-accent transition-colors"
-            onClick={() => setIsMaximized(true)}
-            title="点击查看完整内容"
-          >
-            {filePath}
-          </code>
+              {/* File Size & Status */}
+              <div className="flex items-center gap-3 text-xs font-mono font-medium">
+                <span className="text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
+                  {(content.length / 1024).toFixed(1)} KB
+                </span>
 
-          {/* 文件大小 */}
-          <span className="text-xs text-muted-foreground whitespace-nowrap">
-            {(content.length / 1024).toFixed(1)} KB
-          </span>
+                {/* Status Badge */}
+                <div className="flex items-center gap-1">
+                  {hasResult ? (
+                    <>
+                      <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                      <span className={cn("font-medium hidden sm:inline", isSuccess ? "text-green-500" : "text-red-500")}>
+                        {isSuccess ? '成功' : '失败'}
+                      </span>
+                    </>
+                  ) : (
+                    <Loader2 className="h-3.5 w-3.5 text-blue-500 animate-spin" />
+                  )}
+                </div>
+              </div>
+            </div>
 
-          {/* 系统打开按钮 */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-6 px-2 text-xs"
-            onClick={handleOpenInSystem}
-            title="用系统默认应用打开"
-          >
-            <ExternalLink className="h-3 w-3 mr-1" />
-            打开
-          </Button>
+            {/* 展开/收起按钮 & 打开按钮 */}
+            <div className="flex items-center gap-2 ml-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenInSystem();
+                }}
+                title="用系统默认应用打开"
+              >
+                <ExternalLink className="h-3 w-3 mr-1" />
+                打开
+              </Button>
+              <div className="h-6 px-2 text-muted-foreground group-hover/header:text-foreground flex items-center gap-1 transition-colors">
+                {isExpanded ? (
+                  <ChevronUp className="h-3.5 w-3.5" />
+                ) : (
+                  <ChevronDown className="h-3.5 w-3.5" />
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* 代码预览（默认收起） */}
+          {isExpanded && (
+            <CodePreview
+              codeContent={displayContent}
+              language={language}
+              truncated={isLargeContent}
+              truncateLimit={truncateLimit}
+              onMaximize={() => setIsMaximized(true)}
+            />
+          )}
         </div>
-
-        {/* 代码预览（默认收起） */}
-        {isExpanded && (
-          <CodePreview
-            codeContent={displayContent}
-            language={language}
-            truncated={isLargeContent}
-            truncateLimit={truncateLimit}
-            onMaximize={() => setIsMaximized(true)}
-          />
-        )}
       </div>
 
       {/* 全屏预览 */}

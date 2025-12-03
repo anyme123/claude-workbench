@@ -104,8 +104,9 @@ export const AIMessage: React.FC<AIMessageProps> = ({
   const hasThinking = hasThinkingBlock(message);
   const thinkingContent = hasThinking ? extractThinkingContent(message) : '';
 
-  // Detect if this is a Codex message
+  // Detect engine type for avatar styling
   const isCodexMessage = (message as any).engine === 'codex';
+  const isGeminiMessage = (message as any).geminiMetadata?.provider === 'gemini' || (message as any).engine === 'gemini';
 
   // 打字机效果只在流式输出时启用
   // isStreaming=true 表示：当前是最后一条消息 && 会话正在进行中
@@ -130,7 +131,7 @@ export const AIMessage: React.FC<AIMessageProps> = ({
     return parts.join(' | ');
   })() : null;
 
-  const assistantName = isCodexMessage ? 'Codex' : 'Claude';
+  const assistantName = isGeminiMessage ? 'Gemini' : isCodexMessage ? 'Codex' : 'Claude';
 
   return (
     <div className={cn("relative group", className)}>
@@ -140,9 +141,11 @@ export const AIMessage: React.FC<AIMessageProps> = ({
           <div className="flex-shrink-0 mt-0.5 select-none">
             <div className={cn(
               "flex items-center justify-center w-7 h-7 rounded-lg",
-              isCodexMessage 
-                ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 dark:bg-blue-500/20"
-                : "bg-orange-500/10 text-orange-600 dark:text-orange-400 dark:bg-orange-500/20"
+              isGeminiMessage
+                ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 dark:bg-purple-500/20"
+                : isCodexMessage
+                  ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 dark:bg-blue-500/20"
+                  : "bg-orange-500/10 text-orange-600 dark:text-orange-400 dark:bg-orange-500/20"
             )}>
               <Bot className="w-4 h-4" />
             </div>

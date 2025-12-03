@@ -14,6 +14,41 @@ import type { ClaudeStreamMessage } from '@/types/claude';
 interface DisplayableMessagesOptions {
   /** 是否隐藏 Warmup 消息及其回复 */
   hideWarmupMessages?: boolean;
+  /** 是否隐藏启动期间的系统警告消息 */
+  hideStartupWarnings?: boolean;
+}
+
+/**
+ * 检查消息是否为启动期间的系统警告消息
+ * 这些消息通常在 Gemini 等引擎初始化 MCP 客户端时产生
+ */
+function isStartupWarningMessage(message: ClaudeStreamMessage): boolean {
+  // 只检查 system 类型的消息
+  if (message.type !== 'system') return false;
+
+  // 获取消息内容
+  const content = message.message?.content;
+  let text = '';
+
+  if (typeof content === 'string') {
+    text = content;
+  } else if (Array.isArray(content)) {
+    text = content
+      .filter((item: any) => item.type === 'text')
+      .map((item: any) => item.text || '')
+      .join('');
+  }
+
+  // 检查是否包含启动期间的特征字符串
+  const startupPatterns = [
+    '[STARTUP]',
+    'Recording metric',
+    'initialize_mcp_clients',
+    'Initializing MCP',
+    'MCP client',
+  ];
+
+  return startupPatterns.some(pattern => text.includes(pattern));
 }
 
 /**
@@ -60,11 +95,13 @@ export function useDisplayableMessages(
 ): ClaudeStreamMessage[] {
   // 默认隐藏 Warmup（undefined 时为 true），只有明确设置为 false 时才显示
   const hideWarmupMessages = options.hideWarmupMessages !== false;
-  
+  // 默认隐藏启动警告（undefined 时为 true）
+  const hideStartupWarnings = options.hideStartupWarnings !== false;
+
   return useMemo(() => {
     // 如果需要隐藏 Warmup，先找到所有 Warmup 消息的索引
     const warmupIndices = new Set<number>();
-    
+
     if (hideWarmupMessages) {
       messages.forEach((msg, idx) => {
         if (isWarmupMessage(msg)) {
@@ -81,10 +118,14 @@ export function useDisplayableMessages(
         hideWarmupSetting: hideWarmupMessages
       });
     }
-    
+
     return messages.filter((message, index) => {
       // 规则 0：隐藏 Warmup 消息及其回复
       if (hideWarmupMessages && warmupIndices.has(index)) {
+        return false;
+      }
+      // 规则 0.5：隐藏启动期间的系统警告消息
+      if (hideStartupWarnings && isStartupWarningMessage(message)) {
         return false;
       }
       // 规则 1：跳过没有实际内容的元消息
@@ -180,5 +221,5 @@ export function useDisplayableMessages(
       // 其他情况保留消息
       return true;
     });
-  }, [messages, hideWarmupMessages]);
+  }, [messages, hideWarmupMessages, hideStartupWarnings]);
 }
