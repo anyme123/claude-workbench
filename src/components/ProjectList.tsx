@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   FolderOpen,
   FileText,
@@ -12,6 +12,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import type { CodexSession } from "@/types/codex";
+import type { GeminiSessionInfo } from "@/types/gemini";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -111,6 +118,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({
   const [activeTab, setActiveTab] = useState("active");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [codexSessions, setCodexSessions] = useState<CodexSession[]>([]);
+  const [geminiSessionsMap, setGeminiSessionsMap] = useState<Map<string, GeminiSessionInfo[]>>(new Map());
   
   // Calculate pagination
   const totalPages = Math.ceil(projects.length / ITEMS_PER_PAGE);
@@ -131,6 +139,29 @@ export const ProjectList: React.FC<ProjectListProps> = ({
     };
     loadCodexSessions();
   }, []);
+
+  // Load Gemini sessions for each project
+  const loadGeminiSessions = useCallback(async (projectPath: string) => {
+    try {
+      const sessions = await api.listGeminiSessions(projectPath);
+      setGeminiSessionsMap(prev => {
+        const newMap = new Map(prev);
+        newMap.set(projectPath, sessions);
+        return newMap;
+      });
+    } catch {
+      // Silently fail - Gemini may not be configured for this project
+    }
+  }, []);
+
+  // Load Gemini sessions for current page projects
+  useEffect(() => {
+    currentProjects.forEach(project => {
+      if (!geminiSessionsMap.has(project.path)) {
+        loadGeminiSessions(project.path);
+      }
+    });
+  }, [currentProjects, geminiSessionsMap, loadGeminiSessions]);
 
   // Reset to page 1 if projects change
   React.useEffect(() => {
@@ -162,23 +193,34 @@ export const ProjectList: React.FC<ProjectListProps> = ({
     setProjectToDelete(null);
   };
 
+  // Helper function to normalize path for comparison
+  const normalizePath = (p: string) => p ? p.replace(/\\/g, '/').replace(/\/$/, '').toLowerCase() : '';
+
   /**
-   * Calculate total session count for a project (Claude Code + Codex)
+   * Get session breakdown by engine for a project
    */
-  const getTotalSessionCount = (project: Project): number => {
+  const getSessionBreakdown = (project: Project): { claude: number; codex: number; gemini: number; total: number } => {
     // Claude Code sessions count
     const claudeSessionCount = project.sessions.length;
 
     // Codex sessions count - filter by normalized project path
-    const normalize = (p: string) => p ? p.replace(/\\/g, '/').replace(/\/$/, '').toLowerCase() : '';
-    const projectPathNorm = normalize(project.path);
+    const projectPathNorm = normalizePath(project.path);
 
     const codexSessionCount = codexSessions.filter(cs => {
-      const csPathNorm = normalize(cs.projectPath);
+      const csPathNorm = normalizePath(cs.projectPath);
       return csPathNorm === projectPathNorm;
     }).length;
 
-    return claudeSessionCount + codexSessionCount;
+    // Gemini sessions count - from cached map
+    const geminiSessions = geminiSessionsMap.get(project.path) || [];
+    const geminiSessionCount = geminiSessions.length;
+
+    return {
+      claude: claudeSessionCount,
+      codex: codexSessionCount,
+      gemini: geminiSessionCount,
+      total: claudeSessionCount + codexSessionCount + geminiSessionCount,
+    };
   };
 
   const ProjectGrid = () => {
@@ -223,7 +265,8 @@ export const ProjectList: React.FC<ProjectListProps> = ({
       >
         {currentProjects.map((project) => {
           const projectName = getProjectName(project.path);
-          const sessionCount = getTotalSessionCount(project);
+          const sessionBreakdown = getSessionBreakdown(project);
+          const sessionCount = sessionBreakdown.total;
 
           return (
             <div
@@ -281,15 +324,45 @@ export const ProjectList: React.FC<ProjectListProps> = ({
                 "flex items-center gap-2",
                 viewMode === "grid" ? "absolute top-4 right-4" : ""
               )}>
-                {/* 会话数徽章 */}
+                {/* 会话数徽章 with Tooltip */}
                 {sessionCount > 0 && (
-                  <div
-                    className="flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary rounded-full"
-                    aria-label={`${sessionCount} 个会话`}
-                  >
-                    <FileText className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span className="text-sm font-medium">{sessionCount}</span>
-                  </div>
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div
+                          className="flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 text-primary rounded-full cursor-default hover:bg-primary/20 transition-colors"
+                          aria-label={`${sessionCount} 个会话`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+                          <span className="text-sm font-medium">{sessionCount}</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="p-0">
+                        <div className="px-3 py-2 space-y-1.5 min-w-[140px]">
+                          <p className="text-xs font-medium text-foreground border-b border-border pb-1.5 mb-1.5">会话明细</p>
+                          {sessionBreakdown.claude > 0 && (
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">Claude Code</span>
+                              <span className="font-medium">{sessionBreakdown.claude}</span>
+                            </div>
+                          )}
+                          {sessionBreakdown.codex > 0 && (
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">Codex</span>
+                              <span className="font-medium">{sessionBreakdown.codex}</span>
+                            </div>
+                          )}
+                          {sessionBreakdown.gemini > 0 && (
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">Gemini</span>
+                              <span className="font-medium">{sessionBreakdown.gemini}</span>
+                            </div>
+                          )}
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
 
                 {/* 操作菜单 */}
