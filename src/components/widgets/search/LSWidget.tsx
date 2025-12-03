@@ -5,9 +5,10 @@
  * 用于展示目录内容列表
  */
 
-import React from "react";
-import { FolderOpen, AlertCircle } from "lucide-react";
+import React, { useState } from "react";
+import { FolderOpen, AlertCircle, ChevronRight, ChevronDown, CheckCircle } from "lucide-react";
 import { LSResultWidget } from './LSResultWidget';
+import { cn } from "@/lib/utils";
 
 export interface LSWidgetProps {
   /** 目录路径 */
@@ -79,11 +80,36 @@ function extractResultContent(result: any): string {
 }
 
 /**
+ * 统计目录内容中的文件/文件夹数量
+ */
+function countItems(content: string): { files: number; dirs: number } {
+  const lines = content.split('\n').filter(line => line.trim());
+  let files = 0;
+  let dirs = 0;
+
+  for (const line of lines) {
+    // 跳过标题行
+    if (line.includes('Directory listing') || line.startsWith('---')) continue;
+    // 目录通常以 / 结尾或包含 [DIR] 标记
+    if (line.endsWith('/') || line.includes('[DIR]') || line.includes('(dir)')) {
+      dirs++;
+    } else if (line.trim()) {
+      files++;
+    }
+  }
+
+  return { files, dirs };
+}
+
+/**
  * 目录列表 Widget
  *
  * 展示目录的文件列表，支持加载状态和结果展示
+ * 默认折叠，点击可展开
  */
 export const LSWidget: React.FC<LSWidgetProps> = ({ path, result }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
   // 如果有结果，使用 LSResultWidget 显示
   if (result) {
     const resultContent = extractResultContent(result);
@@ -94,40 +120,70 @@ export const LSWidget: React.FC<LSWidgetProps> = ({ path, result }) => {
       console.log('[LSWidget] extractedContent:', resultContent?.substring(0, 200));
     }
 
+    const { files, dirs } = countItems(resultContent || '');
+    const totalItems = files + dirs;
+
     return (
-      <div className="space-y-2">
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-          <FolderOpen className="h-4 w-4 text-primary" />
-          <span className="text-sm">目录内容：</span>
-          <code className="text-sm font-mono bg-background px-2 py-0.5 rounded">
+      <div className="rounded-lg border border-border overflow-hidden">
+        {/* 可点击的标题栏 */}
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className={cn(
+            "flex items-center gap-2 w-full p-3 text-left transition-colors",
+            "hover:bg-muted/50",
+            isExpanded ? "bg-muted/30 border-b border-border" : "bg-muted/20"
+          )}
+        >
+          {isExpanded ? (
+            <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+          )}
+          <FolderOpen className="h-4 w-4 text-primary shrink-0" />
+          <code className="text-sm font-mono truncate flex-1">
             {path}
           </code>
-        </div>
-        {resultContent ? (
-          <LSResultWidget content={resultContent} />
-        ) : (
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30 text-sm text-muted-foreground">
-            <AlertCircle className="h-4 w-4" />
-            <span>目录内容为空或无法解析</span>
+          <div className="flex items-center gap-2 ml-auto shrink-0">
+            {resultContent ? (
+              <>
+                <span className="text-xs text-muted-foreground">
+                  {totalItems > 0 ? `${totalItems} 项` : '空目录'}
+                  {dirs > 0 && files > 0 && ` (${dirs} 目录, ${files} 文件)`}
+                </span>
+                <CheckCircle className="h-3.5 w-3.5 text-green-500" />
+              </>
+            ) : (
+              <AlertCircle className="h-3.5 w-3.5 text-yellow-500" />
+            )}
+          </div>
+        </button>
+
+        {/* 展开的内容 */}
+        {isExpanded && (
+          <div className="p-3 bg-background">
+            {resultContent ? (
+              <LSResultWidget content={resultContent} />
+            ) : (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30 text-sm text-muted-foreground">
+                <AlertCircle className="h-4 w-4" />
+                <span>目录内容为空或无法解析</span>
+              </div>
+            )}
           </div>
         )}
       </div>
     );
   }
 
+  // 加载中状态
   return (
-    <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-      <FolderOpen className="h-4 w-4 text-primary" />
+    <div className="flex items-center gap-2 p-3 rounded-lg border border-border bg-muted/20">
+      <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin shrink-0" />
+      <FolderOpen className="h-4 w-4 text-primary shrink-0" />
       <span className="text-sm">正在列示目录：</span>
-      <code className="text-sm font-mono bg-background px-2 py-0.5 rounded">
+      <code className="text-sm font-mono truncate">
         {path}
       </code>
-      {!result && (
-        <div className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
-          <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse" />
-          <span>加载中...</span>
-        </div>
-      )}
     </div>
   );
 };
