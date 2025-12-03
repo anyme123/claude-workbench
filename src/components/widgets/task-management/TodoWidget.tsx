@@ -39,15 +39,21 @@ export const TodoWidget: React.FC<TodoWidgetProps> = ({ todos, result: _result }
     low: "bg-success/10 text-success border-success/20"
   };
 
+  // 获取 todo 的文本内容（兼容 Claude 的 content 和 Gemini 的 description）
+  const getTodoText = (todo: any): string => {
+    return todo.content || todo.description || '';
+  };
+
   // 翻译 todo 内容
   React.useEffect(() => {
     const translateTodos = async () => {
       const translations = new Map<string, string>();
 
       for (const [idx, todo] of todos.entries()) {
-        if (todo.content) {
-          const cacheKey = `todo-${idx}-${todo.content.substring(0, 50)}`;
-          const translatedContent = await translateContent(todo.content, cacheKey);
+        const text = getTodoText(todo);
+        if (text) {
+          const cacheKey = `todo-${idx}-${text.substring(0, 50)}`;
+          const translatedContent = await translateContent(text, cacheKey);
           translations.set(cacheKey, translatedContent);
         }
       }
@@ -68,8 +74,9 @@ export const TodoWidget: React.FC<TodoWidgetProps> = ({ todos, result: _result }
       </div>
       <div className="space-y-2">
         {todos.map((todo, idx) => {
-          const cacheKey = `todo-${idx}-${todo.content?.substring(0, 50) || ''}`;
-          const displayContent = translatedTodos.get(cacheKey) || todo.content;
+          const text = getTodoText(todo);
+          const cacheKey = `todo-${idx}-${text.substring(0, 50)}`;
+          const displayContent = translatedTodos.get(cacheKey) || text;
 
           return (
             <div
