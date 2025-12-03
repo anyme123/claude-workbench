@@ -10,6 +10,7 @@ import { SessionList } from "@/components/SessionList";
 import { RunningClaudeSessions } from "@/components/RunningClaudeSessions";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { CodexMarkdownEditor } from "@/components/CodexMarkdownEditor";
+import { GeminiMarkdownEditor } from "@/components/GeminiMarkdownEditor";
 import { ClaudeFileEditor } from "@/components/ClaudeFileEditor";
 import { Settings } from "@/components/Settings";
 import { ClaudeCodeSession } from "@/components/ClaudeCodeSession";
@@ -269,6 +270,13 @@ export const ViewRouter: React.FC = () => {
         return (
           <div className="flex-1 overflow-hidden">
             <CodexMarkdownEditor onBack={goBack} />
+          </div>
+        );
+
+      case "gemini-editor":
+        return (
+          <div className="flex-1 overflow-hidden">
+            <GeminiMarkdownEditor onBack={goBack} />
           </div>
         );
 

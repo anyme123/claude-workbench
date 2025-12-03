@@ -30,6 +30,9 @@ pub use config::{
     list_gemini_sessions,
     get_gemini_session_detail,
     delete_gemini_session,
+    // System prompt commands
+    get_gemini_system_prompt,
+    save_gemini_system_prompt,
 };
 pub use session::{cancel_gemini, check_gemini_installed, execute_gemini};
 

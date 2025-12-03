@@ -383,6 +383,53 @@ pub async fn delete_gemini_session(
     delete_session(&project_path, &session_id)
 }
 
+// ============================================================================
+// System Prompt (GEMINI.md) Operations
+// ============================================================================
+
+/// Reads the GEMINI.md system prompt file from ~/.gemini directory
+#[tauri::command]
+pub async fn get_gemini_system_prompt() -> Result<String, String> {
+    log::info!("Reading GEMINI.md system prompt");
+
+    let gemini_dir = get_gemini_dir()?;
+    let gemini_md_path = gemini_dir.join("GEMINI.md");
+
+    if !gemini_md_path.exists() {
+        log::warn!("GEMINI.md not found at {:?}", gemini_md_path);
+        return Ok(String::new());
+    }
+
+    fs::read_to_string(&gemini_md_path).map_err(|e| {
+        log::error!("Failed to read GEMINI.md: {}", e);
+        format!("读取 GEMINI.md 失败: {}", e)
+    })
+}
+
+/// Saves the GEMINI.md system prompt file to ~/.gemini directory
+#[tauri::command]
+pub async fn save_gemini_system_prompt(content: String) -> Result<String, String> {
+    log::info!("Saving GEMINI.md system prompt");
+
+    let gemini_dir = get_gemini_dir()?;
+
+    // Ensure directory exists
+    if !gemini_dir.exists() {
+        fs::create_dir_all(&gemini_dir).map_err(|e| {
+            format!("创建 ~/.gemini 目录失败: {}", e)
+        })?;
+    }
+
+    let gemini_md_path = gemini_dir.join("GEMINI.md");
+
+    fs::write(&gemini_md_path, content).map_err(|e| {
+        log::error!("Failed to write GEMINI.md: {}", e);
+        format!("保存 GEMINI.md 失败: {}", e)
+    })?;
+
+    Ok("Gemini 系统提示词保存成功".to_string())
+}
+
 /// Delete a session file by session_id
 pub fn delete_session(project_path: &str, session_id: &str) -> Result<(), String> {
     let session_dir = get_project_session_dir(project_path)?;

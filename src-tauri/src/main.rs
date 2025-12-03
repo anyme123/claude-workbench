@@ -93,7 +93,7 @@ use commands::gemini::{
     execute_gemini, cancel_gemini, check_gemini_installed,
     get_gemini_config, update_gemini_config, get_gemini_models,
     get_gemini_session_logs, list_gemini_sessions, get_gemini_session_detail,
-    delete_gemini_session,
+    delete_gemini_session, get_gemini_system_prompt, save_gemini_system_prompt,
     // Gemini Rewind commands
     get_gemini_prompt_list, check_gemini_rewind_capabilities,
     record_gemini_prompt_sent, record_gemini_prompt_completed,
@@ -423,6 +423,9 @@ fn main() {
             list_gemini_sessions,
             get_gemini_session_detail,
             delete_gemini_session,
+            // Gemini System Prompt
+            get_gemini_system_prompt,
+            save_gemini_system_prompt,
             // Gemini Rewind Commands
             get_gemini_prompt_list,
             check_gemini_rewind_capabilities,

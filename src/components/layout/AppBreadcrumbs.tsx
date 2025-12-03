@@ -28,6 +28,28 @@ export const AppBreadcrumbs: React.FC<{ className?: string }> = ({ className }) 
       );
       break;
 
+    case 'codex-editor':
+      breadcrumbs.push(
+        <BreadcrumbItem key="home" onClick={() => navigateTo('projects')}>
+          {t('common.ccProjectsTitle')}
+        </BreadcrumbItem>,
+        <BreadcrumbItem key="codex-editor" current>
+          AGENTS.md 编辑器
+        </BreadcrumbItem>
+      );
+      break;
+
+    case 'gemini-editor':
+      breadcrumbs.push(
+        <BreadcrumbItem key="home" onClick={() => navigateTo('projects')}>
+          {t('common.ccProjectsTitle')}
+        </BreadcrumbItem>,
+        <BreadcrumbItem key="gemini-editor" current>
+          GEMINI.md 编辑器
+        </BreadcrumbItem>
+      );
+      break;
+
     case 'claude-file-editor':
       breadcrumbs.push(
         <BreadcrumbItem key="home" onClick={() => navigateTo('projects')}>

@@ -821,6 +821,33 @@ export const api = {
   },
 
   /**
+   * Reads the GEMINI.md system prompt file from Gemini directory
+   * @returns Promise resolving to the content of GEMINI.md
+   */
+  async getGeminiSystemPrompt(): Promise<string> {
+    try {
+      return await invoke<string>("get_gemini_system_prompt");
+    } catch (error) {
+      console.error("Failed to get Gemini system prompt:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Saves the GEMINI.md system prompt file to Gemini directory
+   * @param content - The new content for the Gemini system prompt
+   * @returns Promise resolving when the file is saved
+   */
+  async saveGeminiSystemPrompt(content: string): Promise<string> {
+    try {
+      return await invoke<string>("save_gemini_system_prompt", { content });
+    } catch (error) {
+      console.error("Failed to save Gemini system prompt:", error);
+      throw error;
+    }
+  },
+
+  /**
    * Saves the Claude settings file
    * @param settings - The settings object to save
    * @returns Promise resolving when the settings are saved

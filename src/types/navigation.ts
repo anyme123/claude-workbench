@@ -2,6 +2,7 @@ export type View =
   | "projects"
   | "editor"
   | "codex-editor"
+  | "gemini-editor"
   | "claude-file-editor"
   | "claude-code-session"
   | "claude-tab-manager"
